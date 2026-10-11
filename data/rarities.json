@@ -1,0 +1,10 @@
+{
+  "_comment": "Exactly five rarities (CONFIRMED). IDs are stable and used in saves. The UI label of 'legendary' is configurable (Legendary vs Secret is PENDING).",
+  "rarities": [
+    { "id": "common", "name_en": "Common", "order": 0, "color": "#c9c2b0" },
+    { "id": "uncommon", "name_en": "Uncommon", "order": 1, "color": "#7ec8a4" },
+    { "id": "rare", "name_en": "Rare", "order": 2, "color": "#5fb3c9" },
+    { "id": "epic", "name_en": "Epic", "order": 3, "color": "#c48ad6" },
+    { "id": "legendary", "name_en": "Legendary", "order": 4, "color": "#e3b44c" }
+  ]
+}

@@ -47,5 +47,12 @@ coverage/
 .next/
 .turbo/
 
+# Godot editor cache and export output
+.godot/
+*.translation
+export/
+tools/pixel/previews/
+__pycache__/
+
 # Generated Codex control-plane outputs
 .codex/evals/results/

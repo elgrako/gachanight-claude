@@ -1,0 +1,206 @@
+{
+  "_comment": "TEST FIXTURE. Frozen values used by tests/run_tests.gd; not the game's balance. Do not retune.",
+  "robot_base_spin_seconds": 2.5,
+  "upgrades": [
+    {
+      "id": "price_tag_gun",
+      "category": "income",
+      "display_name_en": "Price Tag Gun",
+      "description_en": "+10% sale value per level.",
+      "max_level": 12,
+      "base_cost": 25,
+      "cost_growth": 4.0,
+      "effects": [
+        {
+          "type": "sell_value_pct",
+          "per_level": 15
+        }
+      ]
+    },
+    {
+      "id": "lucky_sticker",
+      "category": "income",
+      "display_name_en": "Lucky Daruma Sticker",
+      "description_en": "+4% luck per level. Rarer toys show up more often.",
+      "max_level": 6,
+      "base_cost": 200,
+      "cost_growth": 6.0,
+      "effects": [
+        {
+          "type": "luck_pct",
+          "per_level": 8
+        }
+      ]
+    },
+    {
+      "id": "loyalty_card",
+      "category": "machines",
+      "display_name_en": "Loyalty Card",
+      "description_en": "-3% machine prices per level.",
+      "max_level": 5,
+      "base_cost": 500,
+      "cost_growth": 8.0,
+      "effects": [
+        {
+          "type": "price_discount_pct",
+          "per_level": 4
+        }
+      ]
+    },
+    {
+      "id": "turbo_crank",
+      "category": "machines",
+      "display_name_en": "Turbo Crank",
+      "description_en": "Machines hand over prizes 25% faster per level.",
+      "max_level": 3,
+      "base_cost": 40,
+      "cost_growth": 12.0,
+      "effects": [
+        {
+          "type": "crank_speed_pct",
+          "per_level": 25
+        }
+      ]
+    },
+    {
+      "id": "express_lane",
+      "category": "convenience",
+      "display_name_en": "Express Lane",
+      "description_en": "Duplicates of a completed collection are sold on the spot.",
+      "max_level": 1,
+      "base_cost": 3000,
+      "cost_growth": 1.0,
+      "effects": [
+        {
+          "type": "auto_sell_duplicates",
+          "per_level": 1
+        }
+      ]
+    },
+    {
+      "id": "robot_machine_001",
+      "category": "automation",
+      "display_name_en": "Crank Bot — No. 1",
+      "description_en": "A wind-up robot that works Capsule Machine No. 1. Each level adds a robot.",
+      "max_level": 3,
+      "base_cost": 30,
+      "cost_growth": 4.0,
+      "robot_machine_id": "machine_001",
+      "prerequisites": {
+        "machines_used": [
+          "machine_001"
+        ]
+      }
+    },
+    {
+      "id": "robot_machine_002",
+      "category": "automation",
+      "display_name_en": "Crank Bot — No. 2",
+      "description_en": "A wind-up robot that works Capsule Machine No. 2. Each level adds a robot.",
+      "max_level": 3,
+      "base_cost": 750,
+      "cost_growth": 4.0,
+      "robot_machine_id": "machine_002",
+      "prerequisites": {
+        "machines_used": [
+          "machine_002"
+        ]
+      }
+    },
+    {
+      "id": "robot_machine_003",
+      "category": "automation",
+      "display_name_en": "Crank Bot — No. 3",
+      "description_en": "A wind-up robot that works Capsule Machine No. 3. Each level adds a robot.",
+      "max_level": 3,
+      "base_cost": 22500,
+      "cost_growth": 4.0,
+      "robot_machine_id": "machine_003",
+      "prerequisites": {
+        "machines_used": [
+          "machine_003"
+        ]
+      }
+    },
+    {
+      "id": "robot_machine_004",
+      "category": "automation",
+      "display_name_en": "Crank Bot — No. 4",
+      "description_en": "A wind-up robot that works Capsule Machine No. 4. Each level adds a robot.",
+      "max_level": 3,
+      "base_cost": 600000,
+      "cost_growth": 4.0,
+      "robot_machine_id": "machine_004",
+      "prerequisites": {
+        "machines_used": [
+          "machine_004"
+        ]
+      }
+    },
+    {
+      "id": "robot_machine_005",
+      "category": "automation",
+      "display_name_en": "Crane Bot",
+      "description_en": "A wind-up robot that works the Crane Catcher. Each level adds a robot.",
+      "max_level": 3,
+      "base_cost": 15000000,
+      "cost_growth": 4.0,
+      "robot_machine_id": "machine_005",
+      "prerequisites": {
+        "machines_used": [
+          "machine_005"
+        ]
+      }
+    },
+    {
+      "id": "robot_machine_006",
+      "category": "automation",
+      "display_name_en": "Plinko Bot",
+      "description_en": "A wind-up robot that works Lucky Plinko. Each level adds a robot.",
+      "max_level": 3,
+      "base_cost": 375000000,
+      "cost_growth": 4.0,
+      "robot_machine_id": "machine_006",
+      "prerequisites": {
+        "machines_used": [
+          "machine_006"
+        ]
+      }
+    },
+    {
+      "id": "faster_servos",
+      "category": "automation",
+      "display_name_en": "Faster Servos",
+      "description_en": "+20% robot speed per level.",
+      "max_level": 10,
+      "base_cost": 300,
+      "cost_growth": 5.0,
+      "effects": [
+        {
+          "type": "robot_speed_pct",
+          "per_level": 25
+        }
+      ]
+    },
+    {
+      "id": "store_exit_key",
+      "category": "exit",
+      "display_name_en": "Store Exit Key",
+      "description_en": "The key to the front door. One per customer!",
+      "max_level": 1,
+      "base_cost": 5000000000,
+      "cost_growth": 1.0,
+      "is_store_exit_key": true,
+      "prerequisites": {
+        "machines_used": [
+          "machine_001",
+          "machine_002",
+          "machine_003",
+          "machine_004",
+          "machine_005",
+          "machine_006"
+        ]
+      }
+    }
+  ]
+}

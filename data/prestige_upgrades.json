@@ -1,0 +1,179 @@
+{
+  "_comment": "EXAMPLE CONTENT / PROVISIONAL. Names, costs, ranges and effects are placeholders for the permanent skill tree (design section 12). Bought only at the sofa when confirming a rebirth. An effect is per_level * level, or values[level - 1] when 'values' is given.",
+  "upgrades": [
+    {
+      "id": "ready_pockets",
+      "category": "comfort",
+      "display_name_en": "Ready Pockets",
+      "description_en": "Start each run with the 3 floor coins already in your pocket.",
+      "max_level": 1,
+      "prestige_cost_curve": [
+        8
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "start_with_floor_coins",
+          "per_level": 1
+        }
+      ]
+    },
+    {
+      "id": "quick_capsules",
+      "category": "comfort",
+      "display_name_en": "Quick Capsules",
+      "description_en": "Machines hand over prizes 40% faster.",
+      "max_level": 1,
+      "prestige_cost_curve": [
+        15
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "crank_speed_pct",
+          "per_level": 40
+        }
+      ]
+    },
+    {
+      "id": "starting_tip",
+      "category": "economy",
+      "display_name_en": "Starting Tip",
+      "description_en": "Start each run with extra coins: 10 / 100 / 2K / 50K / 2M.",
+      "max_level": 5,
+      "prestige_cost_curve": [
+        10,
+        30,
+        80,
+        240,
+        700
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "start_coins",
+          "per_level": 0,
+          "values": [
+            10,
+            100,
+            2000,
+            50000,
+            2000000
+          ]
+        }
+      ]
+    },
+    {
+      "id": "better_appraisal",
+      "category": "economy",
+      "display_name_en": "Better Appraisal",
+      "description_en": "+15% sale value per level.",
+      "max_level": 10,
+      "prestige_cost_curve": [
+        50,
+        100,
+        200,
+        300,
+        400,
+        600,
+        800,
+        1000,
+        1300,
+        1700
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "sell_value_pct",
+          "per_level": 15
+        }
+      ]
+    },
+    {
+      "id": "efficient_spending",
+      "category": "economy",
+      "display_name_en": "Efficient Spending",
+      "description_en": "-4% machine prices per level.",
+      "max_level": 5,
+      "prestige_cost_curve": [
+        20,
+        60,
+        160,
+        400,
+        1000
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "price_discount_pct",
+          "per_level": 4
+        }
+      ]
+    },
+    {
+      "id": "lucky_bearings",
+      "category": "luck",
+      "display_name_en": "Lucky Bearings",
+      "description_en": "+6% relative chance of higher rarities per level.",
+      "max_level": 5,
+      "prestige_cost_curve": [
+        20,
+        60,
+        160,
+        400,
+        1000
+      ],
+      "prerequisites": {
+        "better_appraisal": 1
+      },
+      "permanent_effects": [
+        {
+          "type": "luck_pct",
+          "per_level": 6
+        }
+      ]
+    },
+    {
+      "id": "prestige_knowledge",
+      "category": "collections",
+      "display_name_en": "Prestige Knowledge",
+      "description_en": "+20% prestige from completed collections per level.",
+      "max_level": 5,
+      "prestige_cost_curve": [
+        30,
+        80,
+        200,
+        500,
+        1200
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "prestige_gain_pct",
+          "per_level": 20
+        }
+      ]
+    },
+    {
+      "id": "robot_training",
+      "category": "automation",
+      "display_name_en": "Robot Training",
+      "description_en": "+20% robot speed per level. Robots are still bought at reception.",
+      "max_level": 5,
+      "prestige_cost_curve": [
+        20,
+        60,
+        160,
+        400,
+        1000
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "robot_speed_pct",
+          "per_level": 20
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,179 @@
+{
+  "_comment": "TEST FIXTURE. Frozen values used by tests/run_tests.gd; not the game's balance. Do not retune.",
+  "upgrades": [
+    {
+      "id": "ready_pockets",
+      "category": "comfort",
+      "display_name_en": "Ready Pockets",
+      "description_en": "Start each run with the 3 floor coins already in your pocket.",
+      "max_level": 1,
+      "prestige_cost_curve": [
+        2
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "start_with_floor_coins",
+          "per_level": 1
+        }
+      ]
+    },
+    {
+      "id": "quick_capsules",
+      "category": "comfort",
+      "display_name_en": "Quick Capsules",
+      "description_en": "Machines hand over prizes 40% faster.",
+      "max_level": 1,
+      "prestige_cost_curve": [
+        4
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "crank_speed_pct",
+          "per_level": 40
+        }
+      ]
+    },
+    {
+      "id": "starting_tip",
+      "category": "economy",
+      "display_name_en": "Starting Tip",
+      "description_en": "Start each run with extra coins: 10 / 100 / 2K / 50K / 2M.",
+      "max_level": 5,
+      "prestige_cost_curve": [
+        2,
+        6,
+        20,
+        60,
+        180
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "start_coins",
+          "per_level": 0,
+          "values": [
+            10,
+            100,
+            2000,
+            50000,
+            1000000
+          ]
+        }
+      ]
+    },
+    {
+      "id": "better_appraisal",
+      "category": "economy",
+      "display_name_en": "Better Appraisal",
+      "description_en": "+15% sale value per level.",
+      "max_level": 10,
+      "prestige_cost_curve": [
+        1,
+        3,
+        6,
+        12,
+        24,
+        45,
+        80,
+        140,
+        240,
+        400
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "sell_value_pct",
+          "per_level": 25
+        }
+      ]
+    },
+    {
+      "id": "efficient_spending",
+      "category": "economy",
+      "display_name_en": "Efficient Spending",
+      "description_en": "-4% machine prices per level.",
+      "max_level": 5,
+      "prestige_cost_curve": [
+        3,
+        8,
+        20,
+        50,
+        120
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "price_discount_pct",
+          "per_level": 4
+        }
+      ]
+    },
+    {
+      "id": "lucky_bearings",
+      "category": "luck",
+      "display_name_en": "Lucky Bearings",
+      "description_en": "+6% relative chance of higher rarities per level.",
+      "max_level": 5,
+      "prestige_cost_curve": [
+        3,
+        8,
+        20,
+        50,
+        120
+      ],
+      "prerequisites": {
+        "better_appraisal": 1
+      },
+      "permanent_effects": [
+        {
+          "type": "luck_pct",
+          "per_level": 10
+        }
+      ]
+    },
+    {
+      "id": "prestige_knowledge",
+      "category": "collections",
+      "display_name_en": "Prestige Knowledge",
+      "description_en": "+20% prestige from completed collections per level.",
+      "max_level": 5,
+      "prestige_cost_curve": [
+        5,
+        15,
+        40,
+        100,
+        250
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "prestige_gain_pct",
+          "per_level": 20
+        }
+      ]
+    },
+    {
+      "id": "robot_training",
+      "category": "automation",
+      "display_name_en": "Robot Training",
+      "description_en": "+20% robot speed per level. Robots are still bought at reception.",
+      "max_level": 5,
+      "prestige_cost_curve": [
+        4,
+        10,
+        25,
+        60,
+        150
+      ],
+      "prerequisites": {},
+      "permanent_effects": [
+        {
+          "type": "robot_speed_pct",
+          "per_level": 30
+        }
+      ]
+    }
+  ]
+}

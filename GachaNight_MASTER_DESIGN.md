@@ -34,14 +34,14 @@
 |---|---|
 | Nombre | **GachaNight** — CONFIRMADO. No usar «Gachapon Night» como nombre comercial definitivo. |
 | Género | Incremental / idle progresivo, coleccionismo de figuras, máquinas de premios y sistema de prestigio. |
-| Cámara | **Primera persona**, tienda 3D explorable físicamente. |
+| Cámara | **2D en vista lateral**: la tienda es una tira de salas que el personaje recorre a izquierda y derecha. (Decisión del creador del 2026-10-11, sustituye a la primera persona 3D; ver sección 25.) |
 | Fantasía | Despertar atrapado en una tienda japonesa nocturna y convertir unas pocas monedas en una red de máquinas y robots hasta poder escapar. |
 | Ambientación | **Japón, jugueterías y máquinas de los años 80 y 90**; nostálgico, acogedor, levemente extraño. |
-| Dirección visual | **Juguetes de vinilo japonés y plástico retro**, volúmenes redondeados, 3D estilizado, superficies suaves. **No pixel art**. |
+| Dirección visual | **Pixel art** de **juguetes de vinilo japonés y plástico retro**: formas redondeadas, contorno oscuro, paleta corta y nostálgica. |
 | Modo | Un jugador, sin combate ni multijugador previstos. |
 | Plataformas | Steam: Windows y macOS. |
 | Motor | Godot 4 + GDScript; usar renderizador Compatibility como línea base mientras funcione correctamente. |
-| Modelado | Blender para modelado y edición; `.glb`/glTF 2.0 como intercambio principal con Godot. |
+| Arte | Sprites y hojas de animación en PNG a resolución de píxel (el mundo se ve a 320 × 180 y se escala ×4 sin suavizado). |
 | Interfaz | **Solo inglés** en la primera versión. Este documento y comentarios de desarrollo pueden estar en español. |
 | Duración de la historia | **2–3 horas** aproximadamente, **incluyendo varios renacimientos**; validar con jugadores reales. |
 | Cantidad inicial de máquinas jugables | **6–10**, no más por obligación; las seis primeras tienen tipología definida. |
@@ -230,7 +230,7 @@ Una bonificación pertenece a **la colección completada de ese tipo**, no a un 
 - Si `discovered == true`: mostrar figura/miniatura, nombre, rareza y otros datos autorizados; mantenerla revelada **para siempre, incluso después de renacer**.
 - Se descubre al **verla salir de la máquina**, aunque se elija venderla. No confundir `discovered` con el contador de copias guardadas.
 - El catálogo **no otorga automáticamente puntos, monedas ni bonificaciones permanentes** por consultar o revelar figuras.
-- **PROPUESTA TÉCNICA:** generar las miniaturas a partir de un render/ícono de cada `.glb`; la silueta es una versión oscura con alpha recortado. También puede precalcularse en Blender o en un pipeline de arte. Debe ser legible y barato.
+- **PROPUESTA TÉCNICA:** la miniatura es el propio sprite de la figura; la silueta es ese mismo sprite teñido de oscuro conservando su alpha. Debe ser legible y barato.
 - **PROPUESTA DE UX:** vista del álbum con pestañas por máquina, filtros por rareza, `Discovered X/Y`, progreso temporal `X/N` y marca `Completed this run` cuando proceda. Las figuras vendidas siguen descubiertas.
 
 ### 7.3. Completar una colección de figura — CONFIRMADO
@@ -483,10 +483,10 @@ La siguiente tabla es un **punto de partida para implementar datos y probar**, n
 ### 15.1. Identidad visual — CONFIRMADO
 
 - Inspiración: **juguetes, coleccionables, gachapones, aparatos, pegatinas, mostradores y salones japoneses de finales de los 80 y 90**.
-- Juego **3D estilizado**: formas redondeadas, imperfecciones controladas, materiales de plástico y vinilo, paleta nostálgica, personajes expresivos, lectura clara a pequeña escala.
+- Juego **2D en pixel art**: formas redondeadas, contorno oscuro de 1 px, pocos tonos por color, paleta nostálgica, personajes expresivos, lectura clara a pequeña escala. Los juguetes siguen representando plástico y vinilo.
 - El local también debe parecer de esa época: carteles impresos, pantallas retro, tapas de plástico, botones grandes, molduras simples, luminarias cálidas, cajitas y máquinas repetidas con variaciones.
 - El espacio es **acogedor**, no un escenario de terror. Hay misterio por ausencia de personas, noche y extrañeza del encierro; evitar sangre, sustos obligatorios y oscuridad que impida interactuar.
-- Sin pixel art, vóxeles deliberados, render hiperrealista ni estética cyberpunk saturada.
+- Sin 3D, vóxeles, render hiperrealista, suavizado o degradados que rompan el píxel, ni estética cyberpunk saturada.
 - No copiar personajes, marcas ni diseños protegidos. Crear figuras originales inspiradas en la **sensación** de los juguetes japoneses antiguos.
 - El **personaje llorando de la prueba pixel-art→3D es un ejercicio externo y no forma parte del universo, colecciones ni referencias oficiales**.
 
@@ -503,18 +503,18 @@ La siguiente tabla es un **punto de partida para implementar datos y probar**, n
 | UI | Inglés legible, carteles impresos retro, pegatinas y paneles inspirados en CRT/plástico; accesible a resoluciones bajas. |
 | Animaciones | Breves, claras, jugueteras; evitar físicas complejas de cápsulas si no aportan diversión. |
 
-### 15.3. Pipeline Blender → Godot
+### 15.3. Pipeline de pixel art → Godot
 
-1. Modelar activos originales en Blender, con colecciones y piezas identificables: cuerpo, cabezas, ojos, accesorio, materiales, etc.
-2. Escala coherente: elegir unidades ejes Godot/Blender, validar origen y tamaño visual en estanterías y pantallas de premio.
-3. Mallas suaves y optimizadas, normales correctas, sin intersecciones que resulten evidentes durante el juego.
-4. Materiales compartidos cuando tenga sentido, mínimo de transparencias y pocos draw calls.
-5. Exportar `.glb`/glTF 2.0; **guardar `.blend` nativo en Blender cuando se disponga del programa**. No confundir `.glb` con `.blend`.
-6. Importar en Godot, revisar colores, escala, pivote, colisiones simples y consumo de recursos.
-7. Crear miniatura/ícono del álbum desde la figura real y su versión silueta oscura.
-8. Reutilizar modelos entre premio revelado, catálogo, vitrina y animaciones si es factible; no instanciar modelos de alta densidad para cada fila del catálogo.
+1. Resolución de mundo fija: la cámara muestra 320 × 180 píxeles, escalados ×4 con filtro «nearest». Un píxel de sprite es un píxel de mundo.
+2. Tamaños de referencia: figura 32 × 32; personaje 24 × 40; gachapón 36 × 60; grúa y plinko 56 × 76. Lo que se apoya en el suelo se ancla abajo y centrado.
+3. Contorno de 1 px en azul tinta (nunca negro puro), luz desde arriba a la izquierda, un tono de brillo y uno de sombra por color, alpha solo 0 o 255.
+4. Las piezas móviles de las máquinas (manivela, cápsulas, garra, bola) son sprites aparte que el juego anima encima del cuerpo de la máquina.
+5. Las animaciones son tiras horizontales de fotogramas iguales, descritas en un manifiesto (`anims.json`) con tamaño, número de fotogramas, velocidad y bucle.
+6. Importar en Godot sin filtrado ni mipmaps; revisar a escala de juego, no ampliado.
+7. La miniatura del álbum y su silueta salen del mismo sprite de la figura.
+8. Reutilizar el mismo sprite en premio revelado, catálogo y vitrina.
 
-**Modelos creados en conversaciones previas:** el gatito de prueba puede servir como material de prototipado **solo si encaja tras revisión de arte**. El personaje llorando no pertenece al juego. No asumir que los GLB anteriores son «canon», ni que existe un `.blend` real si no ha sido generado y comprobado.
+**Material de versiones anteriores:** los modelos 3D y GLB de prototipos previos no son «canon» y no se usan. El personaje llorando no pertenece al juego.
 
 ## 16. Audio, atmósfera y narrativa ambiental
 
@@ -534,7 +534,7 @@ La siguiente tabla es un **punto de partida para implementar datos y probar**, n
 |---|---|
 | HUD de exploración | Dinero del ciclo, objetivo/contexto cercano, pista de interacción, resumen discreto de prestigio pendiente y progreso principal sin saturar. |
 | UI de máquina | Precio de intento, saldo, tipo de máquina, estado de operación, indicación de input. |
-| Panel de premio | Figura 3D/miniatura, nombre si descubierto, rareza, venta, `X/N` para ese tipo, bonus por colección, **Sell** y **Keep** (si procede). |
+| Panel de premio | Sprite grande de la figura, nombre si descubierto, rareza, venta, `X/N` para ese tipo, bonus por colección, **Sell** y **Keep** (si procede). |
 | Catálogo | Accesible siempre; todos los slots, siluetas para no descubiertas, reveladas de forma permanente, filtros y progreso del ciclo. |
 | Ordenador de recepción | Personalidad comercial, categorías, precios con monedas, robots/mejoras, requisitos y llave final. |
 | Sofá / rebirth | `Saved prestige`, `Pending prestige`, `Available`, árbol, selecciones provisionales, coste y botones **Cancel** / **Sleep & Rebirth**. |
@@ -557,7 +557,7 @@ La siguiente tabla es un **punto de partida para implementar datos y probar**, n
 
 ### 17.3. Controles propuestos
 
-- WASD: mover; ratón: mirar.
+- `A`/`D` o flechas: caminar a izquierda y derecha; `Shift`: correr. El ratón solo se usa en los menús.
 - `E`: interactuar con máquinas, recepción, sofá, interruptor y puerta.
 - `Esc`: cancelar menú o pausa según contexto, sin operaciones financieras accidentales.
 - `Tab` o tecla configurable: catálogo accesible desde el inicio. **No exigir habilidad de prestigio para ver el catálogo**.
@@ -624,7 +624,7 @@ resources/
   robots/
   balance/
 assets/
-  models/                        # glb exportados desde Blender
+  sprites/                       # figuras, máquinas, props, tiles y hojas de animación en PNG
   textures/
   icons/                         # Incluye siluetas del álbum
   audio/
@@ -758,7 +758,7 @@ Separar claramente:
 **Prioridad confirmada:** el juego debe ser viable en portátiles y equipos Windows/macOS modestos; medir requisitos reales antes de publicarlos.
 
 - Godot 4, preferir **Compatibility renderer** durante el prototipado.
-- Meshes limpios y reutilizados; escenas modulares de máquinas; instancing sensato; pocos materiales por objeto y LOD si se justifica.
+- Sprites reutilizados; máquinas construidas con las mismas piezas; sin efectos de pantalla costosos.
 - Texturas pequeñas, atlas donde aporten, materiales sencillos, pocas superficies transparentes solapadas.
 - Iluminación ambiental con pocas luces dinámicas costosas; evitar postprocesado dependiente de hardware moderno.
 - Física simplificada para cápsulas/grúa/plinko y desactivada cuando no se necesita.
@@ -842,7 +842,7 @@ Codex deberá crear pruebas automatizadas cuando sea viable y **guion de QA manu
 
 ### 24.1. No modificar sin consulta — decisiones cerradas
 
-- Nombre **GachaNight**; primera persona 3D; Japón juguetes/tiendas **80–90**; estética **vinilo japonés**, **no pixel art**.
+- Nombre **GachaNight**; **2D en vista lateral**; Japón juguetes/tiendas **80–90**; estética **vinilo japonés en pixel art**.
 - Interfaz del juego **solo inglés** inicialmente.
 - Primer ciclo: baño, 3 monedas, interruptor, tienda enciende, gachapón 001 de 1, máquina 002 de 50.
 - Primera máquina con **5 tipos de figuras**; mínimo de venta 1; segunda con mínimo de venta 30.
@@ -896,7 +896,8 @@ Esta sección evita que Codex lea el viejo `Gachapon_Night_Documento_Maestro.md`
 | Tema | Antes / documento 1.0 | Decisión vigente |
 |---|---|---|
 | Nombre | `Gachapon Night` provisional. | **GachaNight**, confirmado. |
-| Arte | Cozy plastilina japonés 80. | **Juguetes japoneses de 80–90, vinilo retro en figuras y local, no pixel art.** |
+| Arte | Cozy plastilina japonés 80; después vinilo retro en 3D estilizado, «no pixel art». | **Juguetes japoneses de 80–90 en pixel art** (decisión del creador del 2026-10-11, tras probar el prototipo 3D). |
+| Cámara | Primera persona, tienda 3D explorable. | **2D en vista lateral**: tira de salas recorrida a izquierda y derecha. Reglas, economía y progresión no cambian. |
 | Modelo llorando | Experimento reciente de arte 3D. | **No es parte del juego.** |
 | Copias y prestigio | Hitos por copia; algunos prototipos concedían puntos con 2–3 copias. | **Completar un contador por tipo**; solo al completar se concede recompensa una vez/run. Umbrales variables por rareza. |
 | Bonificaciones de figuras | «Figuras nunca conceden pasivas». | **Cada colección de tipo completada da bonificación temporal**, que se reinicia al renacer. |
@@ -917,4 +918,4 @@ Esta sección evita que Codex lea el viejo `Gachapon_Night_Documento_Maestro.md`
 
 ---
 
-**Regla final del proyecto:** GachaNight debe ser un incremental de juguetería japonesa retro en primera persona, con **dos mercados diferenciados** (recepción por monedas y sofá por prestigio), **colecciones por figura completadas con copias**, **álbum histórico de siluetas**, **bonificaciones temporales**, **robots reiniciables** y un objetivo narrativo inequívoco: **comprar la llave, abrir la tienda, salir y seguir después en modo libre**.
+**Regla final del proyecto:** GachaNight debe ser un incremental de juguetería japonesa retro en 2D y pixel art, con **dos mercados diferenciados** (recepción por monedas y sofá por prestigio), **colecciones por figura completadas con copias**, **álbum histórico de siluetas**, **bonificaciones temporales**, **robots reiniciables** y un objetivo narrativo inequívoco: **comprar la llave, abrir la tienda, salir y seguir después en modo libre**.

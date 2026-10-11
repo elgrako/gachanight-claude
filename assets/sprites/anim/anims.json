@@ -1,0 +1,154 @@
+{
+  "player_idle": {
+    "file": "player_idle.png",
+    "frame_w": 24,
+    "frame_h": 40,
+    "frames": 8,
+    "fps": 6,
+    "loop": true
+  },
+  "player_walk": {
+    "file": "player_walk.png",
+    "frame_w": 24,
+    "frame_h": 40,
+    "frames": 8,
+    "fps": 12,
+    "loop": true
+  },
+  "player_run": {
+    "file": "player_run.png",
+    "frame_w": 24,
+    "frame_h": 40,
+    "frames": 6,
+    "fps": 12,
+    "loop": true
+  },
+  "player_use": {
+    "file": "player_use.png",
+    "frame_w": 24,
+    "frame_h": 40,
+    "frames": 7,
+    "fps": 12,
+    "loop": false
+  },
+  "player_sleep": {
+    "file": "player_sleep.png",
+    "frame_w": 40,
+    "frame_h": 24,
+    "frames": 8,
+    "fps": 4,
+    "loop": true
+  },
+  "robot_idle": {
+    "file": "robot_idle.png",
+    "frame_w": 20,
+    "frame_h": 24,
+    "frames": 12,
+    "fps": 6,
+    "loop": true
+  },
+  "robot_work": {
+    "file": "robot_work.png",
+    "frame_w": 20,
+    "frame_h": 24,
+    "frames": 8,
+    "fps": 12,
+    "loop": true
+  },
+  "coin_spin": {
+    "file": "coin_spin.png",
+    "frame_w": 10,
+    "frame_h": 10,
+    "frames": 6,
+    "fps": 10,
+    "loop": true
+  },
+  "coin_pickup": {
+    "file": "coin_pickup.png",
+    "frame_w": 16,
+    "frame_h": 24,
+    "frames": 9,
+    "fps": 16,
+    "loop": false
+  },
+  "capsule_open": {
+    "file": "capsule_open.png",
+    "frame_w": 32,
+    "frame_h": 32,
+    "frames": 12,
+    "fps": 14,
+    "loop": false
+  },
+  "capsule_open_mint": {
+    "file": "capsule_open_mint.png",
+    "frame_w": 32,
+    "frame_h": 32,
+    "frames": 12,
+    "fps": 14,
+    "loop": false
+  },
+  "capsule_open_mustard": {
+    "file": "capsule_open_mustard.png",
+    "frame_w": 32,
+    "frame_h": 32,
+    "frames": 12,
+    "fps": 14,
+    "loop": false
+  },
+  "capsule_open_teal": {
+    "file": "capsule_open_teal.png",
+    "frame_w": 32,
+    "frame_h": 32,
+    "frames": 12,
+    "fps": 14,
+    "loop": false
+  },
+  "capsule_open_gold": {
+    "file": "capsule_open_gold.png",
+    "frame_w": 32,
+    "frame_h": 32,
+    "frames": 12,
+    "fps": 14,
+    "loop": false
+  },
+  "sparkle": {
+    "file": "sparkle.png",
+    "frame_w": 16,
+    "frame_h": 16,
+    "frames": 6,
+    "fps": 14,
+    "loop": false
+  },
+  "rarity_burst": {
+    "file": "rarity_burst.png",
+    "frame_w": 48,
+    "frame_h": 48,
+    "frames": 8,
+    "fps": 16,
+    "loop": false
+  },
+  "zzz": {
+    "file": "zzz.png",
+    "frame_w": 16,
+    "frame_h": 16,
+    "frames": 6,
+    "fps": 5,
+    "loop": true
+  },
+  "lamp_flicker": {
+    "file": "lamp_flicker.png",
+    "frame_w": 32,
+    "frame_h": 12,
+    "frames": 12,
+    "fps": 14,
+    "loop": false
+  },
+  "screen_glow": {
+    "file": "screen_glow.png",
+    "frame_w": 24,
+    "frame_h": 22,
+    "frames": 6,
+    "fps": 8,
+    "loop": true
+  }
+}

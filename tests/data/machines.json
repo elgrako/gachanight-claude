@@ -1,0 +1,191 @@
+{
+  "_comment": "TEST FIXTURE. Frozen values used by tests/run_tests.gd; not the game's balance. Do not retune.",
+  "machines": [
+    {
+      "id": "machine_001",
+      "machine_type": "gacha",
+      "display_name_en": "Capsule Machine No. 1",
+      "series_name_en": "Pocket Pals",
+      "price_per_attempt": 1,
+      "min_sell_value": 1,
+      "unlocks_prestige": false,
+      "prize_table": [
+        {
+          "figure_id": "g001_toy_01",
+          "weight": 50
+        },
+        {
+          "figure_id": "g001_toy_02",
+          "weight": 28
+        },
+        {
+          "figure_id": "g001_toy_03",
+          "weight": 14
+        },
+        {
+          "figure_id": "g001_toy_04",
+          "weight": 6
+        },
+        {
+          "figure_id": "g001_toy_05",
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "machine_002",
+      "machine_type": "gacha",
+      "display_name_en": "Capsule Machine No. 2",
+      "series_name_en": "Festival Friends",
+      "price_per_attempt": 50,
+      "min_sell_value": 30,
+      "unlocks_prestige": true,
+      "prize_table": [
+        {
+          "figure_id": "g002_toy_01",
+          "weight": 50
+        },
+        {
+          "figure_id": "g002_toy_02",
+          "weight": 28
+        },
+        {
+          "figure_id": "g002_toy_03",
+          "weight": 14
+        },
+        {
+          "figure_id": "g002_toy_04",
+          "weight": 6
+        },
+        {
+          "figure_id": "g002_toy_05",
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "machine_003",
+      "machine_type": "gacha",
+      "display_name_en": "Capsule Machine No. 3",
+      "series_name_en": "Snack Squad",
+      "price_per_attempt": 1500,
+      "min_sell_value": 900,
+      "unlocks_prestige": false,
+      "prize_table": [
+        {
+          "figure_id": "g003_toy_01",
+          "weight": 50
+        },
+        {
+          "figure_id": "g003_toy_02",
+          "weight": 28
+        },
+        {
+          "figure_id": "g003_toy_03",
+          "weight": 14
+        },
+        {
+          "figure_id": "g003_toy_04",
+          "weight": 6
+        },
+        {
+          "figure_id": "g003_toy_05",
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "machine_004",
+      "machine_type": "gacha",
+      "display_name_en": "Capsule Machine No. 4",
+      "series_name_en": "Space Patrol",
+      "price_per_attempt": 40000,
+      "min_sell_value": 24000,
+      "unlocks_prestige": false,
+      "prize_table": [
+        {
+          "figure_id": "g004_toy_01",
+          "weight": 50
+        },
+        {
+          "figure_id": "g004_toy_02",
+          "weight": 28
+        },
+        {
+          "figure_id": "g004_toy_03",
+          "weight": 14
+        },
+        {
+          "figure_id": "g004_toy_04",
+          "weight": 6
+        },
+        {
+          "figure_id": "g004_toy_05",
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "machine_005",
+      "machine_type": "claw",
+      "display_name_en": "Crane Catcher",
+      "series_name_en": "Plush Parade",
+      "price_per_attempt": 1000000,
+      "min_sell_value": 600000,
+      "unlocks_prestige": false,
+      "prize_table": [
+        {
+          "figure_id": "g005_toy_01",
+          "weight": 50
+        },
+        {
+          "figure_id": "g005_toy_02",
+          "weight": 28
+        },
+        {
+          "figure_id": "g005_toy_03",
+          "weight": 14
+        },
+        {
+          "figure_id": "g005_toy_04",
+          "weight": 6
+        },
+        {
+          "figure_id": "g005_toy_05",
+          "weight": 2
+        }
+      ]
+    },
+    {
+      "id": "machine_006",
+      "machine_type": "plinko",
+      "display_name_en": "Lucky Plinko",
+      "series_name_en": "Fortune Parade",
+      "price_per_attempt": 25000000,
+      "min_sell_value": 15000000,
+      "unlocks_prestige": false,
+      "prize_table": [
+        {
+          "figure_id": "g006_toy_01",
+          "weight": 50
+        },
+        {
+          "figure_id": "g006_toy_02",
+          "weight": 28
+        },
+        {
+          "figure_id": "g006_toy_03",
+          "weight": 14
+        },
+        {
+          "figure_id": "g006_toy_04",
+          "weight": 6
+        },
+        {
+          "figure_id": "g006_toy_05",
+          "weight": 2
+        }
+      ]
+    }
+  ]
+}

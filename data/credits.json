@@ -1,0 +1,17 @@
+{
+  "_comment": "Ending text and credits. PROVISIONAL: the ending deliberately does not explain the mystery (PENDING in the design). Edit the credit names here.",
+  "ending_lines": [
+    "The key turns. The lock gives way with a tired click.",
+    "Cold morning air. The street is empty and the sky is turning pink.",
+    "Behind you the machines keep humming, waiting for one more coin.",
+    "You never did find out how you ended up in there.",
+    "But you know the way out now."
+  ],
+  "credits": [
+    ["GACHANIGHT", ""],
+    ["Design & Direction", "The GachaNight creator"],
+    ["Programming, Models & Sound", "Built with Godot Engine and Blender"],
+    ["Special Thanks", "Every capsule machine that ever ate a coin"],
+    ["", "Thank you for playing"]
+  ]
+}
