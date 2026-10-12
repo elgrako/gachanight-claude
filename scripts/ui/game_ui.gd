@@ -12,6 +12,22 @@ const EndingPanel = preload("res://scripts/ui/ending_panel.gd")
 
 const TOAST_SECONDS: float = 3.5
 
+# --- HUD layout, in canvas pixels (the canvas is 720 tall) -------------------
+## The whole HUD lives on the front strip of the floor and on the floor's
+## ledge: the back wall, where the machines, their price signs, the gallery and
+## everything that hangs are, stays free in every room.
+## The ledge is the lowest 24 px of the view: the key hint is written on it.
+const LEDGE_HEIGHT: float = 24.0
+const HUD_MARGIN: float = 16.0
+## Bottom edge of the corner plates, above the ledge.
+const HUD_BOTTOM: float = LEDGE_HEIGHT + 8.0
+## The prompt sits above the row of the corner plates, and the toast above it,
+## so none of them can meet whatever the lengths of their texts.
+const PROMPT_BOTTOM: float = HUD_BOTTOM + 56.0
+const TOAST_BOTTOM: float = PROMPT_BOTTOM + 48.0
+const PLATE_COLOR: Color = Color(0.086, 0.075, 0.125, 0.9)
+const COIN_ICON_SIZE: float = 22.0
+
 signal modal_changed(is_open: bool)
 signal rebirth_requested(selection: Dictionary)
 signal quit_requested
@@ -31,6 +47,12 @@ var _status: Label
 var _objective: Label
 var _prompt: Label
 var _toast: Label
+## The plates behind the HUD texts, and the key hint on the ledge.
+var _corner_plate: PanelContainer
+var _objective_plate: PanelContainer
+var _prompt_plate: PanelContainer
+var _toast_plate: PanelContainer
+var _keys: Label
 var _toast_timer: float = 0.0
 var _fade: ColorRect
 var _modals: Dictionary = {}  # name -> backdrop Control
@@ -83,8 +105,10 @@ func _process(delta: float) -> void:
 	if _toast_timer > 0.0:
 		_toast_timer -= delta
 		if _toast_timer <= 0.0:
-			_toast.visible = false
-	_objective.text = _objective_text()
+			_toast_plate.visible = false
+	var objective: String = _objective_text()
+	if objective != _objective.text:
+		_objective.text = objective
 	if _open_modal == "reception" and Engine.get_process_frames() % 20 == 0:
 		reception_panel.refresh()
 
@@ -100,14 +124,25 @@ func open_modal_name() -> String:
 
 
 func set_prompt(text: String) -> void:
-	_prompt.text = text
-	_prompt.visible = text != "" and not is_modal_open()
+	if text != _prompt.text:
+		_prompt.text = text
+	_prompt_plate.visible = text != "" and not is_modal_open()
 
 
 func toast(text: String) -> void:
 	_toast.text = text
-	_toast.visible = true
+	_toast_plate.visible = true
 	_toast_timer = TOAST_SECONDS
+
+
+## Canvas rectangles of every HUD element that is showing, by name.
+func hud_rects() -> Dictionary:
+	var rects: Dictionary = {}
+	var parts: Dictionary = {"corner": _corner_plate, "objective": _objective_plate, "prompt": _prompt_plate, "toast": _toast_plate, "keys": _keys}
+	for part_name in parts:
+		if parts[part_name].visible:
+			rects[part_name] = parts[part_name].get_global_rect()
+	return rects
 
 
 func open_prize() -> void:
@@ -169,53 +204,101 @@ func _build_hud() -> void:
 	hud.set_anchors_preset(Control.PRESET_FULL_RECT)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(hud)
+	# Bottom left: the purse, with prestige and status as small print above it.
+	_corner_plate = _plate(Style.MUSTARD)
+	_dock(hud, _corner_plate, Control.SIZE_SHRINK_BEGIN, HUD_BOTTOM)
 	var corner: VBoxContainer = VBoxContainer.new()
-	corner.position = Vector2(24, 20)
+	corner.add_theme_constant_override("separation", 0)
 	corner.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	hud.add_child(corner)
-	_coins = _hud_label(30, Style.MUSTARD)
-	corner.add_child(_coins)
-	_prestige = _hud_label(18, Style.MINT)
-	corner.add_child(_prestige)
-	_status = _hud_label(16, Style.CREAM)
+	_corner_plate.add_child(corner)
+	_status = Style.label("", 13, Style.CREAM)
 	corner.add_child(_status)
-	_objective = _hud_label(18, Style.CREAM)
-	_objective.set_anchors_and_offsets_preset(Control.PRESET_TOP_RIGHT)
-	_objective.grow_horizontal = Control.GROW_DIRECTION_BEGIN
-	_objective.offset_right = -24
-	_objective.offset_top = 24
-	_objective.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
-	hud.add_child(_objective)
-	_toast = _hud_label(22, Style.CREAM)
-	_toast.set_anchors_and_offsets_preset(Control.PRESET_CENTER_TOP)
-	_toast.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_toast.offset_top = 90
-	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_toast.visible = false
-	hud.add_child(_toast)
-	_prompt = _hud_label(22, Style.CREAM)
-	_prompt.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	_prompt.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	_prompt.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	_prompt.offset_bottom = -34
+	_prestige = Style.label("", 13, Style.MINT)
+	corner.add_child(_prestige)
+	var purse: HBoxContainer = HBoxContainer.new()
+	purse.add_theme_constant_override("separation", 8)
+	purse.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	corner.add_child(purse)
+	purse.add_child(_coin_icon())
+	_coins = Style.label("", 26, Style.MUSTARD)
+	purse.add_child(_coins)
+	# Bottom right: what to do next.
+	_objective_plate = _plate(Style.CREAM)
+	_dock(hud, _objective_plate, Control.SIZE_SHRINK_END, HUD_BOTTOM)
+	var goal: HBoxContainer = HBoxContainer.new()
+	goal.add_theme_constant_override("separation", 8)
+	goal.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_objective_plate.add_child(goal)
+	goal.add_child(Style.label("GOAL", 12, Style.MUSTARD))
+	_objective = Style.label("", 15, Style.CREAM)
+	goal.add_child(_objective)
+	# Bottom centre, one above the other: the key hint on the ledge, the
+	# prompt, and a toast written on a paper note.
+	_prompt_plate = _plate(Style.MINT)
+	_dock(hud, _prompt_plate, Control.SIZE_SHRINK_CENTER, PROMPT_BOTTOM)
+	_prompt_plate.visible = false
+	_prompt = Style.label("", 18, Style.CREAM)
 	_prompt.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
-	_prompt.visible = false
-	hud.add_child(_prompt)
-	var keys: Label = _hud_label(14, Style.CREAM)
-	keys.text = "A/D walk · Shift run · E use · Tab catalog · Esc menu"
-	keys.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
-	keys.grow_horizontal = Control.GROW_DIRECTION_BOTH
-	keys.grow_vertical = Control.GROW_DIRECTION_BEGIN
-	keys.offset_bottom = -18
-	hud.add_child(keys)
+	_prompt_plate.add_child(_prompt)
+	_toast_plate = PanelContainer.new()
+	_toast_plate.add_theme_stylebox_override("panel", Style.box(Style.CREAM, Style.INK, 2, 0, 8))
+	_toast_plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_dock(hud, _toast_plate, Control.SIZE_SHRINK_CENTER, TOAST_BOTTOM)
+	_toast_plate.visible = false
+	_toast = Style.label("", 17, Style.INK)
+	_toast.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
+	_toast_plate.add_child(_toast)
+	_keys = Style.label("WASD walk · Shift run · E use · Tab catalog · Esc menu", 13, Color(Style.CREAM, 0.85))
+	_keys.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_keys.set_anchors_and_offsets_preset(Control.PRESET_CENTER_BOTTOM)
+	_keys.grow_horizontal = Control.GROW_DIRECTION_BOTH
+	_keys.grow_vertical = Control.GROW_DIRECTION_BEGIN
+	_keys.offset_bottom = -2.0
+	hud.add_child(_keys)
 
 
-func _hud_label(size: int, color: Color) -> Label:
-	var label: Label = Style.label("", size, color)
-	label.add_theme_color_override("font_outline_color", Style.INK)
-	label.add_theme_constant_override("outline_size", 8)
-	label.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	return label
+## A dark plate with a thin coloured frame: HUD text is always read on it,
+## never straight on the scene.
+func _plate(frame: Color) -> PanelContainer:
+	var plate: PanelContainer = PanelContainer.new()
+	var style: StyleBoxFlat = Style.box(PLATE_COLOR, frame, 2, 0, 8)
+	style.content_margin_top = 4.0
+	style.content_margin_bottom = 4.0
+	plate.add_theme_stylebox_override("panel", style)
+	plate.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return plate
+
+
+## Puts a plate `bottom` pixels above the bottom edge of the screen, at the
+## left, centre or right (`side` is a SIZE_SHRINK_* flag). The container keeps
+## it there and fits it to its text whenever that changes.
+func _dock(hud: Control, plate: Control, side: int, bottom: float) -> void:
+	var dock: MarginContainer = MarginContainer.new()
+	dock.set_anchors_preset(Control.PRESET_FULL_RECT)
+	dock.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	dock.add_theme_constant_override("margin_left", int(HUD_MARGIN))
+	dock.add_theme_constant_override("margin_right", int(HUD_MARGIN))
+	dock.add_theme_constant_override("margin_bottom", int(bottom))
+	hud.add_child(dock)
+	plate.size_flags_horizontal = side
+	plate.size_flags_vertical = Control.SIZE_SHRINK_END
+	dock.add_child(plate)
+
+
+## A flat gold coin with an ink rim, drawn with hard edges.
+func _coin_icon() -> Control:
+	var coin: Panel = Panel.new()
+	var style: StyleBoxFlat = StyleBoxFlat.new()
+	style.bg_color = Style.MUSTARD
+	style.border_color = Color("#161320")
+	style.set_border_width_all(3)
+	style.set_corner_radius_all(int(COIN_ICON_SIZE / 2.0))
+	style.anti_aliasing = false
+	coin.add_theme_stylebox_override("panel", style)
+	coin.custom_minimum_size = Vector2(COIN_ICON_SIZE, COIN_ICON_SIZE)
+	coin.size_flags_vertical = Control.SIZE_SHRINK_CENTER
+	coin.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	return coin
 
 
 func _build_pause_panel() -> PanelContainer:
@@ -286,7 +369,7 @@ func _show_modal(modal_name: String) -> void:
 		_modals[_open_modal].visible = false
 	_open_modal = modal_name
 	_modals[modal_name].visible = true
-	_prompt.visible = false
+	_prompt_plate.visible = false
 	modal_changed.emit(true)
 
 

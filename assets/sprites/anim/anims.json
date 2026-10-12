@@ -1,113 +1,161 @@
 {
   "player_idle": {
     "file": "player_idle.png",
-    "frame_w": 24,
-    "frame_h": 40,
-    "frames": 8,
-    "fps": 6,
+    "frame_w": 40,
+    "frame_h": 56,
+    "frames": 64,
+    "fps": 8,
     "loop": true
   },
   "player_walk": {
     "file": "player_walk.png",
-    "frame_w": 24,
-    "frame_h": 40,
-    "frames": 8,
-    "fps": 12,
+    "frame_w": 40,
+    "frame_h": 56,
+    "frames": 12,
+    "fps": 15,
     "loop": true
   },
   "player_run": {
     "file": "player_run.png",
-    "frame_w": 24,
-    "frame_h": 40,
-    "frames": 6,
-    "fps": 12,
+    "frame_w": 40,
+    "frame_h": 56,
+    "frames": 8,
+    "fps": 16,
     "loop": true
   },
   "player_use": {
     "file": "player_use.png",
-    "frame_w": 24,
-    "frame_h": 40,
-    "frames": 7,
+    "frame_w": 40,
+    "frame_h": 56,
+    "frames": 10,
+    "fps": 12,
+    "loop": false
+  },
+  "player_cheer": {
+    "file": "player_cheer.png",
+    "frame_w": 40,
+    "frame_h": 56,
+    "frames": 12,
     "fps": 12,
     "loop": false
   },
   "player_sleep": {
     "file": "player_sleep.png",
-    "frame_w": 40,
-    "frame_h": 24,
+    "frame_w": 56,
+    "frame_h": 32,
     "frames": 8,
     "fps": 4,
     "loop": true
   },
+  "player_stretch": {
+    "file": "player_stretch.png",
+    "frame_w": 40,
+    "frame_h": 56,
+    "frames": 10,
+    "fps": 10,
+    "loop": false
+  },
+  "player_shrug": {
+    "file": "player_shrug.png",
+    "frame_w": 40,
+    "frame_h": 56,
+    "frames": 8,
+    "fps": 10,
+    "loop": false
+  },
+  "player_watch": {
+    "file": "player_watch.png",
+    "frame_w": 40,
+    "frame_h": 56,
+    "frames": 16,
+    "fps": 8,
+    "loop": false
+  },
+  "player_wave": {
+    "file": "player_wave.png",
+    "frame_w": 40,
+    "frame_h": 56,
+    "frames": 12,
+    "fps": 10,
+    "loop": false
+  },
   "robot_idle": {
     "file": "robot_idle.png",
-    "frame_w": 20,
-    "frame_h": 24,
-    "frames": 12,
-    "fps": 6,
+    "frame_w": 28,
+    "frame_h": 34,
+    "frames": 16,
+    "fps": 8,
     "loop": true
   },
   "robot_work": {
     "file": "robot_work.png",
-    "frame_w": 20,
-    "frame_h": 24,
+    "frame_w": 28,
+    "frame_h": 34,
     "frames": 8,
     "fps": 12,
     "loop": true
   },
   "coin_spin": {
     "file": "coin_spin.png",
-    "frame_w": 10,
-    "frame_h": 10,
+    "frame_w": 12,
+    "frame_h": 12,
     "frames": 6,
     "fps": 10,
     "loop": true
   },
   "coin_pickup": {
     "file": "coin_pickup.png",
-    "frame_w": 16,
-    "frame_h": 24,
+    "frame_w": 20,
+    "frame_h": 28,
     "frames": 9,
+    "fps": 16,
+    "loop": false
+  },
+  "coin_flip": {
+    "file": "coin_flip.png",
+    "frame_w": 12,
+    "frame_h": 28,
+    "frames": 12,
     "fps": 16,
     "loop": false
   },
   "capsule_open": {
     "file": "capsule_open.png",
-    "frame_w": 32,
-    "frame_h": 32,
-    "frames": 12,
+    "frame_w": 40,
+    "frame_h": 40,
+    "frames": 14,
     "fps": 14,
     "loop": false
   },
-  "capsule_open_mint": {
-    "file": "capsule_open_mint.png",
-    "frame_w": 32,
-    "frame_h": 32,
-    "frames": 12,
+  "capsule_open_blue": {
+    "file": "capsule_open_blue.png",
+    "frame_w": 40,
+    "frame_h": 40,
+    "frames": 14,
+    "fps": 14,
+    "loop": false
+  },
+  "capsule_open_green": {
+    "file": "capsule_open_green.png",
+    "frame_w": 40,
+    "frame_h": 40,
+    "frames": 14,
     "fps": 14,
     "loop": false
   },
   "capsule_open_mustard": {
     "file": "capsule_open_mustard.png",
-    "frame_w": 32,
-    "frame_h": 32,
-    "frames": 12,
-    "fps": 14,
-    "loop": false
-  },
-  "capsule_open_teal": {
-    "file": "capsule_open_teal.png",
-    "frame_w": 32,
-    "frame_h": 32,
-    "frames": 12,
+    "frame_w": 40,
+    "frame_h": 40,
+    "frames": 14,
     "fps": 14,
     "loop": false
   },
   "capsule_open_gold": {
     "file": "capsule_open_gold.png",
-    "frame_w": 32,
-    "frame_h": 32,
-    "frames": 12,
+    "frame_w": 40,
+    "frame_h": 40,
+    "frames": 14,
     "fps": 14,
     "loop": false
   },
@@ -121,9 +169,9 @@
   },
   "rarity_burst": {
     "file": "rarity_burst.png",
-    "frame_w": 48,
-    "frame_h": 48,
-    "frames": 8,
+    "frame_w": 64,
+    "frame_h": 64,
+    "frames": 13,
     "fps": 16,
     "loop": false
   },
@@ -131,24 +179,24 @@
     "file": "zzz.png",
     "frame_w": 16,
     "frame_h": 16,
-    "frames": 6,
-    "fps": 5,
+    "frames": 8,
+    "fps": 6,
     "loop": true
   },
-  "lamp_flicker": {
-    "file": "lamp_flicker.png",
-    "frame_w": 32,
+  "dust_puff": {
+    "file": "dust_puff.png",
+    "frame_w": 16,
     "frame_h": 12,
-    "frames": 12,
+    "frames": 6,
     "fps": 14,
     "loop": false
   },
-  "screen_glow": {
-    "file": "screen_glow.png",
-    "frame_w": 24,
-    "frame_h": 22,
-    "frames": 6,
-    "fps": 8,
+  "speech_dots": {
+    "file": "speech_dots.png",
+    "frame_w": 20,
+    "frame_h": 14,
+    "frames": 8,
+    "fps": 10,
     "loop": true
   }
 }

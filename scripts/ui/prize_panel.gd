@@ -19,7 +19,8 @@ var reveal_capsule: String = ""
 
 var _core: RefCounted
 var _transaction_id: int = -1
-var _view: Control
+## The picture of the prize on its rarity base.
+var figure_view: Control
 var _new_tag: Label
 var _name: Label
 var _rarity: Label
@@ -40,10 +41,11 @@ func _ready() -> void:
 	_new_tag = Style.label("NEW FIGURE!", 16, Style.CORAL)
 	_new_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_new_tag)
-	_view = FigureView.new()
-	_view.custom_minimum_size = Vector2(240, 208)
-	_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
-	column.add_child(_view)
+	figure_view = FigureView.new()
+	# Room for the 56 x 58 stack of figure and base at four screen pixels each.
+	figure_view.custom_minimum_size = Vector2(240, 236)
+	figure_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
+	column.add_child(figure_view)
 	_name = Style.label("", 24)
 	_name.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_name)
@@ -79,7 +81,7 @@ func show_prize(core: RefCounted, is_new: bool) -> bool:
 	_transaction_id = view["transaction_id"]
 	var figure: Dictionary = view["figure"]
 	_new_tag.visible = is_new
-	_view.show_figure(figure["id"], figure["rarity_color"], reveal_capsule)
+	figure_view.show_figure(figure["id"], figure["rarity_color"], reveal_capsule, figure["rarity_id"])
 	reveal_capsule = ""
 	_name.text = figure["name_en"]
 	_rarity.text = figure["rarity_name_en"]

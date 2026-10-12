@@ -1,0 +1,60 @@
+{
+  "machine_001": {
+    "chute": [
+      24,
+      72
+    ]
+  },
+  "machine_002": {
+    "chute": [
+      24,
+      72
+    ]
+  },
+  "machine_003": {
+    "chute": [
+      24,
+      72
+    ]
+  },
+  "machine_004": {
+    "chute": [
+      24,
+      72
+    ]
+  },
+  "machine_005": {
+    "chute": [
+      49,
+      89
+    ],
+    "claw_rail_y": 28,
+    "claw_min_x": 23,
+    "claw_max_x": 49,
+    "claw_rest_x": 25,
+    "grab_y": 33,
+    "drop_x": 49,
+    "drop_y": 55
+  },
+  "machine_006": {
+    "chute": [
+      36,
+      90
+    ],
+    "ball_start": [
+      36,
+      29
+    ],
+    "rows": 6,
+    "row_step": 6,
+    "column_step": 5,
+    "slot_y": 72,
+    "slot_xs": [
+      16,
+      26,
+      36,
+      46,
+      56
+    ]
+  }
+}

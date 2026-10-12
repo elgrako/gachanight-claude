@@ -1,0 +1,3 @@
+maquinas:
+Empujador de monedas
+Skee-Ball

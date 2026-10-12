@@ -1,33 +1,114 @@
 extends Control
-## Small pixel-art picture of a figure for the catalog. An undiscovered figure
-## is the same sprite filled dark, so every silhouette keeps its own shape
-## (design section 7.2).
+## Small pixel-art picture of a figure for the catalog. A discovered figure
+## stands on the base of its rarity. An undiscovered one is the same sprite
+## filled dark, so every silhouette keeps its own shape (design section 7.2),
+## and it has no base: the base would give its rarity away. A discovered figure
+## plays its idle loop; a silhouette is always the still picture.
 
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
 const SILHOUETTE: Color = Color(0.07, 0.08, 0.12)
 
 var look: Dictionary = {}
 var silhouette: bool = false
+## The animated base under a discovered figure; null for a silhouette.
+var base: AnimatedSprite2D
+## True while the icon plays the idle loop of the figure (discovered ones only).
+var animated: bool = false
+## Seconds into the loop; set it before `show_figure` so icons side by side
+## do not move in step.
+var time_offset: float = 0.0
 var _texture: Texture2D
+var _frames: SpriteFrames
+var _idle_fps: float = 8.0
+var _time: float = 0.0
+var _frame: int = 0
+var _rarity_id: String = ""
 
 
 func _ready() -> void:
 	texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	set_process(animated)
 
 
-func show_figure(figure_id: String, p_look: Dictionary, p_silhouette: bool) -> void:
+func _process(delta: float) -> void:
+	if not is_visible_in_tree():
+		return
+	_time += delta
+	var frame: int = int(_time * _idle_fps) % _frames.get_frame_count(Sprites.FIGURE_IDLE)
+	if frame != _frame:
+		_frame = frame
+		queue_redraw()
+
+
+func _notification(what: int) -> void:
+	# The grid sizes the icon after `show_figure`: follow every resize.
+	if what == NOTIFICATION_RESIZED:
+		_layout_base()
+		queue_redraw()
+
+
+func show_figure(figure_id: String, p_look: Dictionary, p_silhouette: bool, rarity_id: String = "") -> void:
 	look = p_look
 	silhouette = p_silhouette
 	var fallback: Color = Color.from_string(str(look.get("color", "#cccccc")), Color.GRAY)
-	_texture = Sprites.texture("figures/%s" % figure_id, Vector2i(32, 32), fallback)
+	_frames = Sprites.figure_frames(figure_id, fallback)
+	_texture = _frames.get_frame_texture(Sprites.FIGURE_STILL, 0)
+	animated = not silhouette and Sprites.has_figure_idle(figure_id)
+	_idle_fps = maxf(_frames.get_animation_speed(Sprites.FIGURE_IDLE), 1.0)
+	_time = time_offset
+	_frame = 0
+	set_process(animated)
+	var wanted: String = "" if silhouette else rarity_id
+	if wanted != _rarity_id:
+		_rarity_id = wanted
+		if base != null:
+			base.queue_free()
+			base = null
+		if wanted != "":
+			base = Sprites.base_sprite(wanted)
+			# The figure, drawn by this control, stands in front of its base.
+			base.show_behind_parent = true
+			add_child(base)
+	_layout_base()
 	queue_redraw()
+
+
+## Figure plus base, in sprite pixels: the figure's feet stand on BASE_STAND.
+func _stack_size() -> Vector2:
+	return Vector2(Sprites.BASE_SIZE.x, Sprites.FIGURE_SIZE.y + Sprites.BASE_SIZE.y - Sprites.BASE_STAND.y)
+
+
+## Whole screen pixels per sprite pixel keep the art crisp.
+func _pixel_size() -> float:
+	var stack: Vector2 = _stack_size()
+	return maxf(floorf(minf(size.x / stack.x, size.y / stack.y)), 1.0)
+
+
+## Top-left corner of the base frame on this control.
+func _base_origin() -> Vector2:
+	var pixel: float = _pixel_size()
+	var stack: Vector2 = _stack_size() * pixel
+	var corner: Vector2 = ((size - stack) / 2.0).floor()
+	return corner + Vector2(0.0, stack.y - Sprites.BASE_SIZE.y * pixel)
+
+
+func _layout_base() -> void:
+	if base == null:
+		return
+	var pixel: float = _pixel_size()
+	base.position = _base_origin()
+	base.scale = Vector2(pixel, pixel)
 
 
 func _draw() -> void:
 	if _texture == null:
 		return
-	# Whole screen pixels per sprite pixel keep the art crisp.
-	var pixel: float = maxf(floorf(minf(size.x, size.y) / _texture.get_height()), 1.0)
+	var pixel: float = _pixel_size()
 	var picture: Vector2 = Vector2(_texture.get_size()) * pixel
+	var origin: Vector2 = _base_origin()
+	# A discovered figure has its feet on the base; a silhouette stands where
+	# the base's own foot would be.
+	var feet: Vector2 = origin + Vector2(Sprites.BASE_STAND.x, Sprites.BASE_STAND.y if base != null else Sprites.BASE_SIZE.y - 4) * pixel
 	# Multiplying by a near-black colour keeps the alpha, which is the outline.
-	draw_texture_rect(_texture, Rect2(((size - picture) / 2.0).floor(), picture), false, SILHOUETTE if silhouette else Color.WHITE)
+	var shown: Texture2D = _frames.get_frame_texture(Sprites.FIGURE_IDLE, _frame) if animated else _texture
+	draw_texture_rect(shown, Rect2((feet - Vector2(picture.x / 2.0, picture.y)).floor(), picture), false, SILHOUETTE if silhouette else Color.WHITE)

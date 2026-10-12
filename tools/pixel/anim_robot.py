@@ -1,140 +1,190 @@
-"""The worker robot: a small tin wind-up toy seen from the front, 20 x 24 frames.
+"""The helper robot: a small rubber-hose tin toy seen from the front, slightly
+from above. Square steel head with pie eyes, blue body with a gauge, long
+noodle arms with white gloves, red boots and a mustard butterfly wind-up key
+turning on top of its head. 28 x 34 frames, anchored bottom centre.
 
-Built from parts (feet, legs, body, head, visor eyes, antenna, ear key, arms)
-placed per frame from a pose table.
+`work` reaches to the robot's RIGHT (screen right) and cranks in a circle.
 """
-from anim_lib import (Layer, DARK, CORAL, CORAL_HI, CORAL_SH, MINT, MINT_HI, MINT_SH, TEAL, TEAL_HI,
-                      TEAL_SH, CREAM, CREAM_SH, WHITE, MUSTARD, MUSTARD_HI, MUSTARD_SH, GOLD_HI)
+import math
 
-W, H = 20, 24
+from pixlib import box
+
+from anim_lib import (Cv, oval, disc, rect, hose, glove, rnd, shift,
+                      INK, RED, DRED, RED_HI, MUSTARD, MUSTARD_SH, MUSTARD_HI, BLUE, NAVY, SKY,
+                      STEEL, STEEL_HI, DSTEEL, GLOVE, PINK, WHITE)
+
+W, H = 28, 34
+CX = 14
+GROUND = 33
+
+# The crank hand of `work` circles around this point (frame pixels).
+WORK_CENTRE = (22, 21)
+WORK_RADIUS = 2
+
+DEFAULT = dict(x=0, y=0, head=(0, 0), key=0, eyes="open", look=(0, 0), mouth="smile",
+               hl=(-5, 8), hr=(5, 8), bl=-2.0, br=2.0, sq=0, lamp=False, puff=0)
+
+
+def P(**kw):
+    d = dict(DEFAULT)
+    d.update(kw)
+    return d
+
+
+def boot(cv, x0):
+    m = {q for q in oval(x0, 28, x0 + 6, 35) if q[1] <= 32}
+    cv.blob(m, RED)
+    cv.fill({q for q in m if q[1] == 32}, DRED)
+    cv.px[(x0 + 2, 29)] = RED_HI
+
+
+def key(cv, kx, base_y, phase):
+    """Butterfly wind-up key on a collar: two looped wings on a stem. Four
+    phases make half a turn (flat on, three-quarter, edge on, three-quarter)."""
+    ph = phase % 4
+    top = base_y - 6
+    cv.blob(rect(kx - 2, base_y, kx + 1, base_y), STEEL_HI)          # collar on the head
+    stem = rect(kx - 1, top + 2, kx, base_y - 1)
+    if ph == 0:
+        wings = oval(kx - 5, top, kx - 2, top + 4) | oval(kx + 1, top, kx + 4, top + 4)
+        holes = rect(kx - 4, top + 1, kx - 3, top + 2) | rect(kx + 2, top + 1, kx + 3, top + 2)
+    elif ph == 2:
+        wings = rect(kx - 1, top, kx, top + 4)
+        holes = set()
+    else:
+        wings = oval(kx - 4, top, kx - 2, top + 4) | oval(kx + 1, top, kx + 3, top + 4)
+        holes = rect(kx - 3, top + 1, kx - 3, top + 2) | rect(kx + 2, top + 1, kx + 2, top + 2)
+    shape = wings | stem
+    cv.blob(shape, MUSTARD)
+    cv.fill({q for q in shape - shift(shape, -1, -1) if q in wings}, MUSTARD_SH)
+    cv.fill(holes, INK)
+    if ph == 0:
+        cv.px[(kx - 4, top)] = MUSTARD_HI
+        cv.px[(kx + 2, top)] = MUSTARD_HI
+    elif ph == 1:
+        cv.px[(kx - 3, top)] = MUSTARD_HI
+    elif ph == 3:
+        cv.px[(kx + 2, top)] = MUSTARD_HI
+    else:
+        cv.fill(rect(kx - 1, top, kx - 1, top + 3), MUSTARD_HI)
 
 
 def draw(p):
-    fy = p.get("feet", 0)
-    by = p.get("body", 0)
-    hy = p.get("head", 0)
-    spread = p.get("spread", 0)
-    adx, ady = p.get("ant", (0, 0))
-    eyes = p.get("eyes", "open")
-    out = Layer()
-
-    # ear key (left of the head) and bolt (right)
-    key = Layer()
-    key.set(4, 12 + hy, CREAM_SH)
-    if p.get("key", "wide") == "wide":
-        for x in (2, 3):
-            for y in (10, 11, 13, 14):
-                key.set(x, y + hy, MUSTARD)
-        key.set(3, 12 + hy, MUSTARD_SH)
-        key.set(2, 10 + hy, MUSTARD_HI)
-    else:
-        key.set(2, 12 + hy, MUSTARD)
-        key.set(3, 12 + hy, MUSTARD)
-    key.set(15, 12 + hy, CREAM_SH)
-    out.stamp(key)
-
-    # antenna stem
-    stem = Layer()
-    stem.rect(9, 7 + hy, 10, 8 + hy, CREAM_SH)
-    out.stamp(stem)
-
-    # legs (only visible when the body is stretched above the feet) and feet
-    legs = Layer()
-    for y in range(21 + by, 21 + fy):
-        legs.rect(7 - spread, y, 8 - spread, y, DARK)
-        legs.rect(11 + spread, y, 12 + spread, y, DARK)
-    for y in range(16 + hy, 16 + by):
-        legs.rect(8, y, 11, y, DARK)
-    out.stamp(legs)
-    feet = Layer()
-    for x0 in (6 - spread, 11 + spread):
-        feet.rect(x0, 21 + fy, x0 + 2, 22 + fy, CORAL)
-        feet.rect(x0, 22 + fy, x0 + 2, 22 + fy, CORAL_SH)
-        feet.set(x0, 21 + fy, CORAL_HI)
-    out.stamp(feet)
-
+    cv = Cv()
+    bx = CX + rnd(p["x"])
+    by = rnd(p["y"])
+    sq = rnd(p["sq"])
+    hx = bx + rnd(p["head"][0])
+    hy = by + rnd(p["head"][1]) + sq
+    # legs and boots
+    cv.fill(hose((bx - 3, 25 + by), (10, 29), 0.0, 2), INK)
+    cv.fill(hose((bx + 2, 25 + by), (17, 29), 0.0, 2), INK)
+    boot(cv, 6)
+    boot(cv, 15)
+    # arms: long thin hoses from the shoulders, behind the body
+    sh_l = (bx - 5, 19 + by + sq)
+    sh_r = (bx + 3, 19 + by + sq)
+    hands = []
+    for sh, rel, bend in ((sh_l, p["hl"], p["bl"]), (sh_r, p["hr"], p["br"])):
+        hand = (sh[0] + rel[0], sh[1] + rel[1])
+        cv.fill(hose(sh, hand, bend, 2), INK)
+        hands.append((sh, hand))
     # body
-    body = Layer()
-    body.rect(6, 16 + by, 13, 20 + by, TEAL)
-    body.rect(6, 16 + by, 6, 19 + by, TEAL_HI)
-    body.rect(13, 16 + by, 13, 20 + by, TEAL_SH)
-    body.rect(6, 20 + by, 13, 20 + by, TEAL_SH)
-    body.rect(8, 17 + by, 11, 19 + by, CREAM)
-    body.rect(8, 19 + by, 11, 19 + by, CREAM_SH)
-    body.set(8, 18 + by, GOLD_HI if p.get("lamp", 1) else MUSTARD_SH)
-    body.rect(10, 18 + by, 11, 18 + by, CORAL)
-    out.stamp(body)
-
-    # head with visor
-    head = Layer()
-    head.rect(5, 9 + hy, 14, 15 + hy, MINT)
-    head.rect(5, 9 + hy, 14, 9 + hy, MINT_HI)
-    head.rect(5, 9 + hy, 5, 14 + hy, MINT_HI)
-    head.rect(14, 10 + hy, 14, 15 + hy, MINT_SH)
-    head.rect(5, 15 + hy, 14, 15 + hy, MINT_SH)
-    for c in ((5, 9), (14, 9), (5, 15), (14, 15)):
-        del head.px[(c[0], c[1] + hy)]
-    head.rect(6, 11 + hy, 13, 13 + hy, DARK)
-    ex = 1 if eyes == "right" else 0
-    for x0 in (7 + ex, 11 + ex):
-        if eyes == "blink":
-            head.rect(x0, 12 + hy, x0 + 1, 12 + hy, MUSTARD_SH)
-        elif eyes == "happy":
-            head.rect(x0, 11 + hy, x0 + 1, 11 + hy, MUSTARD_HI)
-        else:
-            head.rect(x0, 11 + hy, x0 + 1, 12 + hy, MUSTARD_HI)
-            head.set(x0, 11 + hy, WHITE)
-    out.stamp(head)
-
-    # arms: shoulder on the body side, hand anywhere
-    for sx, key_name, rest in ((5, "l_hand", (5, 20)), (15, "r_hand", (15, 20))):
-        hx, hyy = p.get(key_name, (rest[0], rest[1] + by))
-        arm = Layer()
-        arm.limb((sx, 17 + by), (hx, hyy), 2, CREAM_SH)
-        arm.rect(hx - 1, hyy - 1, hx, hyy, CORAL)
-        arm.set(hx - 1, hyy - 1, CORAL_HI)
-        out.stamp(arm)
-
-    # antenna ball
-    ball = Layer()
-    bx, byy = 8 + adx, 4 + hy + ady
-    ball.rect(bx + 1, byy, bx + 2, byy + 2, CORAL)
-    ball.rect(bx, byy + 1, bx + 3, byy + 1, CORAL)
-    ball.set(bx + 1, byy, CORAL_HI)
-    ball.set(bx + 3, byy + 1, CORAL_SH)
-    ball.set(bx + 2, byy + 2, CORAL_SH)
-    out.stamp(ball)
-    return out
+    body = box(bx - 5, 18 + by + sq, bx + 4, 26 + by, 2)
+    cv.blob(body, BLUE)
+    cv.fill(body - shift(body, -2, -1), NAVY)
+    cv.fill({q for q in body if q[1] == 19 + by + sq and bx - 4 < q[0] < bx + 2}, SKY)
+    gy = 22 + by + (sq + 1) // 2
+    gauge = disc(bx - 2, gy, 1.6)
+    cv.blob(gauge, MUSTARD)
+    cv.px[(bx - 2, gy)] = INK
+    cv.px[(bx - 1, gy - 1)] = INK
+    cv.fill(rect(bx + 2, gy - 1, bx + 3, gy), RED if not p["lamp"] else RED_HI)
+    cv.dots([(bx + 1, 25 + by), (bx - 1, 25 + by), (bx - 3, 25 + by)], NAVY)
+    # head
+    head = box(hx - 8, 8 + hy, hx + 7, 17 + hy, 3)
+    for ex in (hx - 10, hx + 8):                      # ear bolts
+        cv.blob(rect(ex, 11 + hy, ex + 1, 13 + hy), RED)
+    cv.blob(head, STEEL)
+    cv.fill({q for q in head if q[1] <= 9 + hy}, STEEL_HI)
+    cv.fill(head - shift(head, -1, -1), DSTEEL)
+    cv.dots([(hx - 6, 15 + hy), (hx + 5, 10 + hy)], DSTEEL)          # rivets
+    # eyes: tall ovals touching each other
+    le = oval(hx - 4, 10 + hy, hx - 1, 15 + hy)
+    re = oval(hx + 1, 10 + hy, hx + 4, 15 + hy)
+    lx, ly = rnd(p["look"][0]), rnd(p["look"][1])
+    if p["eyes"] == "open":
+        cv.blob(le, GLOVE)
+        cv.blob(re, GLOVE)
+        cv.fill(rect(hx - 3 + lx, 12 + hy + ly, hx - 2 + lx, 14 + hy + ly), INK, le)
+        cv.fill(rect(hx + 2 + lx, 12 + hy + ly, hx + 3 + lx, 14 + hy + ly), INK, re)
+    elif p["eyes"] == "blink":
+        cv.dots([(-4, 13), (-3, 14), (-2, 14), (-1, 13), (1, 13), (2, 14), (3, 14), (4, 13)], INK, hx, hy)
+    elif p["eyes"] == "happy":
+        cv.dots([(-4, 13), (-3, 12), (-2, 12), (-1, 13), (1, 13), (2, 12), (3, 12), (4, 13)], INK, hx, hy)
+    if p["mouth"] == "smile":
+        cv.dots([(-2, 16), (-1, 17), (0, 17), (1, 16)], INK, hx, hy)
+    else:
+        cv.dots([(-1, 16), (0, 16), (-1, 17), (0, 17)], INK, hx, hy)
+    key(cv, hx, 7 + hy, p["key"])
+    # gloves on top
+    for sh, hand in hands:
+        d = (hand[0] - sh[0], hand[1] - sh[1])
+        glove(cv, hand, d, "fist", r=2.4, thumb=0)
+    # a puff of steam from the ear bolt while it works hard
+    if p["puff"]:
+        k = p["puff"]
+        cv.blob(disc(hx - 9 - k // 2, 8 + hy - 2 * k, 1.2 if k < 3 else 0.6), WHITE)
+    return cv
 
 
-def _frames(poses, name):
-    return [draw(p).to_image(W, H, name="%s[%d]" % (name, i)) for i, p in enumerate(poses)]
+def render(poses, name):
+    return [draw(p).image(W, H, name="%s[%d]" % (name, i)) for i, p in enumerate(poses)]
 
 
 def idle():
-    head = [0, 0, 0, 1, 1, 0, 0, 0, 0, 1, 1, 0]
-    ant = [(0, 0), (0, 0), (0, 0), (0, 0), (1, 0), (-1, 0), (0, 0), (0, 0), (0, 0), (0, 0), (-1, 0), (1, 0)]
+    """16 frames: tin-toy tick bob, long arms swaying, the key winding down, a blink, glances."""
+    bob = [0, 0, 1, 1, 0, 0, 0, 0]
     poses = []
-    for f in range(12):
-        poses.append({"head": head[f], "ant": ant[f],
-                      "eyes": "blink" if f == 7 else "open",
-                      "key": "wide" if f < 6 else "thin",
-                      "lamp": 0 if head[f] else 1})
-    return _frames(poses, "robot_idle"), 6, True
+    for i in range(16):
+        b = bob[i % 8]
+        prev = bob[(i - 1) % 8]
+        sway = (0, 1, 1, 0, 0, -1, -1, 0)[i % 8]
+        p = P(y=b, key=i // 4, hl=(-5 - b + min(sway, 0), 8 - (b - prev)), hr=(5 + b + max(sway, 0), 8 - (b - prev)),
+              bl=-2.0 - b * 0.8, br=2.0 + b * 0.8)
+        if i == 9:
+            p["eyes"] = "blink"
+        if i in (3, 4, 5, 6):
+            p["look"] = (1, 0)
+        if i in (12, 13, 14):
+            p["look"] = (-1, 0)
+        if i in (4, 5):
+            p["head"] = (1, 0)
+        if i == 13:
+            p["head"] = (-1, 0)
+        poses.append(p)
+    return render(poses, "robot_idle"), 8, True
+
+
+def work_hand(i, n=8):
+    a = 2 * math.pi * i / n
+    return (WORK_CENTRE[0] + rnd(WORK_RADIUS * math.cos(a)), WORK_CENTRE[1] + rnd(WORK_RADIUS * math.sin(a)))
 
 
 def work():
-    #        feet body head spread ant      eyes     key     r_hand    l_hand
-    table = [(0, 1, 2, 1, (0, 1), "right", "wide", (16, 19), (4, 21)),    # squash, anticipation
-             (0, -1, -2, 0, (0, 1), "right", "thin", (16, 17), (5, 19)),  # launch, stretched
-             (-2, -3, -3, 0, (-1, 0), "right", "wide", (17, 14), (4, 16)),  # rising, hand over the crank
-             (-3, -3, -3, 0, (0, 0), "right", "thin", (18, 16), (4, 16)),   # apex
-             (-2, -2, -3, 0, (1, 0), "right", "wide", (18, 18), (4, 17)),   # falling, head lags
-             (0, 1, 2, 1, (1, 1), "blink", "thin", (17, 20), (4, 21)),    # landing squash
-             (0, -1, -1, 0, (-1, 0), "open", "wide", (16, 19), (5, 19)),  # rebound
-             (0, 0, 0, 0, (0, 0), "right", "thin", (16, 18), (5, 20))]    # settle
+    """8 frames: leans right, the right hand turns a crank in a circle, the body
+    pumps with it, the free arm swings as a counterweight, the key spins."""
     poses = []
-    for feet, body, head, spread, ant, eyes, key, rh, lh in table:
-        poses.append({"feet": feet, "body": body, "head": head, "spread": spread, "ant": ant,
-                      "eyes": eyes, "key": key, "r_hand": rh, "l_hand": lh, "lamp": 1 if feet < 0 else 0})
-    return _frames(poses, "robot_work"), 12, True
+    for i in range(8):
+        a = 2 * math.pi * i / 8
+        down = 1 if math.sin(a) > 0.3 else 0
+        hand = work_hand(i)
+        x = -2
+        sh_r = (CX + x + 3, 19 + down)
+        p = P(x=x, y=down, head=(1 if math.cos(a) > -0.3 else 0, 0), key=i, look=(1, 1 if down else 0),
+              hr=(hand[0] - sh_r[0], hand[1] - sh_r[1]), br=-2.0 * math.sin(a) - 1.5,
+              hl=(-3 - rnd(1.4 * math.cos(a)), 6 - rnd(2.2 * math.sin(a))), bl=-2.5 + math.sin(a),
+              lamp=(i % 4 < 2), eyes="open", mouth="o" if down else "smile",
+              puff=(i - 4) if i in (5, 6, 7) else 0)
+        poses.append(p)
+    return render(poses, "robot_work"), 12, True

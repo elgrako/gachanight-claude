@@ -1,0 +1,146 @@
+{
+  "machine_001_idle": {
+    "file": "machine_001_idle.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 48,
+    "fps": 8,
+    "loop": true
+  },
+  "machine_001_play": {
+    "file": "machine_001_play.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 10,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_001_wake": {
+    "file": "machine_001_wake.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 9,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_002_idle": {
+    "file": "machine_002_idle.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 48,
+    "fps": 8,
+    "loop": true
+  },
+  "machine_002_play": {
+    "file": "machine_002_play.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 10,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_002_wake": {
+    "file": "machine_002_wake.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 9,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_003_idle": {
+    "file": "machine_003_idle.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 48,
+    "fps": 8,
+    "loop": true
+  },
+  "machine_003_play": {
+    "file": "machine_003_play.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 10,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_003_wake": {
+    "file": "machine_003_wake.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 9,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_004_idle": {
+    "file": "machine_004_idle.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 48,
+    "fps": 8,
+    "loop": true
+  },
+  "machine_004_play": {
+    "file": "machine_004_play.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 10,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_004_wake": {
+    "file": "machine_004_wake.png",
+    "frame_w": 48,
+    "frame_h": 84,
+    "frames": 9,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_005_idle": {
+    "file": "machine_005_idle.png",
+    "frame_w": 72,
+    "frame_h": 104,
+    "frames": 48,
+    "fps": 8,
+    "loop": true
+  },
+  "machine_005_react": {
+    "file": "machine_005_react.png",
+    "frame_w": 72,
+    "frame_h": 104,
+    "frames": 7,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_005_wake": {
+    "file": "machine_005_wake.png",
+    "frame_w": 72,
+    "frame_h": 104,
+    "frames": 9,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_006_idle": {
+    "file": "machine_006_idle.png",
+    "frame_w": 72,
+    "frame_h": 104,
+    "frames": 48,
+    "fps": 8,
+    "loop": true
+  },
+  "machine_006_react": {
+    "file": "machine_006_react.png",
+    "frame_w": 72,
+    "frame_h": 104,
+    "frames": 7,
+    "fps": 15,
+    "loop": false
+  },
+  "machine_006_wake": {
+    "file": "machine_006_wake.png",
+    "frame_w": 72,
+    "frame_h": 104,
+    "frames": 9,
+    "fps": 15,
+    "loop": false
+  }
+}

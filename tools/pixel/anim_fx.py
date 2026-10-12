@@ -1,411 +1,480 @@
-"""Effects and small objects: coins, capsule opening, sparkles, bursts, zzz,
-lamp flicker and the CRT screen glow.
+"""Effects and small objects in the same chunky rubber-hose look: flat fills,
+one shadow and one highlight shade, bold ink outline.
 
-Light effects are drawn by per-pixel tests around a half-pixel centre so they
-stay perfectly symmetric; timing is fast expansion followed by a slower fade.
+coin_spin, coin_pickup, coin_flip, capsule_open (five colours), sparkle,
+rarity_burst, zzz, dust_puff, speech_dots.
 """
 import math
-import os
-import random
 
-from PIL import Image
+from pixlib import box
 
-from anim_lib import (Layer, glyph, rnd, INK, DARK, CREAM, CREAM_SH, WHITE, CORAL, CORAL_HI, CORAL_SH,
-                      MINT, MINT_HI, MINT_SH, MUSTARD, MUSTARD_HI, MUSTARD_SH, TEAL, TEAL_HI, TEAL_SH,
-                      BATH_MINT, GOLD_HI, SCREEN_BG, SCREEN_BAND, TUBE_OFF)
+from anim_lib import (Cv, oval, disc, rect, stroke, star_mask, rot_px, rnd, shift,
+                      INK, RED, DRED, RED_HI, MUSTARD, MUSTARD_SH, MUSTARD_HI, CREAM, CREAM_SH, PAPER,
+                      NAVY, BLUE, SKY, GREEN, GREEN_SH, GLOVE, PINK, WHITE, rgb)
 
-
-# --- generic light shapes ------------------------------------------------------
-def star(layer, cx, cy, arm, core, c, diag=0):
-    """Four-point twinkle: 2 px wide arms of length `arm`, diamond core, optional diagonal arms."""
-    r = int(max(arm, core, diag) + 2)
-    for y in range(int(cy) - r, int(cy) + r + 2):
-        for x in range(int(cx) - r, int(cx) + r + 2):
-            dx, dy = abs(x - cx), abs(y - cy)
-            if (dx < 1 and dy <= arm) or (dy < 1 and dx <= arm) or dx + dy <= core:
-                layer.px[(x, y)] = c
-            elif diag and abs(dx - dy) < 0.5 and dx <= diag:
-                layer.px[(x, y)] = c
+GREEN_HI = rgb("#7fd68e")
+GOLD = rgb("#ffcf2e")
+GOLD_HI = rgb("#fff3a8")
+GOLD_SH = rgb("#d9901a")
 
 
-def burst(layer, cx, cy, c, disc=0.0, ring=None, rays=None, box=48, mask=None):
-    """disc radius; ring (radius, thickness); rays (r0, r1, half_width, count, rotation_deg)."""
-    for y in range(box):
-        for x in range(box):
-            dx, dy = x - cx, y - cy
-            d = math.hypot(dx, dy)
-            hit = d <= disc
-            if not hit and ring and abs(d - ring[0]) <= ring[1] / 2.0:
-                hit = mask is None or mask(math.degrees(math.atan2(dy, dx)) % 360.0)
-            if not hit and rays and rays[0] <= d <= rays[1]:
-                r0, r1, hw, count, rot = rays
-                step = 360.0 / count
-                ang = (math.degrees(math.atan2(dy, dx)) - rot) % step
-                ang = min(ang, step - ang)
-                taper = 1.0 - 0.7 * (d - r0) / max(0.001, r1 - r0)
-                hit = d * math.sin(math.radians(ang)) <= hw * taper
-            if hit:
-                layer.px[(x, y)] = c
-
-
-# --- coin -------------------------------------------------------------------------
-COIN_ROWS = [4, 6, 8, 8, 8, 8, 6, 4]
-
-
-def coin(layer, ox, oy, w, rim=0):
-    """Coin with fill 8 px tall and `w` px wide inside a 10 x 10 box at (ox, oy). rim: -1 left, 1 right."""
-    for r, full in enumerate(COIN_ROWS):
-        rw = max(1 if w < 4 else 2, rnd(full * w / 8.0))
-        rw = min(rw, w)
-        x0 = ox + 1 + (8 - rw) // 2
-        for i in range(rw):
-            if r >= 6 or (i == rw - 1 and r >= 2):
-                c = MUSTARD_SH
-            elif r <= 0 or (i == 0 and r <= 5):
-                c = MUSTARD_HI
+# --- coin ---------------------------------------------------------------------------
+def coin_px(x0, y0, w, h, size):
+    """Coin inside a size x size box at (x0, y0), squeezed to w x h (spin / flip)."""
+    ax = x0 + (size - w) // 2
+    ay = y0 + (size - h) // 2
+    m = oval(ax, ay, ax + w - 1, ay + h - 1) if min(w, h) > 2 else rect(ax, ay, ax + w - 1, ay + h - 1)
+    px = {q: MUSTARD for q in m}
+    if min(w, h) <= 2:
+        for (x, y) in m:
+            if (w <= 2 and x == ax) or (h <= 2 and y == ay):
+                px[(x, y)] = MUSTARD_HI
             else:
-                c = MUSTARD
-            if rim == 1 and i == rw - 1 and rw > 2:
-                c = MUSTARD_SH
-            if rim == -1 and i == 0 and rw > 2:
-                c = MUSTARD_SH
-            layer.px[(x0 + i, oy + 1 + r)] = c
-    if w >= 6:
-        # square hole, like an old five-yen coin, and a glint
-        layer.px[(ox + 4, oy + 4)] = MUSTARD_SH
-        layer.px[(ox + 5, oy + 4)] = MUSTARD_SH
-        layer.px[(ox + 4, oy + 5)] = MUSTARD_SH
-        layer.px[(ox + 5, oy + 5)] = MUSTARD_HI
-        layer.px[(ox + (3 if w == 8 else 4), oy + 2)] = WHITE
-    elif w == 4:
-        layer.px[(ox + 4 if rim == 1 else ox + 5, oy + 4)] = MUSTARD_SH
-        layer.px[(ox + 4 if rim == 1 else ox + 5, oy + 5)] = MUSTARD_SH
-    else:
-        for r in range(1, 7):
-            layer.px[(ox + 4, oy + 1 + r)] = MUSTARD_HI
-
-
-COIN_SEQ = [(8, 0), (6, 1), (4, 1), (2, 0), (4, -1), (6, -1)]
+                px[(x, y)] = MUSTARD_SH
+        return px
+    for q in m - shift(m, -1, -1):
+        px[q] = MUSTARD_SH
+    for q in m - shift(m, 1, 1):
+        if q[0] + q[1] < ax + ay + (w + h) // 2:
+            px[q] = MUSTARD_HI
+    if w >= size - 2 and h >= size - 2:
+        cx, cy = x0 + size // 2, y0 + size // 2
+        for q in rect(cx - 1, cy - 1, cx, cy):          # square hole, like an old 50 yen coin
+            px[q] = INK
+        px[(cx - 2, cy - 3)] = WHITE
+    elif w >= 4 and h >= 4:
+        cx, cy = x0 + size // 2, y0 + size // 2
+        if w < h:
+            px[(cx - 1, cy - 1)] = INK
+            px[(cx - 1, cy)] = INK
+        else:
+            px[(cx - 1, cy - 1)] = INK
+            px[(cx, cy - 1)] = INK
+    return px
 
 
 def coin_spin():
+    """Upright coin spinning on the floor, resting on the bottom row."""
     frames = []
-    for i, (w, rim) in enumerate(COIN_SEQ):
-        lay = Layer()
-        coin(lay, 0, 0, w, rim)
-        frames.append(lay.outlined().to_image(10, 10, name="coin_spin[%d]" % i))
+    for i, w in enumerate((10, 8, 4, 2, 4, 8)):
+        cv = Cv()
+        cv.blob_px(coin_px(1, 1, w, 10, 10))
+        frames.append(cv.image(12, 12, name="coin_spin[%d]" % i))
     return frames, 10, True
 
 
+def twinkle(cv, cx, cy, r, rot=0.0, col=WHITE, inner=0.32):
+    if r < 1.2:
+        cv.blob({(rnd(cx), rnd(cy))}, col)
+        return
+    cv.blob(star_mask(cx + 0.5, cy + 0.5, r, max(0.8, r * inner), 4, rot), col)
+
+
 def coin_pickup():
+    """The coin pops up spinning and turns into a twinkle."""
     frames = []
-    cx, cy = 7.5, 6.5
-    rises = [0, 6, 10, 12, 13]                 # fast pop, eased at the top
-    for i, up in enumerate(rises):
-        lay = Layer()
-        w, rim = COIN_SEQ[(i * 2) % 6] if i < 4 else (2, 0)
-        coin(lay, 3, 14 - up, w, rim)
-        lay = lay.outlined()
+    seq = [(17, 10), (10, 4), (5, 10), (2, 4), (1, 10)]
+    for i, (y0, w) in enumerate(seq):
+        cv = Cv()
+        cv.blob_px(coin_px(5, y0, w, 10, 10))
         if i == 1:
-            for p in ((5, 21), (10, 21), (7, 23), (8, 22)):   # dust kicked at the start
-                lay.px[p] = CREAM
-        frames.append(lay)
-    fx = [dict(arm=6, core=2.5, diag=0),
-          dict(arm=5, core=1.5, diag=3),
-          dict(arm=3, core=0, diag=0),
-          None]
-    for i, f in enumerate(fx):
-        lay = Layer()
-        if f:
-            star(lay, cx, cy, f["arm"], f["core"], WHITE, f["diag"])
-            if i == 0:
-                star(lay, cx, cy, 2, 1.5, GOLD_HI)
-            if i == 2:
-                for p in list(lay.px):
-                    if abs(p[0] - cx) < 2 and abs(p[1] - cy) < 2:
-                        del lay.px[p]
-        if i >= 1:
-            d = 4 + i
-            for sx, sy in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
-                lay.px[(int(cx + sx * d * 0.8 + 0.5), int(cy + sy * d * 0.8 + 0.5 + (i - 1)))] = GOLD_HI
-        frames.append(lay)
-    return [f.to_image(16, 24, name="coin_pickup") for f in frames], 16, False
+            cv.blob(rect(4, 25, 5, 26), CREAM)
+            cv.blob(rect(14, 25, 15, 26), CREAM)
+        frames.append(cv)
+    for r, rot, extra in ((7.5, 0, False), (6, 45, True), (3.5, 0, True), (0, 0, True)):
+        cv = Cv()
+        if r:
+            twinkle(cv, 9.5, 6, r, rot, MUSTARD_HI if rot else WHITE)
+        if extra:
+            d = 6 if r > 4 else (8 if r else 9)
+            for (ax, ay) in ((-1, -0.7), (1, -0.6), (-0.9, 0.9), (1, 0.8)):
+                x, y = rnd(9.5 + ax * d), rnd(6.5 + ay * d * 0.7)
+                if r:
+                    cv.blob({(x, y)}, WHITE)
+                else:
+                    cv.px[(x, y)] = INK
+        frames.append(cv)
+    return [cv.image(20, 28, name="coin_pickup[%d]" % i) for i, cv in enumerate(frames)], 16, False
 
 
-# --- sparkle ------------------------------------------------------------------------
-def sparkle():
-    c = 7.5
-    specs = [dict(arm=0.5, core=0.6),
-             dict(arm=3, core=1.5),
-             dict(arm=7, core=3, tip=True),
-             dict(arm=6, core=1.5, diag=3),
-             dict(arm=4, core=0, hole=1),
-             dict(arm=6, core=0, hole=4)]
+def coin_flip():
+    """A coin tossed up, flipping, then dropping edge-on into a slot at the bottom."""
+    seq = [  # (top y of the 8 px box, w, h)
+        (18, 8, 8), (11, 8, 4), (6, 8, 2), (3, 8, 6), (1, 8, 8), (2, 8, 4),
+        (5, 8, 2), (9, 6, 8), (14, 2, 8), (19, 2, 8), (23, 2, 8),
+    ]
     frames = []
-    for s in specs:
-        lay = Layer()
-        star(lay, c, c, s["arm"], s["core"], WHITE, s.get("diag", 0))
-        if s.get("tip"):
-            star(lay, c, c, 2, 2.5, GOLD_HI)
-            star(lay, c, c, 0.5, 1.2, WHITE)
-        if "hole" in s:
-            for p in list(lay.px):
-                if max(abs(p[0] - c), abs(p[1] - c)) < s["hole"]:
-                    del lay.px[p]
-        frames.append(lay.to_image(16, 16, name="sparkle"))
+    for i, (y0, w, h) in enumerate(seq):
+        cv = Cv()
+        px = coin_px(2, y0, w, h, 8)
+        cv.blob_px(px)
+        if i == 0:
+            cv.dots([(2, 27), (9, 27)], INK)
+        if y0 > 18:                                   # sinking into the slot
+            cv.erase({q for q in list(cv.px) if q[1] > 26})
+            cv.fill(rect(3, 27, 8, 27), INK)
+        frames.append(cv)
+    cv = Cv()                                         # clink
+    cv.fill(rect(3, 27, 8, 27), INK)
+    twinkle(cv, 5.5, 22, 3.2, 0, WHITE)
+    cv.dots([(1, 24), (10, 24), (2, 19), (9, 19)], INK)
+    frames.append(cv)
+    return [cv.image(12, 28, name="coin_flip[%d]" % i) for i, cv in enumerate(frames)], 16, False
+
+
+# --- capsule ------------------------------------------------------------------------
+CAPSULE_COLOURS = {
+    "red": (RED, RED_HI, DRED),
+    "blue": (BLUE, SKY, NAVY),
+    "green": (GREEN, GREEN_HI, GREEN_SH),
+    "mustard": (MUSTARD, MUSTARD_HI, MUSTARD_SH),
+    "gold": (GOLD, GOLD_HI, GOLD_SH),
+}
+CAP_R = 9.0
+CAP_C = (20, 23)
+
+
+def capsule_fn(colours, part="both", sx=1.0, sy=1.0, emblem=False):
+    """Local shape of the reference capsule: coloured top, cream bottom, seen from above-front."""
+    col, hi, sh = colours
+
+    def fn(u, v):
+        u, v = u / sx, v / sy
+        d2 = u * u + v * v
+        if d2 > CAP_R * CAP_R:
+            return None
+        seam = -0.24 * math.sqrt(max(0.0, CAP_R * CAP_R - u * u))
+        top = v > seam
+        if part == "top" and not top:
+            return None
+        if part == "bottom" and top:
+            # the open mouth of the cup: the back half of the rim ellipse
+            if v < -seam and abs(u) < CAP_R - 0.6:
+                return CREAM_SH if v < -seam - 1.0 else INK
+            return None
+        if part == "both" and abs(v - seam) < 0.55:
+            return INK
+        shadow = (u + 2.4) ** 2 + (v - 2.4) ** 2 > (CAP_R - 0.9) ** 2
+        if top:
+            if ((u + 3.6) / 2.4) ** 2 + ((v - 4.6) / 1.4) ** 2 <= 1.0:
+                return WHITE
+            if emblem and abs(u - 2.0) + abs(v - 3.0) <= 1.6:
+                return WHITE
+            if part == "top" and v < seam + 1.2:
+                return sh
+            return sh if shadow else col
+        if part == "bottom" and v > seam - 1.2:
+            return PAPER
+        return CREAM_SH if shadow else CREAM
+
+    return fn
+
+
+def rays(cv, cx, cy, r0, r1, count, rot, col=WHITE, width=2.2):
+    for k in range(count):
+        a = math.radians(rot + 360.0 * k / count)
+        ca, sa = math.cos(a), math.sin(a)
+        nx, ny = -sa, ca
+        pts = [(cx + ca * r0 + nx * width, cy + sa * r0 + ny * width),
+               (cx + ca * r1, cy + sa * r1),
+               (cx + ca * r0 - nx * width, cy + sa * r0 - ny * width)]
+        from pixlib import poly
+        m = {q for q in poly(pts)}
+        if m:
+            cv.blob(m, col)
+
+
+CAPSULE_FLASH_FRAME = 7
+
+# Confetti thrown out by the capsule: (angle deg, speed px/frame, colour slot, shape).
+CONFETTI = [(-100, 5.2, 0, 0), (-62, 5.8, 1, 1), (-28, 5.0, 2, 2), (-140, 5.6, 3, 1), (-170, 4.6, 1, 0),
+            (-8, 4.4, 0, 1), (-80, 6.6, 4, 2), (-122, 6.4, 2, 0), (-45, 6.8, 3, 0), (-155, 6.0, 0, 2),
+            (15, 3.8, 4, 0), (-195, 3.8, 2, 1)]
+CONFETTI_SHAPES = (((0, 0), (1, 0)), ((0, 0), (0, 1)), ((0, 0), (1, 0), (0, 1), (1, 1)))
+
+
+def confetti(cv, cx, cy, age, palette, w=40, h=40):
+    """Paper bits flying out from (cx, cy): fast at first, slowing, then falling and tumbling."""
+    for k, (ang, speed, slot, shape) in enumerate(CONFETTI):
+        if age > 3 + k % 3:                              # they wink out one after the other
+            continue
+        a = math.radians(ang)
+        dist = speed * (1.0 - 0.72 ** age) / 0.28        # geometric slow-down
+        x = cx + math.cos(a) * dist
+        y = cy + math.sin(a) * dist + 0.45 * age * age   # gravity
+        cells = CONFETTI_SHAPES[(shape + age) % 2 if shape < 2 else 2]
+        m = {(rnd(x) + ax, rnd(y) + ay) for (ax, ay) in cells}
+        if all(1 <= qx < w - 1 and 1 <= qy < h - 1 for (qx, qy) in m):
+            cv.blob(m, palette[slot % len(palette)])
+
+
+def capsule_open(colour):
+    """14 frames: shakes harder and harder, squashes, cracks with light, bursts
+    (frame 7), the two halves fly apart tumbling and pop, confetti rains down."""
+    colours = CAPSULE_COLOURS[colour]
+    gold = colour == "gold"
+    cx, cy = CAP_C
+    frames = []
+    palette = [colours[0], MUSTARD, PAPER, colours[1], GOLD_HI if gold else PINK]
+    lite = GOLD_HI if gold else WHITE
+
+    def whole(dx=0, dy=0, rot=0.0, sx=1.0, sy=1.0):
+        cv = Cv()
+        cv.blob_px(rot_px(capsule_fn(colours, "both", sx, sy, gold), cx + dx, cy + dy, rot, 14))
+        return cv
+
+    def half(cv, part, dx, dy, rot, sx, sy=None):
+        sy = sx if sy is None else sy
+        cv.blob_px(rot_px(capsule_fn(colours, part, sx, sy, gold and part == "top"), cx + dx, cy + dy, rot, 14))
+
+    # 0 rest, 1-4 shaking harder and harder with little hops
+    frames.append(whole())
+    for (dx, dy, rot, sx, sy) in ((-2, 0, -10, 1.0, 1.0), (2, -1, 12, 0.97, 1.04), (-3, 0, -20, 1.04, 0.96),
+                                  (3, -2, 22, 0.95, 1.06)):
+        cv = whole(dx, dy, rot, sx, sy)
+        if abs(dx) == 3:
+            s_ = 1 if dx > 0 else -1
+            cv.dots([(cx - s_ * 13, cy - 6), (cx - s_ * 14, cy - 3), (cx - s_ * 13, cy + 1)], INK)
+            cv.dots([(cx + s_ * 14, cy - 8), (cx + s_ * 15, cy - 5)], INK)
+        frames.append(cv)
+    # 5 squash down (anticipation)
+    cv = whole(0, 3, 0, 1.18, 0.8)
+    cv.dots([(cx - 13, cy + 8), (cx + 12, cy + 8)], INK)
+    frames.append(cv)
+    # 6 stretch up, the seam cracks with light
+    cv = Cv()
+    half(cv, "bottom", 0, 1, 0, 0.96, 1.06)
+    rays(cv, cx, cy - 1, 9.5, 15.0, 2, 0, WHITE, 2.0)
+    rays(cv, cx, cy - 1, 9.5, 13.0, 4, 45, lite, 1.4)
+    cv.blob(oval(cx - 9, cy - 3, cx + 8, cy + 1), WHITE)
+    half(cv, "top", 0, -5, 0, 0.96, 1.06)
+    frames.append(cv)
+    # 7 the big flash
+    cv = Cv()
+    half(cv, "top", -4, -10, -18, 0.92)
+    half(cv, "bottom", 3, 5, 12, 1.0)
+    rays(cv, cx, cy - 2, 10, 19, 8, 22.5, GOLD_HI if gold else PAPER, 3.2)
+    cv.blob(star_mask(cx, cy - 2, 17, 8, 8, 0), WHITE)
+    cv.fill(disc(cx, cy - 2, 5), GOLD_HI if gold else PAPER)
+    frames.append(cv)
+    # 8-10 the halves tumble apart on arcs, rays thin out, confetti flies
+    cv = Cv()
+    rays(cv, cx, cy - 2, 11, 18, 8, 0, WHITE, 1.6)
+    cv.blob(star_mask(cx, cy - 2, 9, 4, 4, 0), WHITE)
+    half(cv, "top", -8, -12, -48, 0.82)
+    half(cv, "bottom", 7, 4, 38, 0.86)
+    confetti(cv, cx, cy - 2, 1, palette)
+    frames.append(cv)
+    cv = Cv()
+    twinkle(cv, cx, cy - 3, 5, 45, WHITE)
+    half(cv, "top", -11, -11, -95, 0.64)
+    half(cv, "bottom", 10, 6, 80, 0.68)
+    twinkle(cv, 32, 7, 3, 0, lite)
+    confetti(cv, cx, cy - 2, 2, palette)
+    frames.append(cv)
+    cv = Cv()
+    half(cv, "top", -13, -7, -150, 0.46)
+    half(cv, "bottom", 12, 10, 130, 0.5)
+    twinkle(cv, cx, cy - 4, 3, 0, WHITE)
+    twinkle(cv, 7, 27, 2, 45, lite)
+    confetti(cv, cx, cy - 2, 3, palette)
+    frames.append(cv)
+    # 11 the halves pop into twinkles
+    cv = Cv()
+    twinkle(cv, cx - 13, cy - 3, 4, 0, WHITE)
+    twinkle(cv, cx + 12, cy + 12, 4, 45, WHITE)
+    twinkle(cv, 33, 6, 2, 45, lite)
+    confetti(cv, cx, cy - 2, 4, palette)
+    frames.append(cv)
+    # 12-13 the last confetti and glitter
+    cv = Cv()
+    for (x, y, r, rot) in ((cx - 13, cy - 3, 2, 45), (cx + 12, cy + 12, 2, 0), (20, 5, 2, 0)):
+        twinkle(cv, x, y, r, rot, lite)
+    confetti(cv, cx, cy - 2, 5, palette)
+    frames.append(cv)
+    cv = Cv()
+    for (x, y) in ((7, 9), (34, 6), (5, 30), (33, 33), (20, 4)):
+        twinkle(cv, x, y, 1, 0, lite)
+    frames.append(cv)
+    if gold:                                           # extra glitter while it shakes
+        for i, pts in ((1, ((5, 8, 2),)), (2, ((34, 10, 2),)), (3, ((6, 30, 2), (33, 6, 3))), (4, ((5, 9, 3), (34, 30, 2))),
+                       (5, ((4, 14, 2), (35, 14, 2)))):
+            for (x, y, r) in pts:
+                twinkle(frames[i], x, y, r, 0, GOLD_HI)
+    name = "capsule_open" if colour == "red" else "capsule_open_" + colour
+    return [cv.image(40, 40, name="%s[%d]" % (name, i)) for i, cv in enumerate(frames)], 14, False
+
+
+# --- sparkle / burst ----------------------------------------------------------------
+def sparkle():
+    frames = []
+    for i, (r, rot, dots) in enumerate(((2, 0, 0), (5, 0, 0), (7, 0, 5), (5, 45, 6), (3, 0, 7), (0, 0, 7))):
+        cv = Cv()
+        if r:
+            twinkle(cv, 7.5, 7.5, r, rot, WHITE if i != 3 else MUSTARD_HI)
+        if dots:
+            for (ax, ay) in ((-1, -1), (1, -1), (-1, 1), (1, 1)):
+                q = (rnd(7.5 + ax * dots * 0.75), rnd(7.5 + ay * dots * 0.75))
+                if r:
+                    cv.blob({q}, WHITE) if 1 <= q[0] <= 14 and 1 <= q[1] <= 14 else None
+                else:
+                    cv.px[q] = WHITE
+        frames.append(cv.image(16, 16, name="sparkle[%d]" % i))
     return frames, 14, False
 
 
-# --- rarity burst (pure white, tinted by the game) -------------------------------------
-def rarity_burst():
-    c = 23.5
-    rng = random.Random(7)
-    dots = []
+def burst_confetti(cv, c, age):
+    """White paper bits (the game tints them): thrown out past the ring,
+    slowing down, then tumbling to the ground one after the other."""
     for k in range(16):
-        a = (k + rng.uniform(-0.3, 0.3)) * 2 * math.pi / 16
-        dots.append((a, rng.uniform(9, 15), (k * 5) % 3))
+        ang = math.radians(k * 137.5 + 20)               # golden angle: an even, irregular scatter
+        speed = 5.0 + (k * 5 % 7) * 0.8
+        if age > 5 + k % 4:
+            continue
+        dist = 12.0 + speed * (1.0 - 0.7 ** age) / 0.3
+        x = rnd(c + math.cos(ang) * dist + (1.5 * math.sin(age * 1.7 + k) if age > 3 else 0.0))
+        y = rnd(c + math.sin(ang) * dist * 0.9 + 0.22 * age * age)
+        kind = k % 3
+        flip = (age + k) % 2
+        if kind == 0:                                    # a tumbling strip
+            m = rect(x, y, x + 2, y + 1) if flip else rect(x, y, x + 1, y + 2)
+        elif kind == 1:                                  # a square seen flat, then edge on
+            m = rect(x, y, x + 1, y + 1) if flip else rect(x, y, x + 2, y)
+        else:                                            # a little diamond
+            m = {(x, y), (x + 1, y), (x - 1, y), (x, y + 1), (x, y - 1)} if flip else rect(x, y, x, y + 1)
+        if all(1 <= qx < 63 and 1 <= qy < 63 for (qx, qy) in m):
+            cv.blob(m, WHITE)
 
-    def dashes(n, duty):
-        return lambda deg: (deg % (360.0 / n)) < (360.0 / n) * duty
 
-    specs = [dict(disc=3.5),
-             dict(disc=9, rays=(8, 16, 2.4, 8, 0)),
-             dict(disc=6, ring=(14, 3.5), rays=(13, 23, 2.2, 8, 0)),
-             dict(ring=(18.5, 2.2), rays=(17, 24, 1.6, 8, 22.5)),
-             dict(ring=(21, 1.4), rays=(21, 24, 1.0, 16, 0), dots=(1.25, 0)),
-             dict(ring=(22.5, 1.2), mask=dashes(12, 0.5), dots=(1.42, 0)),
-             dict(dots=(1.52, 1)),
-             dict(dots=(1.58, 2))]
+def rarity_burst():
+    """White cartoon burst the game tints: pop, starburst, ring of rays, stars, a shower of confetti."""
+    c = 32
     frames = []
-    for s in specs:
-        lay = Layer()
-        burst(lay, c, c, WHITE, s.get("disc", 0), s.get("ring"), s.get("rays"), 48, s.get("mask"))
-        if "dots" in s:
-            scale, drop = s["dots"]
-            for a, r, kind in dots:
-                if kind < drop:
-                    continue
-                x = int(c + math.cos(a) * r * scale)
-                y = int(c + math.sin(a) * r * scale)
-                if not (1 <= x <= 46 and 1 <= y <= 46):
-                    continue
-                lay.px[(x, y)] = WHITE
-                if kind == 2 and drop < 2:
-                    for ax, ay in ((1, 0), (-1, 0), (0, 1), (0, -1)):
-                        lay.px[(x + ax, y + ay)] = WHITE
-        frames.append(lay.to_image(48, 48, name="rarity_burst"))
+    spec = [
+        dict(star=(8, 4, 8, 0)),
+        dict(star=(18, 9, 8, 0), rays=(12, 24, 8, 22.5, 3.0)),
+        dict(star=(25, 13, 10, 18), rays=(18, 30, 10, 0, 3.4)),
+        dict(star=(20, 14, 10, 0), rays=(22, 31, 10, 18, 3.0), hole=7),
+        dict(ring=(19, 5), rays=(24, 31, 10, 0, 2.4), stars=(27, 4, 0)),
+        dict(ring=(23, 3), rays=(27, 31, 10, 18, 1.6), stars=(28, 3.5, 45), conf=1),
+        dict(ring=(26, 2, 8), stars=(29, 3, 0), conf=2),
+        dict(stars=(30, 2, 45), conf=3),
+        dict(conf=4),
+        dict(conf=5),
+        dict(conf=6),
+        dict(conf=7),
+        dict(conf=8),
+    ]
+    for i, s in enumerate(spec):
+        cv = Cv()
+        if "conf" in s:
+            burst_confetti(cv, c, s["conf"])
+        if "rays" in s:
+            r0, r1, n, rot, w = s["rays"]
+            rays(cv, c, c, r0, r1, n, rot, WHITE, w)
+        if "star" in s:
+            ro, ri, n, rot = s["star"]
+            m = star_mask(c, c, ro, ri, n, rot)
+            if "hole" in s:
+                m -= disc(c, c, s["hole"])
+            cv.blob(m, WHITE)
+        if "ring" in s:
+            r, th = s["ring"][0], s["ring"][1]
+            m = set()
+            for y in range(64):
+                for x in range(64):
+                    d = math.hypot(x + 0.5 - c, y + 0.5 - c)
+                    if abs(d - r) <= th / 2.0:
+                        if len(s["ring"]) > 2:
+                            a = (math.degrees(math.atan2(y + 0.5 - c, x + 0.5 - c)) + 360) % (360.0 / s["ring"][2])
+                            if a > 360.0 / s["ring"][2] * 0.55:
+                                continue
+                        m.add((x, y))
+            cv.blob(m, WHITE)
+        if "stars" in s:
+            d, r, rot = s["stars"]
+            for k in range(6):
+                a = math.radians(60 * k + 30)
+                twinkle(cv, c + math.cos(a) * d * 0.95, c + math.sin(a) * d * 0.95, r, rot, WHITE)
+        cv.px = {q: col for q, col in cv.px.items() if 0 <= q[0] < 64 and 0 <= q[1] < 64}
+        frames.append(cv.image(64, 64, name="rarity_burst[%d]" % i))
     return frames, 16, False
 
 
-# --- capsule opening --------------------------------------------------------------------
-CAPSULE_COLOURS = {
-    "coral": (CORAL, CORAL_HI, CORAL_SH),
-    "mint": (MINT, MINT_HI, MINT_SH),
-    "mustard": (MUSTARD, MUSTARD_HI, MUSTARD_SH),
-    "teal": (TEAL, TEAL_HI, TEAL_SH),
-    "gold": (MUSTARD_HI, GOLD_HI, MUSTARD),
-}
-CAP_R = 5.3
-
-
-def _capsule_px(dx, dy, cols, seam_glow=False):
-    """Colour of a capsule pixel at offset (dx, dy) from its centre (dy < 0 is the clear half)."""
-    base, hi, sh = cols
-    if dy < 0:
-        if -1 < dy and seam_glow:
-            return WHITE
-        if dx < -1 and dy < -2 and dx * dx + dy * dy < 18:
-            return WHITE
-        if dx > 2.5 or (dx > 1 and dy > -2):
-            return CREAM_SH if dx > 3.5 else BATH_MINT
-        return BATH_MINT
-    if dy < 1:
-        return WHITE if seam_glow else sh
-    if dx < -2 and dy < 3.5:
-        return hi
-    if dx * 0.7 + dy > 4.2:
-        return sh
-    return base
-
-
-def _capsule(cols, cx, cy, sx=1.0, sy=1.0, tilt=0, glow=False):
-    lay = Layer()
-    for y in range(int(cy - 10), int(cy + 10)):
-        for x in range(int(cx - 10), int(cx + 10)):
-            dy = (y - cy) / sy
-            dx = (x - cx - tilt * (cy - y) / 5.0) / sx
-            if dx * dx + dy * dy <= CAP_R * CAP_R:
-                lay.px[(x, y)] = _capsule_px(dx, dy, cols, glow)
-    return lay.outlined()
-
-
-def _half(cols, cx, cy, top, angle):
-    """One capsule half, rotated by `angle` degrees, as an outlined layer."""
-    a = math.radians(angle)
-    lay = Layer()
-    for y in range(int(cy - 9), int(cy + 9)):
-        for x in range(int(cx - 9), int(cx + 9)):
-            dx, dy = x - cx, y - cy
-            if dx * dx + dy * dy > CAP_R * CAP_R:
-                continue
-            # rotate into the capsule's own frame
-            lx = dx * math.cos(a) + dy * math.sin(a)
-            ly = -dx * math.sin(a) + dy * math.cos(a)
-            if top and ly < -0.5:
-                lay.px[(x, y)] = _capsule_px(lx, ly, cols)
-            elif not top and ly > 0.5:
-                lay.px[(x, y)] = _capsule_px(lx, ly + 0.6, cols)
-    return lay.outlined()
-
-
-def capsule_open(colour="coral"):
-    cols = CAPSULE_COLOURS[colour]
-    cx, cy = 15.5, 16.5
-    frames = []
-
-    def add(*layers):
-        lay = Layer()
-        for l in layers:
-            lay.merge(l)
-        frames.append(lay.to_image(32, 32, strict=False))
-
-    add(_capsule(cols, cx, cy))
-    add(_capsule(cols, cx - 1, cy, tilt=-1))
-    add(_capsule(cols, cx + 1, cy, tilt=1))
-    add(_capsule(cols, cx - 2, cy, tilt=-2))
-    add(_capsule(cols, cx + 2, cy, tilt=2))
-    add(_capsule(cols, cx, cy + 1, sx=1.2, sy=0.84, glow=True))         # squash: anticipation
-
-    def light(**kw):
-        lay = Layer()
-        if "gold" in kw:
-            burst(lay, cx, cy, GOLD_HI, kw["gold"], None, kw.get("grays"), 32)
-        burst(lay, cx, cy, WHITE, kw.get("disc", 0), kw.get("ring"), kw.get("rays"), 32, kw.get("mask"))
-        for sx, sy, arm in kw.get("stars", ()):
-            star(lay, sx + 0.5, sy + 0.5, arm, 0 if arm < 2 else 1.5, WHITE)
-        for p in kw.get("dots", ()):
-            lay.px[p] = GOLD_HI
-        return lay
-
-    # pop: halves jump apart, white core
-    add(light(disc=4.5, rays=(4, 9, 1.6, 8, 0)),
-        _half(cols, cx, cy - 3, True, -6), _half(cols, cx, cy + 2, False, 4))
-    # burst: biggest frame
-    add(light(gold=10.5, disc=8, rays=(8, 16, 2.4, 8, 0)),
-        _half(cols, cx - 4, cy - 9, True, -28), _half(cols, cx + 3, cy + 6, False, 18))
-    add(light(gold=6.5, disc=4.5, ring=(11.5, 2.0), rays=(11, 16.5, 1.5, 8, 22.5)),
-        _half(cols, cx - 8, cy - 13, True, -55), _half(cols, cx + 6, cy + 11, False, 40))
-    add(light(disc=2.5, ring=(14, 1.2), mask=lambda d: (d % 30) < 15,
-              stars=((6, 8, 3), (25, 11, 2), (9, 25, 2), (23, 24, 3))),
-        _half(cols, cx - 12, cy - 13, True, -80), _half(cols, cx + 9, cy + 17, False, 60))
-    add(light(stars=((5, 6, 2), (26, 9, 3), (8, 26, 3), (24, 26, 2), (15, 16, 1)),
-              dots=((3, 12), (28, 18), (16, 4), (17, 29))))
-    add(light(stars=((26, 8, 1), (8, 27, 1)), dots=((4, 5), (25, 27), (2, 13), (29, 19), (16, 2))))
-    return frames, 14, False
-
-
-# --- zzz ---------------------------------------------------------------------------------
-Z_GLYPHS = [["###", ".#.", "###"],
-            ["####", "..#.", ".#..", "####"],
-            ["#####", "...#.", "..#..", ".#...", "#####"]]
+# --- zzz ----------------------------------------------------------------------------
+def letter_z(cv, x, y, size, col=PAPER):
+    """Z of the given size with its top-left at (x, y), outlined."""
+    m = set()
+    for i in range(size):
+        m.add((x + i, y))
+        m.add((x + i, y + size - 1))
+        m.add((x + size - 1 - i, y + i))
+    cv.blob(m, col)
 
 
 def zzz():
+    """Two Zs drifting up and to the right, growing as they rise; loops."""
     frames = []
-    n = 6                      # frames between two letters; two letters are alive at once
-    for f in range(n):
-        out = Layer()
-        for i in range(2):
-            p = (f + i * n) / (2.0 * n)                 # 0..1 along the path
-            size = 0 if p < 0.3 else (1 if p < 0.6 else 2)
-            half = (size + 3) / 2.0
-            x = rnd(3.5 + 8.0 * p + math.sin(p * math.pi * 2) * 0.8 - half)
-            y = rnd(12.5 - 9.0 * p - half)
-            if p < 0.04:
-                lay = Layer()
-                lay.px[(x + 1, y + 1)] = CREAM
-                out.stamp(lay)
-                continue
-            lay = glyph(Z_GLYPHS[size], {"#": WHITE if size == 2 else CREAM}, x, y)
-            if p > 0.93:
-                # last frame of a letter: it breaks up instead of popping out
-                for q in list(lay.px):
-                    if (q[0] + q[1]) % 2:
-                        del lay.px[q]
-                out.merge(lay)
-            else:
-                out.stamp(lay)
-        frames.append(out.to_image(16, 16, name="zzz[%d]" % f))
-    return frames, 5, True
+    n = 8
+    for i in range(n):
+        cv = Cv()
+        for k in range(2):
+            ph = ((i + k * n / 2.0) % n) / n          # 0 just born .. 1 gone
+            size = 3 if ph < 0.25 else (4 if ph < 0.6 else 5)
+            x = rnd(1 + ph * 9)
+            y = rnd(12 - ph * 12)
+            letter_z(cv, x, y, size)
+        cv.px = {q: c for q, c in cv.px.items() if 0 <= q[0] < 16 and 0 <= q[1] < 16}
+        frames.append(cv.image(16, 16, name="zzz[%d]" % i))
+    return frames, 6, True
 
 
-# --- lamp flicker --------------------------------------------------------------------------
-def _own_lamp(lit):
-    lay = Layer()
-    body = Layer()
-    body.rect(3, 4, 28, 5, CREAM_SH)
-    body.rect(3, 4, 28, 4, CREAM)
-    body.rect(3, 6, 4, 8, DARK)
-    body.rect(27, 6, 28, 8, DARK)
-    body.rect(5, 6, 26, 8, WHITE if lit else TUBE_OFF)
-    if lit:
-        body.rect(5, 8, 26, 8, GOLD_HI)
-    else:
-        body.rect(5, 6, 26, 6, BATH_MINT)
-    lay.stamp(body)
-    for x in (8, 23):
-        lay.rect(x, 0, x, 2, INK)
-    return lay.to_image(32, 12, name="lamp")
-
-
-def lamp_flicker(props_dir=None):
-    off = on = None
-    source = "own"
-    if props_dir:
-        p_off = os.path.join(props_dir, "ceiling_lamp_off.png")
-        p_on = os.path.join(props_dir, "ceiling_lamp_on.png")
-        if os.path.exists(p_off) and os.path.exists(p_on):
-            a, b = Image.open(p_off).convert("RGBA"), Image.open(p_on).convert("RGBA")
-            if a.size == (32, 12) and b.size == (32, 12):
-                off, on, source = a, b, "props"
-    if off is None:
-        off, on = _own_lamp(False), _own_lamp(True)
-    # "ends": only the two tube ends glow, the classic fluorescent start-up
-    ends = off.copy()
-    ends.paste(on.crop((0, 0, 9, 12)), (0, 0))
-    ends.paste(on.crop((23, 0, 32, 12)), (23, 0))
-    left = off.copy()
-    left.paste(on.crop((0, 0, 16, 12)), (0, 0))
-    seq = [off, ends, off, off, on, ends, off, left, on, off, on, on]
-    return [f.copy() for f in seq], 14, False, source
-
-
-# --- CRT screen glow ---------------------------------------------------------------------------
-SCREEN_TEXT = [(4, 5, 12), (6, 5, 9), (8, 5, 15), (10, 5, 11)]   # (row, x0, x1)
-
-
-def screen_glow():
+# --- dust ---------------------------------------------------------------------------
+def dust_puff():
+    """A little cloud kicked up at the feet: pops, billows, splits into three
+    round puffs that drift up and out, shrinking to specks."""
     frames = []
-    n = 6
-    for f in range(n):
-        lay = Layer()
-        band = 2 + rnd(f * 13.0 / n)
-        for y in range(2, 15):
-            for x in range(3, 21):
-                if (x in (3, 20)) and (y in (2, 14)):
-                    continue
-                lit = y in (band, band + 1) or y == band - 13 + 1
-                lay.px[(x, y)] = SCREEN_BAND if lit else SCREEN_BG
-        for row, x0, x1 in SCREEN_TEXT:
-            bright = row in (band, band + 1)
-            for x in range(x0, x1 + 1):
-                if (x + row) % 5 == 0:
-                    continue                     # gaps between "words"
-                lay.px[(x, row)] = MINT_HI if bright else MINT
-        # prompt and blinking cursor on the last line
-        lay.px[(5, 12)] = MINT
-        lay.px[(6, 12)] = MINT
-        if f < n // 2:
-            lay.rect(8, 12, 9, 12, WHITE)
-        frames.append(lay.to_image(24, 22, name="screen_glow[%d]" % f))
-    return frames, 8, True
+    spec = [
+        [(6, 7, 10, 10)],
+        [(3, 6, 8, 10), (8, 5, 13, 10), (6, 3, 10, 7)],
+        [(1, 5, 6, 10), (9, 4, 14, 9), (5, 2, 10, 7), (5, 7, 10, 10)],
+        [(1, 4, 5, 8), (10, 3, 14, 7), (6, 1, 9, 4), (7, 8, 8, 9)],
+        [(1, 3, 3, 5), (12, 2, 14, 4), (7, 1, 8, 2)],
+        [(1, 2, 1, 2), (14, 1, 14, 1), (7, 1, 7, 1)],
+    ]
+    for i, puffs in enumerate(spec):
+        cv = Cv()
+        if i < 3:                                      # one billowing cloud
+            m = set()
+            for (x0, y0, x1, y1) in puffs:
+                m |= oval(x0, y0, x1, y1)
+            cv.blob(m, PAPER)
+            cv.fill(m - shift(m, -1, -1), CREAM_SH)
+            cv.fill({q for q in m - shift(m, 1, 1) if q[1] < 5}, WHITE)
+        else:                                          # separate puffs
+            for (x0, y0, x1, y1) in puffs:
+                d = oval(x0, y0, x1, y1) if x1 - x0 >= 2 else rect(x0, y0, x1, y1)
+                cv.blob(d, PAPER)
+                if x1 - x0 >= 3:
+                    cv.fill(d - shift(d, -1, -1), CREAM_SH)
+        frames.append(cv.image(16, 12, name="dust_puff[%d]" % i))
+    return frames, 14, False
+
+
+# --- speech dots --------------------------------------------------------------------
+def speech_dots():
+    """Three dots bouncing one after the other inside a speech bubble; loops."""
+    frames = []
+    hop = [0, -2, -3, -2, 0, 0, 0, 0]
+    for i in range(8):
+        cv = Cv()
+        bubble = box(1, 1, 18, 9, 2)
+        tail = {(4, 10), (5, 10), (4, 11), (3, 12)} - {(3, 12)}
+        cv.blob(bubble | tail | {(3, 11)}, PAPER)
+        cv.fill({q for q in bubble if q[1] == 9}, CREAM)
+        for k in range(3):
+            dy = hop[(i - k * 2) % 8]
+            x = 5 + k * 4
+            cv.fill(rect(x, 5 + dy, x + 1, 6 + dy), INK)
+        frames.append(cv.image(20, 14, name="speech_dots[%d]" % i))
+    return frames, 10, True

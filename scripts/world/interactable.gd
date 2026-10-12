@@ -3,8 +3,16 @@ extends Node2D
 
 var prompt_fn: Callable = Callable()
 var interact_fn: Callable = Callable()
-## How far to each side of its position, in world pixels, the player can use it.
+## How far from its use point, in world pixels, the player can use it.
 var reach: float = 16.0
+## Where the player stands to use it, relative to this node. Things on the
+## back wall are used from the floor in front of them.
+var use_offset: Vector2 = Vector2.ZERO
+
+
+## The spot on the floor, in world coordinates, the reach is measured from.
+func use_point() -> Vector2:
+	return global_position + use_offset
 
 
 func get_prompt() -> String:
