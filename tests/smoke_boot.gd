@@ -71,12 +71,29 @@ func _run() -> void:
 	await create_timer(3.2).timeout
 	Input.action_release("move_right")
 	await frames(3)
-	check(main.player.global_position.x > store.room_range("corridor").x, "player can walk from the bathroom into the corridor")
+	check(main.player.global_position.x < store.room_range("corridor").x, "the bathroom is a room of its own: its wall stops the player")
+	check(store.zone == "bath", "the game starts in the bathroom scene")
 	check(absf(main.player.global_position.y - store.SPAWN.y) < 0.01, "walking sideways keeps the player's depth")
 	check(main.player.z_index == store.floor_z(main.player.position.y), "the player is depth-sorted by the floor line")
+	# Doors lead from one scene to another.
+	_go(main, store.zone_doors[1]["node"].use_point())
+	check(main.player.focused_interactable() == store.zone_doors[1]["node"], "the bathroom has a door")
+	store.zone_doors[1]["node"].interact()
+	await create_timer(0.7).timeout
+	check(store.zone == "store" and main.player.controls_enabled, "the bathroom door leads into the store")
+	check(main.player.global_position.distance_to(store.zone_doors[0]["node"].use_point()) < 2.0, "the player comes out at the door on the other side")
+	store.zone_doors[2]["node"].interact()
+	await create_timer(0.7).timeout
+	check(store.zone == "staff", "a door in the reception leads to the staff room")
+	check(main.player.walk_area.position.x >= store.ZONES["staff"].x, "the staff room's own walls bound the walk")
+	store.zone_doors[3]["node"].interact()
+	await create_timer(0.7).timeout
+	check(store.zone == "store", "and its door leads back to the store")
 
 	# Two axes: towards the camera, then away from it until the back wall.
 	var area: Rect2 = store.WALK_AREA
+	# In the corridor, where nothing stands between the player and the wall.
+	_go(main, Vector2(store.room_range("corridor").x + 40.0, store.SPAWN.y))
 	var depth_before: float = main.player.global_position.y
 	Input.action_press("move_back")
 	await create_timer(0.6).timeout
@@ -97,6 +114,23 @@ func _run() -> void:
 	Input.action_release("move_back")
 	check(main.player.global_position.x <= area.end.x and main.player.global_position.y <= area.end.y, "the end wall and the floor's edge stop the player")
 	check(absf(main.player.global_position.y - area.end.y) < 0.01, "the player reaches the near edge of the floor")
+
+	# Art is drawn finer than the world and shown at 1 / ART_SCALE; anchors are
+	# measured on the pictures and converted to world pixels.
+	for machine_id in store.machines:
+		var built: Dictionary = store.machines[machine_id]
+		var picture: Vector2 = Vector2(built["off"].texture.get_size())
+		check((picture * built["off"].scale).is_equal_approx(picture / Sprites.ART_SCALE) and built["anim"].scale.is_equal_approx(built["off"].scale), "%s is shown at its texture size divided by the art scale" % machine_id)
+		var canvas: Vector2 = Vector2(built["canvas"])
+		check(Rect2(-canvas.x / 2.0, -canvas.y, canvas.x, canvas.y).has_point(built["chute"]), "%s: the capsule rests inside the machine's world rectangle" % machine_id)
+	var grade: CanvasLayer = main.get_node_or_null("ScreenGrade")
+	check(grade != null and grade.get_child_count() > 0, "the film grade layer exists")
+	var grade_passes_mouse: bool = grade != null
+	if grade != null:
+		for child in grade.get_children():
+			if child is Control and child.mouse_filter != Control.MOUSE_FILTER_IGNORE:
+				grade_passes_mouse = false
+	check(grade_passes_mouse, "the film grade never stops mouse input")
 
 	# A machine's footprint is solid; the gap beside it is not.
 	var machine_at: Vector2 = store.machines["machine_001"]["at"]
@@ -127,8 +161,9 @@ func _run() -> void:
 	check(store.gallery[core.data.figure_order[0]]["figure"].modulate == store.SILHOUETTE, "undiscovered figures are dark silhouettes")
 	check(_silhouettes_still(store, core), "undiscovered figures show their still picture, not a loop")
 	check(_gallery_fits(store, core.data.figure_order.size()) == "", "every gallery spot is whole, inside the wall and clear of the lamps: %s" % _gallery_fits(store, core.data.figure_order.size()))
-	check(_unplaced_ambient(store).is_empty(), "every ambient animation has a place: %s" % str(_unplaced_ambient(store)))
-	_go(main, Vector2(1010.0, 60.0))
+	check(store.ambient.placed.size() >= 5 and store.ambient.placed.size() <= 14, "the compact store keeps only a handful of ambient animations")
+	check(store.STORE_WIDTH <= 1280.0, "the whole store is under three screens wide")
+	_go(main, Vector2(740.0, 60.0))
 	await shot("01b_gallery_dark")
 	_go(main, store.SPAWN)
 	# The HUD keeps to the front of the floor: price signs are never under it,
@@ -162,14 +197,23 @@ func _run() -> void:
 	check(first["anim"].visible and not first["off"].visible, "machines wake up with the power")
 	check(first["anim"].animation == "machine_001_idle" and first["anim"].is_playing(), "an awake machine loops its idle animation")
 	check(store.machines["machine_006"]["anim"].visible, "the last machine is awake too")
-	_go(main, Vector2(400.0, 50.0))
+	_go(main, Vector2(390.0, 50.0))
 	await shot("02_hall_lit")
 
 	# First spin: sell through the real button.
 	core.rand_fn = func() -> float: return 0.0
 	store.machines["machine_001"]["body"].interact()
-	check(core.run.coins == 2, "spin paid once")
-	await create_timer(1.5).timeout
+	check(ui.open_modal_name() == "machine" and ui.machine_scene.machine_id == "machine_001", "using a machine steps inside it")
+	check(core.run.coins == 3 and not core.run.has_pending_prize(), "stepping inside costs nothing")
+	check(not main.player.controls_enabled, "the hall waits while the player is inside a machine")
+	await shot("21_machine_gacha")
+	ui.machine_scene.press_action()
+	check(core.run.coins == 2 and core.run.has_pending_prize(), "the play key pays once and the prize is decided")
+	check(ui.machine_scene.is_playing(), "the crank is waiting for the player's hand")
+	check(not ui.machine_scene.show_machine("machine_002"), "no jumping to another machine in the middle of a play")
+	ui.machine_scene.press_action()
+	check(core.run.coins == 2, "pressing again mid-play pays nothing")
+	ui.machine_scene.finish_now()
 	check(ui.open_modal_name() == "prize", "prize panel opens after the crank")
 	var won_id: String = core.pending_prize_view()["figure_id"]
 	check(store.gallery[won_id]["base"] != null and store.gallery[won_id]["base"].visible, "the discovered figure stands on a base in the gallery")
@@ -190,17 +234,29 @@ func _run() -> void:
 		await shot("03a_prize_revealed")
 	ui.prize_panel.sell_button.pressed.emit()
 	check(core.run.coins == 3, "Sell button credits the sale")
-	check(not ui.is_modal_open(), "panel closes after selling")
+	check(ui.open_modal_name() == "machine", "selling returns to the machine, ready for another play")
+	check(ui.machine_scene.show_machine("machine_005") and ui.machine_scene.machine_id == "machine_005", "the player can jump straight to another machine")
+	check(main.player.global_position.distance_to(store.machines["machine_005"]["body"].use_point()) < 2.0, "jumping machines moves the player in the hall too")
+	await shot("22_machine_crane")
+	ui.machine_scene.show_machine("machine_006")
+	await shot("23_machine_plinko")
+	ui.close_modal()
+	check(not ui.is_modal_open() and main.player.controls_enabled, "Esc steps back out into the hall")
+	check(main.player.global_position.distance_to(store.machines["machine_006"]["body"].use_point()) < 2.0, "the player comes out in front of the last machine")
 	ui.prize_panel.sell_button.pressed.emit()
 	check(core.run.coins == 3, "a second click sells nothing")
 
 	# Low funds: Keep is disabled, and closing the panel keeps the prize.
 	core.run.coins = 2
-	store.machines["machine_001"]["body"].interact()
-	await create_timer(1.5).timeout
+	_spin(main, "machine_001")
 	check(ui.prize_panel.keep_button.disabled, "Keep disabled with 1 coin left")
 	ui.close_modal()
 	check(core.run.has_pending_prize(), "closing the panel keeps the prize pending")
+	check(ui.open_modal_name() == "machine", "closing the prize returns to the machine")
+	ui.machine_scene.press_action()
+	check(ui.open_modal_name() == "prize", "the play key reopens a waiting prize instead of paying again")
+	ui.close_machine()
+	check(not ui.is_modal_open() and core.run.has_pending_prize(), "leaving the machine keeps the prize pending")
 	store.machines["machine_002"]["body"].interact()
 	check(ui.open_modal_name() == "prize", "any machine reopens the pending prize")
 	await shot("03b_prize_on_base")
@@ -208,6 +264,7 @@ func _run() -> void:
 	check(core.run.has_pending_prize(), "disabled Keep resolves nothing")
 	ui.prize_panel.sell_button.pressed.emit()
 	check(not core.run.has_pending_prize(), "prize sold")
+	ui.close_machine()
 
 	# Catalog and locked sofa.
 	ui.toggle_catalog()
@@ -220,9 +277,9 @@ func _run() -> void:
 
 	# Machine 002 unlocks the sofa; Cancel spends nothing.
 	core.run.coins = core.machine_price("machine_002") + 10
-	store.machines["machine_002"]["body"].interact()
-	await create_timer(1.5).timeout
+	_spin(main, "machine_002")
 	ui.prize_panel.sell_button.pressed.emit()
+	ui.close_machine()
 	check(core.is_prestige_unlocked(), "machine 002 unlocks prestige")
 	# Amounts come from the data tables so a rebalance does not break this test.
 	var appraisal_cost: int = core.data.prestige_upgrades["better_appraisal"]["prestige_cost_curve"][0]
@@ -255,9 +312,9 @@ func _run() -> void:
 	store.door.interact()
 	check(not ui.is_modal_open() and not core.perm.story_completed, "the door is locked without the key")
 	core.run.coins = 1000
-	store.machines["machine_001"]["body"].interact()
-	await create_timer(1.5).timeout
+	_spin(main, "machine_001")
 	ui.prize_panel.sell_button.pressed.emit()
+	ui.close_machine()
 	check(store.machines["machine_001"]["affordable"] and store.machines["machine_001"]["price"].affordable, "a machine the player can pay for lights its price sign")
 	check(not store.machines["machine_004"]["affordable"] and not store.machines["machine_004"]["price"].affordable, "a machine that costs too much keeps its sign dull")
 	store.reception.interact()
@@ -277,7 +334,7 @@ func _run() -> void:
 	_go(main, Vector2(350.0, 60.0))
 	await shot("07_machine_row")
 	# A look at every room with the lights on.
-	var tour: Dictionary = {"11_bathroom": Vector2(90.0, 60.0), "12_corridor": Vector2(300.0, 70.0), "13_hall_right": Vector2(650.0, 50.0), "14_gallery_left": Vector2(1020.0, 60.0), "15_gallery_mid": Vector2(1340.0, 70.0), "15b_gallery_right": Vector2(1650.0, 70.0), "16_reception": Vector2(1955.0, 90.0), "17_staff": Vector2(2140.0, 60.0)}
+	var tour: Dictionary = {"11_bathroom": Vector2(70.0, 60.0), "12_corridor": Vector2(200.0, 60.0), "13_hall_right": Vector2(560.0, 50.0), "14_gallery": Vector2(760.0, 60.0), "16_reception": Vector2(900.0, 90.0), "17_staff": Vector2(1055.0, 60.0)}
 	for shot_name in tour:
 		_go(main, tour[shot_name])
 		await create_timer(0.3).timeout
@@ -293,7 +350,7 @@ func _run() -> void:
 	await create_timer(0.3).timeout
 	check(main.player.is_sleeping(), "the player can lie down on the sofa")
 	await shot("19_sofa_sleep")
-	_go(main, Vector2(400.0, 60.0))
+	_go(main, Vector2(390.0, 60.0))
 	store.celebrate(main.player.position)
 	await create_timer(0.5).timeout
 	await shot("20_celebration")
@@ -302,17 +359,22 @@ func _run() -> void:
 	core.run.coins = core.machine_price("machine_005") * 3
 	_go(main, store.machines["machine_005"]["body"].use_point())
 	store.machines["machine_005"]["body"].interact()
-	await create_timer(1.6).timeout
+	ui.machine_scene.press_action()
+	ui.machine_scene.press_action()
+	await create_timer(1.0).timeout
 	await shot("08a_crane_moving")
-	await create_timer(1.4).timeout
+	await create_timer(2.2).timeout
 	check(ui.open_modal_name() == "prize", "the crane hands over a prize")
 	await shot("08_crane_prize")
 	ui.prize_panel.sell_button.pressed.emit()
 	core.run.coins = core.machine_price("machine_006") * 3
-	store.machines["machine_006"]["body"].interact()
-	await create_timer(2.6).timeout
+	check(ui.machine_scene.show_machine("machine_006"), "from the crane straight to the plinko board")
+	ui.machine_scene.press_action()
+	ui.machine_scene.press_action()
+	await create_timer(3.0).timeout
 	check(ui.open_modal_name() == "prize", "plinko hands over a prize")
 	ui.prize_panel.sell_button.pressed.emit()
+	ui.close_machine()
 	for machine_id in ["machine_002", "machine_003", "machine_004"]:
 		core.run.coins = core.machine_price(machine_id) * 3
 		var played: Dictionary = core.play_machine(machine_id)
@@ -341,9 +403,17 @@ func _run() -> void:
 	_finish()
 
 
+## Steps inside a machine and plays it through to the prize panel.
+func _spin(main: Node, machine_id: String) -> void:
+	main.store.machines[machine_id]["body"].interact()
+	main.ui.machine_scene.press_action()
+	main.ui.machine_scene.finish_now()
+
+
 ## Puts the player on a floor point and the camera over it.
 func _go(main: Node, at: Vector2) -> void:
 	main.player.place(at)
+	main.sync_zone()
 	main.camera.position.x = at.x
 	main.camera.reset_smoothing()
 
@@ -364,7 +434,8 @@ func _silhouettes_still(store: Node2D, core: RefCounted) -> bool:
 ## other row or a lamp; else what is wrong.
 func _gallery_fits(store: Node2D, count: int) -> String:
 	var room: Vector2 = store.room_range("gallery")
-	var stack: Vector2 = Vector2(Sprites.BASE_SIZE.x, Sprites.FIGURE_SIZE.y + Sprites.BASE_SIZE.y - Sprites.BASE_STAND.y)
+	# Miniatures: neighbouring bases may touch, the figures themselves may not.
+	var stack: Vector2 = Vector2(Sprites.FIGURE_SIZE.x, Sprites.FIGURE_SIZE.y + Sprites.BASE_SIZE.y - Sprites.BASE_STAND.y) * store.GALLERY_ART_SCALE
 	var rects: Array = []
 	for index in range(count):
 		var foot: Vector2 = store.gallery_spot(index)

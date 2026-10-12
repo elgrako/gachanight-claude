@@ -1,10 +1,10 @@
 """Build every character / effect animation sheet of GachaNight (art contract
-v2, section C) plus assets/sprites/anim/anims.json.
+v3: old-cartoon sepia, 1.5 sprite px per world px) plus assets/sprites/anim/anims.json.
 
 Run: python tools/pixel/build_anims.py
 Outputs: assets/sprites/anim/<name>.png, assets/sprites/anim/anims.json and,
-for review, tools/pixel/previews/anim_<name>.png (x4 contact sheet, all frames
-side by side) and tools/pixel/previews/anim_<name>.gif (x6, real fps).
+for review, tools/pixel/previews/anim_<name>.png (x3 contact sheet, all frames
+side by side) and tools/pixel/previews/anim_<name>.gif (x4, real fps).
 Sheets and previews of animations that no longer exist are removed.
 Deterministic. Exits non-zero when the outputs do not match the contract.
 """
@@ -31,16 +31,21 @@ PREVIEWS = os.path.join(HERE, "previews")
 # Animation name -> (frame size, loop) required by the art contract, section C.
 # loop None = the author's choice.
 REQUIRED = {
-    "player_idle": ((40, 56), True), "player_walk": ((40, 56), True), "player_run": ((40, 56), True),
-    "player_use": ((40, 56), False), "player_cheer": ((40, 56), False), "player_sleep": ((56, 32), True),
-    "robot_idle": ((28, 34), True), "robot_work": ((28, 34), True),
-    "coin_spin": ((12, 12), True), "coin_pickup": ((20, 28), False),
-    "capsule_open": ((40, 40), False), "capsule_open_blue": ((40, 40), False),
-    "capsule_open_green": ((40, 40), False), "capsule_open_mustard": ((40, 40), False),
-    "capsule_open_gold": ((40, 40), False),
-    "sparkle": ((16, 16), False), "rarity_burst": ((64, 64), False), "zzz": ((16, 16), None),
-    "dust_puff": ((16, 12), False), "coin_flip": ((12, 28), False), "speech_dots": ((20, 14), True),
+    "player_idle": ((60, 84), True), "player_walk": ((60, 84), True), "player_run": ((60, 84), True),
+    "player_use": ((60, 84), False), "player_cheer": ((60, 84), False), "player_sleep": ((84, 48), True),
+    "player_stretch": ((60, 84), False), "player_shrug": ((60, 84), False),
+    "player_watch": ((60, 84), False), "player_wave": ((60, 84), False),
+    "robot_idle": ((42, 51), True), "robot_work": ((42, 51), True),
+    "coin_spin": ((18, 18), True), "coin_pickup": ((30, 42), False), "coin_flip": ((18, 42), False),
+    "capsule_open": ((60, 60), False), "capsule_open_blue": ((60, 60), False),
+    "capsule_open_green": ((60, 60), False), "capsule_open_mustard": ((60, 60), False),
+    "capsule_open_gold": ((60, 60), False),
+    "sparkle": ((24, 24), False), "rarity_burst": ((96, 96), False), "zzz": ((24, 24), None),
+    "dust_puff": ((24, 18), False), "speech_dots": ((30, 21), True),
 }
+# Numbers the game relies on: name -> (frames, fps).
+TIMING = {"player_use": (10, 12), "coin_flip": (12, 16), "player_walk": (12, 15), "player_run": (8, 16),
+          "robot_work": (8, 12), "capsule_open": (14, 14)}
 # Animations whose feet must touch the bottom row in at least one frame.
 GROUNDED = ("player_stretch", "player_shrug", "player_watch", "player_wave", "player_idle", "player_walk", "player_run", "player_use", "player_cheer", "player_sleep",
             "robot_idle", "robot_work")
@@ -59,8 +64,8 @@ def build():
                  % (reach, hand[0], hand[1]))
     for name, stride in (("player_walk", anim_player.WALK_STRIDE_PX), ("player_run", anim_player.RUN_STRIDE_PX)):
         f, fps_, _ = anims[name]
-        notes.append("%s: %d px per cycle, %d frames at %d fps -> natural ground speed %.1f px/s"
-                     % (name, stride, len(f), fps_, stride * fps_ / float(len(f))))
+        notes.append("%s: %d world px (%d sprite px) per cycle, %d frames at %d fps -> ground speed %.1f world px/s"
+                     % (name, stride, stride * 1.5, len(f), fps_, stride * fps_ / float(len(f))))
     anims["player_cheer"] = anim_player.cheer()
     anims["player_sleep"] = anim_player.sleep()
     anims["player_stretch"] = anim_player.stretch()      # extra
@@ -152,6 +157,18 @@ def verify():
             problems.append("%s: frame %sx%s, contract says %dx%d" % (name, e.get("frame_w"), e.get("frame_h"), fw, fh_))
         if loop is not None and e.get("loop") != loop:
             problems.append("%s: loop is %s, contract says %s" % (name, e.get("loop"), loop))
+    for name, (frames, fps) in TIMING.items():
+        e = manifest.get(name, {})
+        if (e.get("frames"), e.get("fps")) != (frames, fps):
+            problems.append("%s: %s frames at %s fps, the game relies on %d at %d"
+                            % (name, e.get("frames"), e.get("fps"), frames, fps))
+    if anim_player.USE_REACH_FRAME != 4 or anim_fx.CAPSULE_FLASH_FRAME != 7:
+        problems.append("player_use reach frame / capsule flash frame moved (the game relies on 4 and 7)")
+    if anim_robot.WORK_CENTRE != (33, 31):
+        problems.append("robot_work centre moved from (33, 31)")
+    if (anim_player.WALK_STRIDE_PX * anim_player.WALK_FPS / anim_player.WALK_FRAMES,
+            anim_player.RUN_STRIDE_PX * anim_player.RUN_FPS / anim_player.RUN_FRAMES) != (45.0, 96.0):
+        problems.append("walk / run ground speed is no longer 45 / 96 world px/s")
     for name, e in manifest.items():
         missing = [k for k in ("file", "frame_w", "frame_h", "frames", "fps", "loop") if k not in e]
         for key in missing:

@@ -1,7 +1,9 @@
-"""The helper robot: a small rubber-hose tin toy seen from the front, slightly
-from above. Square steel head with pie eyes, blue body with a gauge, long
-noodle arms with white gloves, red boots and a mustard butterfly wind-up key
-turning on top of its head. 28 x 34 frames, anchored bottom centre.
+"""The helper robot: a little cleaning machine in the old-cartoon look, seen
+from the front and slightly from above. Dark glossy dome head with two bright
+pie-cut eyes and a lamp on a springy antenna, a brass collar, a squat grey body
+with a maroon stripe and a gauge, two rubber wheels, a copper tank on its back
+and one ribbed hose arm that ends in a white glove. 42 x 51 frames, anchored
+bottom centre.
 
 `work` reaches to the robot's RIGHT (screen right) and cranks in a circle.
 """
@@ -9,20 +11,25 @@ import math
 
 from pixlib import box
 
-from anim_lib import (Cv, oval, disc, rect, hose, glove, rnd, shift,
-                      INK, RED, DRED, RED_HI, MUSTARD, MUSTARD_SH, MUSTARD_HI, BLUE, NAVY, SKY,
-                      STEEL, STEEL_HI, DSTEEL, GLOVE, PINK, WHITE)
+from anim_lib import (Cv, oval, disc, rect, hose, glove, rnd, shift, ribbed_hose, bend_ctrl, shade_px,
+                      INK, INK_SOFT, PAPER, GREY, BLACK, BRASS, COPPER, RED, WHITE)
 
-W, H = 28, 34
-CX = 14
-GROUND = 33
+W, H = 42, 51
+CX = 21
+GROUND = 50
 
 # The crank hand of `work` circles around this point (frame pixels).
-WORK_CENTRE = (22, 21)
-WORK_RADIUS = 2
+WORK_CENTRE = (33, 31)
+WORK_RADIUS = 3
 
-DEFAULT = dict(x=0, y=0, head=(0, 0), key=0, eyes="open", look=(0, 0), mouth="smile",
-               hl=(-5, 8), hr=(5, 8), bl=-2.0, br=2.0, sq=0, lamp=False, puff=0)
+DOME = (BLACK[0], BLACK[2], GREY[0], GREY[1])
+SHELL = (GREY[1], GREY[2], GREY[3], GREY[4])
+SKIRT = (GREY[0], GREY[1], GREY[2], GREY[3])
+TANK = (COPPER[0], COPPER[1], COPPER[2], COPPER[3])
+COLLAR = (BRASS[0], BRASS[1], BRASS[2], BRASS[3])
+
+DEFAULT = dict(x=0, y=0, head=(0, 0), ant=0, eyes="open", look=(0, 0), mouth="smile",
+               hr=(5, 11), br=3.0, lamp=False, puff=0, roll=0)
 
 
 def P(**kw):
@@ -31,110 +38,101 @@ def P(**kw):
     return d
 
 
-def boot(cv, x0):
-    m = {q for q in oval(x0, 28, x0 + 6, 35) if q[1] <= 32}
-    cv.blob(m, RED)
-    cv.fill({q for q in m if q[1] == 32}, DRED)
-    cv.px[(x0 + 2, 29)] = RED_HI
-
-
-def key(cv, kx, base_y, phase):
-    """Butterfly wind-up key on a collar: two looped wings on a stem. Four
-    phases make half a turn (flat on, three-quarter, edge on, three-quarter)."""
-    ph = phase % 4
-    top = base_y - 6
-    cv.blob(rect(kx - 2, base_y, kx + 1, base_y), STEEL_HI)          # collar on the head
-    stem = rect(kx - 1, top + 2, kx, base_y - 1)
-    if ph == 0:
-        wings = oval(kx - 5, top, kx - 2, top + 4) | oval(kx + 1, top, kx + 4, top + 4)
-        holes = rect(kx - 4, top + 1, kx - 3, top + 2) | rect(kx + 2, top + 1, kx + 3, top + 2)
-    elif ph == 2:
-        wings = rect(kx - 1, top, kx, top + 4)
-        holes = set()
-    else:
-        wings = oval(kx - 4, top, kx - 2, top + 4) | oval(kx + 1, top, kx + 3, top + 4)
-        holes = rect(kx - 3, top + 1, kx - 3, top + 2) | rect(kx + 2, top + 1, kx + 2, top + 2)
-    shape = wings | stem
-    cv.blob(shape, MUSTARD)
-    cv.fill({q for q in shape - shift(shape, -1, -1) if q in wings}, MUSTARD_SH)
-    cv.fill(holes, INK)
-    if ph == 0:
-        cv.px[(kx - 4, top)] = MUSTARD_HI
-        cv.px[(kx + 2, top)] = MUSTARD_HI
-    elif ph == 1:
-        cv.px[(kx - 3, top)] = MUSTARD_HI
-    elif ph == 3:
-        cv.px[(kx + 2, top)] = MUSTARD_HI
-    else:
-        cv.fill(rect(kx - 1, top, kx - 1, top + 3), MUSTARD_HI)
+def wheel(cv, x0, roll):
+    m = oval(x0, 42, x0 + 7, 49)
+    cv.blob(m, BLACK[2])
+    cv.fill(m - shift(m, 1, 1), BLACK[3])
+    cv.fill(m - shift(m, -1, -1), BLACK[0])
+    cx, cy = x0 + 3, 45
+    cv.fill(rect(cx, cy, cx + 1, cy + 1), GREY[3])
+    ox, oy = ((0, 0), (1, 0), (1, 1), (0, 1))[roll % 4]          # the hub bolt goes round
+    cv.px[(cx + ox, cy + oy)] = GREY[1]
 
 
 def draw(p):
     cv = Cv()
     bx = CX + rnd(p["x"])
     by = rnd(p["y"])
-    sq = rnd(p["sq"])
     hx = bx + rnd(p["head"][0])
-    hy = by + rnd(p["head"][1]) + sq
-    # legs and boots
-    cv.fill(hose((bx - 3, 25 + by), (10, 29), 0.0, 2), INK)
-    cv.fill(hose((bx + 2, 25 + by), (17, 29), 0.0, 2), INK)
-    boot(cv, 6)
-    boot(cv, 15)
-    # arms: long thin hoses from the shoulders, behind the body
-    sh_l = (bx - 5, 19 + by + sq)
-    sh_r = (bx + 3, 19 + by + sq)
-    hands = []
-    for sh, rel, bend in ((sh_l, p["hl"], p["bl"]), (sh_r, p["hr"], p["br"])):
-        hand = (sh[0] + rel[0], sh[1] + rel[1])
-        cv.fill(hose(sh, hand, bend, 2), INK)
-        hands.append((sh, hand))
-    # body
-    body = box(bx - 5, 18 + by + sq, bx + 4, 26 + by, 2)
-    cv.blob(body, BLUE)
-    cv.fill(body - shift(body, -2, -1), NAVY)
-    cv.fill({q for q in body if q[1] == 19 + by + sq and bx - 4 < q[0] < bx + 2}, SKY)
-    gy = 22 + by + (sq + 1) // 2
-    gauge = disc(bx - 2, gy, 1.6)
-    cv.blob(gauge, MUSTARD)
-    cv.px[(bx - 2, gy)] = INK
-    cv.px[(bx - 1, gy - 1)] = INK
-    cv.fill(rect(bx + 2, gy - 1, bx + 3, gy), RED if not p["lamp"] else RED_HI)
-    cv.dots([(bx + 1, 25 + by), (bx - 1, 25 + by), (bx - 3, 25 + by)], NAVY)
-    # head
-    head = box(hx - 8, 8 + hy, hx + 7, 17 + hy, 3)
-    for ex in (hx - 10, hx + 8):                      # ear bolts
-        cv.blob(rect(ex, 11 + hy, ex + 1, 13 + hy), RED)
-    cv.blob(head, STEEL)
-    cv.fill({q for q in head if q[1] <= 9 + hy}, STEEL_HI)
-    cv.fill(head - shift(head, -1, -1), DSTEEL)
-    cv.dots([(hx - 6, 15 + hy), (hx + 5, 10 + hy)], DSTEEL)          # rivets
-    # eyes: tall ovals touching each other
-    le = oval(hx - 4, 10 + hy, hx - 1, 15 + hy)
-    re = oval(hx + 1, 10 + hy, hx + 4, 15 + hy)
+    hy = by + rnd(p["head"][1])
+    # copper tank on the back, with its pipe into the dome
+    tank = box(bx - 17, 26 + by, bx - 12, 40 + by, 2)
+    cv.fill(hose((bx - 15, 25 + by), (hx - 9, 20 + hy), -2.0, 2), INK)
+    cv.blob(rect(bx - 16, 24 + by, bx - 13, 25 + by), BRASS[3])
+    cv.shaded(tank, TANK, (2, 2))
+    cv.fill({q for q in tank if q[1] in (30 + by, 36 + by)}, COPPER[0])          # straps
+    cv.px[(bx - 16, 28 + by)] = COPPER[4]
+    cv.px[(bx - 16, 32 + by)] = COPPER[4]
+    # wheels
+    wheel(cv, bx - 13, p["roll"])
+    wheel(cv, bx + 3, p["roll"])
+    # body: a squat shell that pumps on its wheels
+    body = box(bx - 13, 29 + by, bx + 11, 46, 4)
+    keys = {q: ("skirt" if q[1] >= 42 else "shell") for q in body}
+    cv.blob_px(shade_px(keys, {"skirt": SKIRT, "shell": SHELL}, (3, 2)))
+    cv.fill({q for q in body if q[1] == 41}, INK_SOFT)
+    cv.fill({q for q in body if q[1] == 35 + by}, RED[2])                        # the maroon stripe
+    cv.fill({q for q in body if q[1] == 36 + by}, RED[1])
+    gy = 38 + by
+    cv.blob(disc(bx - 7, gy + 1, 1.6), BRASS[3])                                 # gauge
+    cv.px[(bx - 7, gy + 1)] = INK
+    cv.px[(bx - 6, gy)] = INK
+    cv.fill(rect(bx - 2, gy, bx, gy + 1), PAPER[3])                              # sticker
+    cv.px[(bx - 1, gy + 1)] = RED[2]
+    lamp = rect(bx + 3, gy, bx + 5, gy + 1)
+    cv.fill(lamp, RED[4] if p["lamp"] else RED[1])
+    cv.px[(bx + 3, gy)] = WHITE if p["lamp"] else RED[2]
+    cv.dots([(bx - 10, 44), (bx - 3, 44), (bx + 1, 44), (bx + 8, 44)], GREY[0])   # rivets of the skirt
+    cv.dots([(bx - 10, 43), (bx - 3, 43), (bx + 1, 43), (bx + 8, 43)], GREY[4])
+    # collar and dome
+    collar = box(hx - 13, 28 + hy, hx + 11, 31 + hy, 1)
+    cv.shaded(collar, COLLAR, (2, 1))
+    cv.fill({q for q in collar if q[1] == 28 + hy and hx - 9 < q[0] < hx - 2}, BRASS[4])
+    dome = {q for q in oval(hx - 12, 10 + hy, hx + 10, 44 + hy) if q[1] <= 27 + hy}
+    cv.shaded(dome, DOME, (3, 2))
+    for q in ((hx - 9, 17 + hy), (hx - 8, 15 + hy), (hx - 7, 14 + hy), (hx - 6, 13 + hy), (hx - 9, 18 + hy)):
+        cv.px[q] = GREY[2]                                                       # gloss on the glass
+    cv.px[(hx - 8, 16 + hy)] = WHITE
+    cv.px[(hx - 5, 12 + hy)] = GREY[3]
+    # eyes: two tall bright ovals
+    le = oval(hx - 7, 16 + hy, hx - 3, 24 + hy)
+    re = oval(hx + 0, 16 + hy, hx + 4, 24 + hy)
     lx, ly = rnd(p["look"][0]), rnd(p["look"][1])
     if p["eyes"] == "open":
-        cv.blob(le, GLOVE)
-        cv.blob(re, GLOVE)
-        cv.fill(rect(hx - 3 + lx, 12 + hy + ly, hx - 2 + lx, 14 + hy + ly), INK, le)
-        cv.fill(rect(hx + 2 + lx, 12 + hy + ly, hx + 3 + lx, 14 + hy + ly), INK, re)
+        for eye, ex in ((le, hx - 5), (re, hx + 2)):
+            cv.blob(eye, WHITE)
+            cv.fill(eye - shift(eye, -1, -1), PAPER[2])
+            cv.fill(rect(ex + lx, 19 + hy + ly, ex + 1 + lx, 22 + hy + ly), INK, eye)
+            cv.fill({(ex + 1 + lx, 19 + hy + ly)}, WHITE, eye)                   # pie cut
     elif p["eyes"] == "blink":
-        cv.dots([(-4, 13), (-3, 14), (-2, 14), (-1, 13), (1, 13), (2, 14), (3, 14), (4, 13)], INK, hx, hy)
+        cv.dots([(-7, 20), (-6, 21), (-5, 21), (-4, 21), (-3, 20), (0, 20), (1, 21), (2, 21), (3, 21), (4, 20)], PAPER[2], hx, hy)
     elif p["eyes"] == "happy":
-        cv.dots([(-4, 13), (-3, 12), (-2, 12), (-1, 13), (1, 13), (2, 12), (3, 12), (4, 13)], INK, hx, hy)
+        cv.dots([(-7, 21), (-6, 20), (-5, 19), (-4, 20), (-3, 21), (0, 21), (1, 20), (2, 19), (3, 20), (4, 21)], WHITE, hx, hy)
     if p["mouth"] == "smile":
-        cv.dots([(-2, 16), (-1, 17), (0, 17), (1, 16)], INK, hx, hy)
+        cv.dots([(-3, 25), (-2, 26), (-1, 26), (0, 25)], PAPER[2], hx, hy)
     else:
-        cv.dots([(-1, 16), (0, 16), (-1, 17), (0, 17)], INK, hx, hy)
-    key(cv, hx, 7 + hy, p["key"])
-    # gloves on top
-    for sh, hand in hands:
-        d = (hand[0] - sh[0], hand[1] - sh[1])
-        glove(cv, hand, d, "fist", r=2.4, thumb=0)
-    # a puff of steam from the ear bolt while it works hard
+        cv.dots([(-2, 25), (-1, 25), (-2, 26), (-1, 26)], PAPER[2], hx, hy)
+    # antenna with a lamp that wobbles behind the head
+    a = rnd(p["ant"])
+    cv.fill(hose((hx - 1, 10 + hy), (hx - 1 + a, 5 + hy), 0.0, 1), INK)
+    bulb = disc(hx - 1 + a, 3 + hy, 1.9)
+    cv.blob(bulb, RED[4] if p["lamp"] else RED[2])
+    cv.px[(hx - 2 + a, 2 + hy)] = WHITE if p["lamp"] else RED[4]
+    # the ribbed hose arm, from a brass socket on the right shoulder
+    sh = (bx + 8, 34 + by)
+    hand = (sh[0] + p["hr"][0], sh[1] + p["hr"][1])
+    ctrl = bend_ctrl(sh, hand, p["br"])
+    ribbed_hose(cv, sh, hand, p["br"], 3)
+    cv.blob(disc(sh[0], sh[1], 2.2), BRASS[2])
+    cv.px[(sh[0] - 1, sh[1] - 1)] = BRASS[4]
+    d = (hand[0] - ctrl[0], hand[1] - ctrl[1])
+    if abs(d[0]) + abs(d[1]) < 0.01:
+        d = (1, 0)
+    glove(cv, hand, d, "fist", r=3.6, thumb=0)
+    # a puff of steam from the tank while it works hard
     if p["puff"]:
         k = p["puff"]
-        cv.blob(disc(hx - 9 - k // 2, 8 + hy - 2 * k, 1.2 if k < 3 else 0.6), WHITE)
+        cv.blob(disc(max(3, bx - 15 - k), 22 + by - 3 * k, 2.2 - 0.5 * k), WHITE)
     return cv
 
 
@@ -143,15 +141,16 @@ def render(poses, name):
 
 
 def idle():
-    """16 frames: tin-toy tick bob, long arms swaying, the key winding down, a blink, glances."""
+    """16 frames: a soft engine bob, the hose arm swaying, the antenna wobbling,
+    the lamp pulsing, a blink and glances to both sides."""
     bob = [0, 0, 1, 1, 0, 0, 0, 0]
+    wob = [0, 0, 1, 1, 0, -1, -1, 0]
     poses = []
     for i in range(16):
         b = bob[i % 8]
         prev = bob[(i - 1) % 8]
         sway = (0, 1, 1, 0, 0, -1, -1, 0)[i % 8]
-        p = P(y=b, key=i // 4, hl=(-5 - b + min(sway, 0), 8 - (b - prev)), hr=(5 + b + max(sway, 0), 8 - (b - prev)),
-              bl=-2.0 - b * 0.8, br=2.0 + b * 0.8)
+        p = P(y=b, ant=wob[(i - 1) % 8], hr=(5 + sway, 11 - (b - prev)), br=3.0 + sway, lamp=(i % 8) in (2, 3, 4))
         if i == 9:
             p["eyes"] = "blink"
         if i in (3, 4, 5, 6):
@@ -172,18 +171,17 @@ def work_hand(i, n=8):
 
 
 def work():
-    """8 frames: leans right, the right hand turns a crank in a circle, the body
-    pumps with it, the free arm swings as a counterweight, the key spins."""
+    """8 frames: leans right, the gloved hose turns a crank in a circle, the body
+    pumps with it, the antenna whips, the lamp flashes and the tank puffs."""
     poses = []
     for i in range(8):
         a = 2 * math.pi * i / 8
         down = 1 if math.sin(a) > 0.3 else 0
         hand = work_hand(i)
-        x = -2
-        sh_r = (CX + x + 3, 19 + down)
-        p = P(x=x, y=down, head=(1 if math.cos(a) > -0.3 else 0, 0), key=i, look=(1, 1 if down else 0),
-              hr=(hand[0] - sh_r[0], hand[1] - sh_r[1]), br=-2.0 * math.sin(a) - 1.5,
-              hl=(-3 - rnd(1.4 * math.cos(a)), 6 - rnd(2.2 * math.sin(a))), bl=-2.5 + math.sin(a),
+        x = -3
+        sh = (CX + x + 8, 34 + down)
+        p = P(x=x, y=down, head=(1 if math.cos(a) > -0.3 else 0, 0), ant=-rnd(1.6 * math.cos(a)), roll=i,
+              look=(1, 1 if down else 0), hr=(hand[0] - sh[0], hand[1] - sh[1]), br=4.0 + 1.5 * math.sin(a),
               lamp=(i % 4 < 2), eyes="open", mouth="o" if down else "smile",
               puff=(i - 4) if i in (5, 6, 7) else 0)
         poses.append(p)

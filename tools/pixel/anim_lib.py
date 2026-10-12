@@ -1,6 +1,7 @@
 """Shared drawing helpers for the GachaNight rubber-hose animation sheets.
 
-A frame is a sparse canvas (dict of (x, y) -> RGB). Parts are pixel masks
+Art contract v3: old-cartoon sepia, sprites at 1.5 px per world pixel.
+A frame is a sparse canvas (dict of (x, y) -> colour). Parts are pixel masks
 (sets) stamped back to front with a 1 px ink outline. Limbs are "hoses":
 quadratic Bezier curves stamped with a constant-width brush, re-posed on every
 frame, so they bend in smooth arcs and never grow elbows or knees.
@@ -19,37 +20,14 @@ if HERE not in sys.path:
 from pixlib import ell, poly, shift  # noqa: E402,F401  (shared, read-only)
 
 
-def rgb(h):
-    h = h.lstrip("#")
-    return (int(h[0:2], 16), int(h[2:4], 16), int(h[4:6], 16))
+from sepia import (INK, INK_SOFT, PAPER, SEPIA, GREY, BLACK, BRASS, COPPER, GOLD, RED, MUSTARD,  # noqa: E402,F401
+                   OLIVE, TEAL, BLUE, ROSE, PLUM, GLASS, CAPSULE)
 
-
-# --- contract palette ---------------------------------------------------------
-INK = rgb("#161320")
-RED = rgb("#e2231a")
-DRED = rgb("#9c1420")
-ORANGE = rgb("#f0802a")
-MUSTARD = rgb("#f2b632")
-CREAM = rgb("#f6e7c1")
-PAPER = rgb("#fff8e3")
-NAVY = rgb("#1f3a8a")
-BLUE = rgb("#2f7de1")
-SKY = rgb("#9fd3f5")
-GREEN = rgb("#2e9e4f")
-STEEL = rgb("#8a93a3")
-DSTEEL = rgb("#4a5160")
-GLOVE = rgb("#fffdf5")
-PINK = rgb("#f59ab5")
-WHITE = (255, 255, 255)
-# --- sparing extensions: one shadow / highlight where the palette has none ----
-MUSTARD_SH = rgb("#c4851c")
-MUSTARD_HI = rgb("#ffe08a")
-CREAM_SH = rgb("#d6c08f")
-GLOVE_SH = rgb("#cfc9bb")
-GREEN_SH = rgb("#1c6b3a")
-STEEL_HI = rgb("#c9d0da")
-RED_HI = rgb("#ff7a5c")
-GREY = (120, 124, 132)
+# Every colour comes from the shared sepia ramps (tools/pixel/sepia.py).
+S = 1.5                      # sprite pixels per world pixel (art contract v3)
+WHITE = PAPER[4]             # the brightest tone of the look: warm paper, never pure white
+GLOVE_RAMP = (PAPER[2], PAPER[3], PAPER[4], PAPER[4])
+BACKDROP = (118, 98, 72)     # review sheets only
 
 N4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
 
@@ -173,6 +151,42 @@ def rot_pt(u, v, ox, oy, ang_deg):
     return (ox + u * math.cos(a) + v * math.sin(a), oy + u * math.sin(a) - v * math.cos(a))
 
 
+# --- shading ---------------------------------------------------------------------
+def shade_px(px, ramps, depth=(3, 2), rim=True):
+    """Turn a dict pixel -> material key into colours with four tones.
+
+    ramps[key] is (deep shadow, shadow, base, highlight) or one flat colour.
+    Light comes from the upper left: a highlight line on that edge, a shadow
+    band on the lower right with a deep core, and a rim light on the last
+    pixel before the outline. The bands follow the whole silhouette.
+    """
+    mask = set(px)
+    shadow = mask - shift(mask, -depth[0], -depth[1])
+    edge = mask - shift(mask, -1, -1)
+    deep = mask - shift(mask, -2, -2)
+    if rim:
+        deep = deep - edge
+    light = (mask - shift(mask, 1, 1)) - shadow
+    out = {}
+    for q, key in px.items():
+        r = ramps[key]
+        if isinstance(r[0], int):
+            out[q] = r
+        elif q in deep:
+            out[q] = r[0]
+        elif q in shadow:
+            out[q] = r[1]
+        elif q in light:
+            out[q] = r[3]
+        else:
+            out[q] = r[2]
+    return out
+
+
+def shade_mask(mask, ramp, depth=(3, 2), rim=True):
+    return shade_px({q: 0 for q in mask}, {0: ramp}, depth, rim)
+
+
 # --- canvas ----------------------------------------------------------------------
 class Cv:
     def __init__(self):
@@ -196,6 +210,22 @@ class Cv:
                 if q not in pixels:
                     self.px[q] = ink
         self.px.update(pixels)
+
+    def shaded(self, mask, ramp, depth=(3, 2), rim=True, ink=INK):
+        """Stamp a part in four tones with a 1 px outline."""
+        self.blob_px(shade_mask(mask, ramp, depth, rim), ink)
+
+    def thicken(self, w, h, ymax=None):
+        """Second pixel of ink around the whole silhouette (2 px outer contour)."""
+        ymax = h - 1 if ymax is None else ymax
+        add = set()
+        for (x, y) in self.px:
+            for ax, ay in N4:
+                q = (x + ax, y + ay)
+                if q not in self.px and 0 <= q[0] < w and 0 <= q[1] <= ymax:
+                    add.add(q)
+        for q in add:
+            self.px[q] = INK
 
     def fill(self, mask, col, within=None):
         for q in mask:
@@ -232,47 +262,56 @@ class Cv:
 
 
 # --- gloves (shared by the player and the robot) -----------------------------------
-def glove(cv, pos, direction, kind="fist", r=3.4, thumb=1):
-    """White cartoon glove at `pos`; `direction` points from the wrist to the fingers."""
+def glove(cv, pos, direction, kind="fist", r=5.0, thumb=1):
+    """Puffy white cartoon glove at `pos`; `direction` points from the wrist to
+    the fingers. Rolled cuff, thumb, three ink lines on the back."""
     x, y = rnd(pos[0]), rnd(pos[1])
     d = math.hypot(direction[0], direction[1]) or 1.0
     dx, dy = direction[0] / d, direction[1] / d
     px_, py_ = -dy, dx
-    # rolled cuff: a short band across the wrist, split from the palm by the outline
-    half = r * 0.72
-    cxw, cyw = x - dx * (r + 0.7), y - dy * (r + 0.7)
-    cuff = stroke([(cxw + px_ * half * k / 6.0, cyw + py_ * half * k / 6.0) for k in range(-6, 7)], 2 if r >= 3 else 1)
-    if r < 3:
-        cuff |= disc(x - dx * (r + 0.2), y - dy * (r + 0.2), r * 0.62)
-    cv.blob(cuff, GLOVE)
-    for q in cuff - shift(cuff, -1, -1):
-        cv.px[q] = GLOVE_SH
-    palm = disc(x, y, r)
-    parts = set(palm)
+    big = r >= 4.5
+    half = r * 0.75
+    cxw, cyw = x - dx * (r + 1.0), y - dy * (r + 1.0)
+    cuff = stroke([(cxw + px_ * half * k / 8.0, cyw + py_ * half * k / 8.0) for k in range(-8, 9)], 3 if big else 2)
+    cv.shaded(cuff, GLOVE_RAMP, (1, 1), False)
+    fw = 3 if big else 2
     if kind == "open":
-        for ang in (-40, 0, 40):
+        for ang in (-38, 0, 38):
             a = math.radians(ang)
             fx = dx * math.cos(a) - dy * math.sin(a)
             fy = dx * math.sin(a) + dy * math.cos(a)
-            finger = stroke([(x + fx * k, y + fy * k) for k in (r - 1, r, r + 1, r + 1.8)], 2 if r < 3 else 3)
-            cv.blob(finger, GLOVE)
+            n = int(r + 4)
+            finger = stroke([(x + fx * (r - 1.5 + k * 0.5), y + fy * (r - 1.5 + k * 0.5)) for k in range(n)], fw)
+            cv.shaded(finger, GLOVE_RAMP, (1, 1), False)
     elif kind == "point":
-        finger = stroke([(x + dx * k, y + dy * k) for k in (r - 1, r, r + 1, r + 2, r + 3)], 2 if r < 3 else 3)
-        cv.blob(finger, GLOVE)
-    if thumb and r >= 3:
-        cv.blob(disc(x + px_ * thumb * (r - 0.4) + dx * 0.5, y + py_ * thumb * (r - 0.4) + dy * 0.5, 1.3), GLOVE)
-    cv.blob(parts, GLOVE)
-    # one shadow shade along the lower right edge
-    for (qx, qy) in palm:
-        if (qx + 1, qy + 1) not in palm and ((qx + 1, qy) not in palm or (qx, qy + 1) not in palm):
-            cv.px[(qx, qy)] = GLOVE_SH
-    if kind == "fist" and r >= 3:
-        # knuckle seams
-        for s in (-1, 1):
-            sx = x + dx * (r - 1.6) + px_ * s * 1.2
-            sy = y + dy * (r - 1.6) + py_ * s * 1.2
-            cv.px[(rnd(sx), rnd(sy))] = INK
-            cv.px[(rnd(sx + dx), rnd(sy + dy))] = INK
+        n = int(r + 8)
+        finger = stroke([(x + dx * (r - 1.5 + k * 0.5), y + dy * (r - 1.5 + k * 0.5)) for k in range(n)], fw)
+        cv.shaded(finger, GLOVE_RAMP, (1, 1), False)
+    if thumb:
+        cv.shaded(disc(x + px_ * thumb * (r - 0.6) + dx * 0.8, y + py_ * thumb * (r - 0.6) + dy * 0.8, 2.0 if big else 1.4),
+                  GLOVE_RAMP, (1, 1), False)
+    cv.shaded(disc(x, y, r), GLOVE_RAMP, (2, 1), False)
+    # the three lines on the back of the hand
+    lines = (-1, 0, 1) if big else (-0.6, 0.6)
+    for s_ in lines:
+        for k in ((-3.4, -2.4, -1.4) if big else (-1.8, -0.8)):
+            cv.px[(rnd(x + px_ * s_ * 2.0 + dx * k), rnd(y + py_ * s_ * 2.0 + dy * k))] = INK_SOFT
+
+
+def ribbed_hose(cv, a, b, bend, w=3, dark=None, light=None, pitch=2.0):
+    """A corrugated hose: rings of two tones along the curve, inked."""
+    dark = dark or GREY[1]
+    light = light or GREY[3]
+    pts = bezier(a, bend_ctrl(a, b, bend), b, 64)
+    cv.blob(stroke(pts, w), dark)
+    run, last = 0.0, pts[0]
+    for (x, y) in pts:
+        run += math.hypot(x - last[0], y - last[1])
+        last = (x, y)
+        if int(run / pitch) % 2 == 0:
+            for (ax, ay) in BRUSH[w]:
+                cv.px[(rnd(x) + ax, rnd(y) + ay)] = light
+    return pts
 
 
 # --- shapes for effects ---------------------------------------------------------
@@ -294,23 +333,23 @@ def strip(frames):
     return sheet
 
 
-def contact_sheet(frames, scale=4, gap=2):
+def contact_sheet(frames, scale=3, gap=2):
     w, h = frames[0].size
     n = len(frames)
-    sheet = Image.new("RGBA", (n * w * scale + (n + 1) * gap, h * scale + 2 * gap), (70, 72, 78, 255))
+    sheet = Image.new("RGBA", (n * w * scale + (n + 1) * gap, h * scale + 2 * gap), (58, 46, 36, 255))
     for i, f in enumerate(frames):
-        cell = Image.new("RGBA", (w, h), GREY + (255,))
+        cell = Image.new("RGBA", (w, h), BACKDROP + (255,))
         cell.alpha_composite(f)
         cell = cell.resize((w * scale, h * scale), Image.NEAREST)
         sheet.paste(cell, (gap + i * (w * scale + gap), gap))
     return sheet.convert("RGB")
 
 
-def save_gif(frames, path, fps, loop, scale=6):
+def save_gif(frames, path, fps, loop, scale=4):
     w, h = frames[0].size
     out = []
     for f in frames:
-        cell = Image.new("RGBA", (w, h), GREY + (255,))
+        cell = Image.new("RGBA", (w, h), BACKDROP + (255,))
         cell.alpha_composite(f)
         out.append(cell.resize((w * scale, h * scale), Image.NEAREST).convert("P", palette=Image.ADAPTIVE, colors=64))
     ms = max(20, int(round(1000.0 / fps / 10.0)) * 10)

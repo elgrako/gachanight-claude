@@ -6,6 +6,7 @@ const Player = preload("res://scripts/world/player.gd")
 const GameUi = preload("res://scripts/ui/game_ui.gd")
 const Format = preload("res://scripts/core/format.gd")
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
+const ScreenGrade = preload("res://scripts/ui/screen_grade.gd")
 
 ## The camera shows about 427 x 240 world pixels on the 1280 x 720 canvas: the
 ## whole height of the store, from the top of the wall to the floor's ledge.
@@ -19,6 +20,8 @@ const REBIRTH_FADE_IN: float = 0.9
 ## Waiting on the crane or the plinko board, the player checks the time once
 ## the reaching hand is back: this long after pressing the button, at speed 1.
 const WAIT_FIDGET_AFTER: float = 0.95
+## Going through a door between scenes: fade out, then in.
+const DOOR_FADE: float = 0.2
 
 var store: Node2D
 var player: Node2D
@@ -60,11 +63,15 @@ func _ready() -> void:
 	ui.name = "UI"
 	add_child(ui)
 	ui.setup(_core)
+	var grade: CanvasLayer = ScreenGrade.new()
+	grade.name = "ScreenGrade"
+	add_child(grade)
 	_wire_interactions()
 	ui.modal_changed.connect(_on_modal_changed)
 	ui.rebirth_requested.connect(_on_rebirth_requested)
 	ui.quit_requested.connect(_quit)
 	ui.ending_finished.connect(_on_ending_finished)
+	ui.machine_changed.connect(_stand_at_machine)
 	store.plinko_bounced.connect(func() -> void: Audio.play("plinko", -4.0, 0.2))
 	store.machine_lit.connect(func() -> void: Audio.play("click", -10.0, 0.25))
 	store.shaken.connect(_on_store_shaken)
@@ -109,7 +116,7 @@ func _unhandled_input(event: InputEvent) -> void:
 	if event.is_action_pressed("ui_cancel"):
 		_on_cancel()
 	elif event.is_action_pressed("catalog"):
-		if ui.open_modal_name() == "" or ui.open_modal_name() == "catalog":
+		if ui.open_modal_name() in ["", "catalog", "machine"]:
 			Audio.play("click")
 			ui.toggle_catalog()
 	elif event.is_action_pressed("interact") and not ui.is_modal_open():
@@ -142,6 +149,10 @@ func _wire_interactions() -> void:
 	store.door.prompt_fn = func() -> String:
 		return "[E] Use key" if _core.run.key_owned_this_run else "[E] Front door"
 	store.door.interact_fn = _use_door
+	for zone_door in store.zone_doors:
+		var target: String = zone_door["zone"]
+		zone_door["node"].prompt_fn = _zone_door_prompt.bind(target)
+		zone_door["node"].interact_fn = _use_zone_door.bind(zone_door)
 
 
 func _machine_prompt(machine_id: String) -> String:
@@ -155,57 +166,72 @@ func _machine_prompt(machine_id: String) -> String:
 		verb = "grab"
 	elif machine["machine_type"] == "plinko":
 		verb = "drop"
-	return "[E] Insert %s and %s — %s" % [Format.coins(_core.machine_price(machine_id)), verb, machine["display_name_en"]]
+	return "[E] Play %s — %s to %s" % [machine["display_name_en"], Format.coins(_core.machine_price(machine_id)), verb]
 
 
+## The hall is the lobby: using a machine steps inside it, where it is played
+## by hand (`machine_scene.gd`). Paying and the prize happen in there.
 func _use_machine(machine_id: String) -> void:
 	if _core.run.has_pending_prize():
 		ui.open_prize()
 		return
-	var result: Dictionary = _core.play_machine(machine_id)
-	if not result["ok"]:
+	if not _core.run.power_switch_on:
 		Audio.play("error")
-		match result["reason"]:
-			"power_off":
-				ui.toast("No power. The whole store is dead.")
-			"not_enough_coins":
-				player.play_emote("player_shrug")
-				ui.toast("Not enough coins. This one costs %s." % Format.number(result["price"]))
+		ui.toast("No power. The whole store is dead.")
 		return
-	# The prize is already paid and saved; the machine animation is only presentation.
+	Audio.play("click")
+	player.play_use(store.machines[machine_id]["body"].global_position.x)
+	ui.open_machine(machine_id)
+
+
+## Jumping between machines from inside moves the player in the hall too, so
+## stepping out leaves them in front of the machine they were playing.
+func _stand_at_machine(machine_id: String) -> void:
+	player.place(store.machines[machine_id]["body"].use_point())
+	sync_zone()
+	camera.position = Vector2(player.position.x, CAMERA_Y)
+	camera.reset_smoothing()
+
+
+func _zone_door_prompt(target: String) -> String:
+	match target:
+		"bath":
+			return "[E] Bathroom"
+		"staff":
+			return "[E] Staff room"
+	return "[E] Back to the store"
+
+
+## The bathroom and the staff room are scenes of their own, behind a door.
+func _use_zone_door(zone_door: Dictionary) -> void:
+	if _busy:
+		return
 	_busy = true
 	player.controls_enabled = false
-	var speed: float = maxf(_core.crank_speed_multiplier(), 0.1)
-	player.play_use(store.machines[machine_id]["body"].global_position.x, speed)
-	# The coin goes in, and the machine starts, when the hand arrives.
-	var reach: float = player.use_reach_time()
-	var is_gacha: bool = _core.data.machines[machine_id]["machine_type"] == "gacha"
-	get_tree().create_timer(reach / speed).timeout.connect(_play_insert_sounds.bind(is_gacha))
-	if not is_gacha:
-		get_tree().create_timer(WAIT_FIDGET_AFTER / speed).timeout.connect(_fidget_while_waiting)
-	await store.play_prize_animation(machine_id, result["slot"], speed, reach).finished
-	Audio.play("capsule")
+	Audio.play("door", -6.0)
+	await ui.fade_to(1.0, DOOR_FADE).finished
+	player.place(zone_door["to"])
+	sync_zone()
+	await ui.fade_to(0.0, DOOR_FADE).finished
 	_busy = false
-	player.controls_enabled = true
-	if result["auto_sold"]:
-		Audio.play("sell", -3.0)
-		ui.toast("Duplicate sold: +%s" % Format.coins(result["coins_gained"]))
-	else:
-		# The panel opens the same capsule that just dropped into the tray.
-		ui.prize_panel.reveal_capsule = store.last_capsule_color
-		ui.open_prize()
+	player.controls_enabled = not ui.is_modal_open()
 
 
-## The crane and the plinko board take their time: a glance at the watch.
-func _fidget_while_waiting() -> void:
-	if _busy:
-		player.play_emote("player_watch", true)
-
-
-func _play_insert_sounds(is_gacha: bool) -> void:
-	Audio.play("coin", -4.0)
-	if is_gacha:
-		Audio.play("crank")
+## Shows the scene the player stands in: its walls bound the walk and the view.
+func sync_zone() -> void:
+	var zone_name: String = Store.zone_at(player.position.x)
+	store.set_zone(zone_name)
+	player.walk_area = Store.zone_walk_area(zone_name)
+	var span: Vector2 = Store.ZONES[zone_name]
+	var half_view: float = get_viewport_rect().size.x / PIXEL_SCALE / 2.0
+	if span.y - span.x < half_view * 2.0:
+		# A room narrower than the screen sits still in the middle of it.
+		var centre: float = (span.x + span.y) / 2.0
+		span = Vector2(centre - half_view, centre + half_view)
+	camera.limit_left = int(span.x)
+	camera.limit_right = int(span.y)
+	camera.position = Vector2(player.position.x, CAMERA_Y)
+	camera.reset_smoothing()
 
 
 func _use_sofa() -> void:
@@ -299,6 +325,7 @@ func _on_rebirth_requested(selection: Dictionary) -> void:
 
 func _place_player() -> void:
 	player.place(Store.SPAWN)
+	sync_zone()
 	camera.position = Vector2(player.position.x, CAMERA_Y)
 	camera.reset_smoothing()
 

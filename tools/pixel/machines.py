@@ -1,1413 +1,1440 @@
-"""Rubber-hose machines for GachaNight (art contract v2, section A).
+"""Machines of GachaNight in the old-cartoon sepia look (art contract v3).
 
-Every machine is assembled from posable parts (cap, globe with balls, base,
-crank plate, chute, noodle arms, gloves, eyes) by one drawing function that
-takes a pose. Animation frames are re-poses of the same parts with integer
-parameters, so volumes stay stable and nothing flickers.
+Six rubber-hose machine characters after the owner's reference drawings in
+`diseños/`: four gumball-style capsule machines (001-004, 72 x 126), the crane
+catcher with its top hat (005, 108 x 156) and the waving plinko (006,
+108 x 156), plus the loose sprites the game moves itself (capsules, claw,
+plinko ball).
 
-View: raised oblique camera (front of the object plus its top). Everything
-is anchored at the bottom centre of its canvas; the last row is the outline
-that touches the floor.
+Every machine is drawn from posable parts by one function that takes a pose
+dictionary, so animation frames are re-poses with stable volumes. Colours come
+from `sepia.py`; IRON and CHROME below only re-order existing swatches.
+
+Entry point: `tools/pixel/build_machines.py`.
 """
 import math
+import random
 
-from pixlib import Spr, hx, ell, box, poly, line
+from PIL import Image, ImageChops, ImageDraw
 
-# ------------------------------------------------------------------ palette
+import sepia as S
 
-INK = hx("161320")
-RED = hx("e2231a")
-DRED = hx("9c1420")
-ORANGE = hx("f0802a")
-MUSTARD = hx("f2b632")
-CREAM = hx("f6e7c1")
-PAPER = hx("fff8e3")
-NAVY = hx("1f3a8a")
-BLUE = hx("2f7de1")
-SKY = hx("9fd3f5")
-GREEN = hx("2e9e4f")
-STEEL = hx("8a93a3")
-DSTEEL = hx("4a5160")
-GLOVE = hx("fffdf5")
-PINK = hx("f59ab5")
-# sparing extensions (one shadow / one highlight for hues the contract lacks)
-LRED = hx("ff7a5c")      # highlight on red
-DGREEN = hx("1c6b3c")    # shadow on green
-LGREEN = hx("7fd66b")    # highlight on green
-DMUST = hx("c07a1e")     # shadow on mustard
-LMUST = hx("ffe08a")     # highlight on mustard
-DNAVY = hx("14245c")     # shadow on navy
-DPINK = hx("cf5f86")     # shadow on pink
-LPINK = hx("ffd0dc")     # highlight on pink
-DORANGE = hx("b8521c")   # shadow on orange
-LSTEEL = hx("c9d0da")    # highlight on steel
-DSKY = hx("6fb1e4")      # shadow on glass
-OFFSKY = hx("86b2d4")    # unpowered glass
-OFFDSKY = hx("6492bb")   # unpowered glass shadow
-DCREAM = hx("d6c49c")    # shadow on cream / glove
-HOLE = hx("2b2838")      # inner wall of chutes and holes
-GOLD = hx("ffd84a")      # gold capsule
-OFFCREAM = hx("e6d6ae")  # unpowered plinko board ray
+INK = S.INK
+INK_SOFT = S.INK_SOFT
+CLEAR = S.CLEAR
+PAPER, SEPIA, GREY, BLACK = S.PAPER, S.SEPIA, S.GREY, S.BLACK
+BRASS, COPPER, GOLD = S.BRASS, S.COPPER, S.GOLD
+RED, MUSTARD, OLIVE, TEAL, BLUE, ROSE, PLUM, GLASS = (
+    S.RED, S.MUSTARD, S.OLIVE, S.TEAL, S.BLUE, S.ROSE, S.PLUM, S.GLASS)
 
-# name -> (base, shadow, highlight)
-BODY = {
-    "red": (RED, DRED, LRED),
-    "green": (GREEN, DGREEN, LGREEN),
-    "mustard": (MUSTARD, DMUST, LMUST),
-    "blue": (BLUE, NAVY, SKY),
-    "navy": (NAVY, DNAVY, BLUE),
-    "pink": (PINK, DPINK, LPINK),
+# Re-ordered swatches (no new colours): dark cast iron and bright chrome.
+IRON = [BLACK[2], GREY[0], GREY[1], GREY[2], GREY[3]]
+CHROME = [GREY[1], GREY[2], GREY[3], GREY[4], PAPER[4]]
+
+GACHA = (72, 126)
+CAB = (108, 156)
+
+ANCHORS = {
+    "machine_001": {"chute": [44, 104]},
+    "machine_002": {"chute": [44, 104]},
+    "machine_003": {"chute": [44, 104]},
+    "machine_004": {"chute": [44, 104]},
+    "machine_005": {"chute": [29, 137], "claw_rail_y": 57, "claw_min_x": 26, "claw_max_x": 65,
+                    "claw_rest_x": 28, "grab_y": 68, "drop_x": 65, "drop_y": 97},
+    "machine_006": {"chute": [58, 141], "ball_start": [58, 60], "rows": 6, "row_step": 8,
+                    "column_step": 6, "slot_y": 118, "slot_xs": [34, 46, 58, 70, 82]},
 }
 
-BALL = {
-    "R": (RED, DRED), "Y": (MUSTARD, DMUST), "B": (BLUE, NAVY), "G": (GREEN, DGREEN),
-    "W": (GLOVE, DCREAM), "P": (PINK, DPINK), "O": (ORANGE, DORANGE),
-}
-
-N4 = ((1, 0), (-1, 0), (0, 1), (0, -1))
+# Regions that must not change during idle (and react): x0, y0, x1, y1 exclusive.
+CRANE_GLASS = (10, 54, 81, 105)
+PLINKO_BOARD = (27, 54, 90, 125)
 
 
-def edge(m):
-    """Pixels just outside a mask (4-neighbourhood): its outline."""
-    out = set()
-    for (x, y) in m:
-        for a, b in N4:
-            q = (x + a, y + b)
-            if q not in m:
-                out.add(q)
+# ----------------------------------------------------------------- helpers
+
+def new(size):
+    return Image.new("RGBA", size, CLEAR)
+
+
+def outline(lay, colour=INK):
+    """A 1 px ring (4-neighbour) around everything opaque in `lay`."""
+    alpha = lay.getchannel("A")
+    grown = Image.new("L", alpha.size, 0)
+    for dx, dy in ((1, 0), (-1, 0), (0, 1), (0, -1)):
+        shifted = Image.new("L", alpha.size, 0)
+        shifted.paste(alpha, (dx, dy))
+        grown = ImageChops.lighter(grown, shifted)
+    ring = ImageChops.subtract(grown, alpha)
+    out = Image.new("RGBA", alpha.size, colour)
+    out.putalpha(ring)
     return out
 
 
-def rows_mask(rows, cx):
-    """rows: {y: half_width}; symmetric span around the centre line cx."""
-    return {(x, y) for y, hw in rows.items() for x in range(cx - hw, cx + hw)}
+def stamp(img, lay):
+    """Composite a part with its ink line."""
+    img.alpha_composite(outline(lay))
+    img.alpha_composite(lay)
 
 
-class Cv(Spr):
-    """Canvas with outlined hard-edged shapes and string stamps."""
-
-    def shape(self, m, c, sh=None, shc=None, hl=None, hlc=None, ink=INK):
-        self.puts(edge(m), ink)
-        self.puts(m, c)
-        if sh:
-            self.puts(m & sh, shc)
-        if hl:
-            self.puts(m & hl, hlc)
-
-    def stamp(self, rows, x, y, pal, flip=False):
-        for j, row in enumerate(rows):
-            if flip:
-                row = row[::-1]
-            for i, ch in enumerate(row):
-                if ch != ".":
-                    self.put(x + i, y + j, pal[ch])
-
-    def paste_mask(self, other, mask):
-        for (x, y) in mask:
-            v = other.get(x, y)
-            if v is not None:
-                self.put(x, y, v)
+def finish(img):
+    """Second ink pixel on the outer contour of a big sprite."""
+    out = outline(img)
+    out.alpha_composite(img)
+    return out
 
 
-# ------------------------------------------------------------------ eyes
+def clip(lay, mask):
+    lay.putalpha(ImageChops.multiply(lay.getchannel("A"), mask))
+    return lay
 
-def eye_pair(s, cx, top, w, h, state, look=0):
-    """Two tall-oval eyes touching each other, pupils resting to one side.
 
-    cx is the ink column between the eyes, top the first row of the whites.
-    States: open, wide, half, closed (asleep), happy, wink (right eye shut).
-    look: -1 / 0 / 1 or (lx, ly). lx = 0 makes the pupils converge (a look
-    straight at the viewer) so the eyes never read as a pair of zeros;
-    ly = 1 looks down at the floor in front, ly = -1 up.
-    """
-    lx, ly = look if isinstance(look, tuple) else (look, 0)
-    big = w >= 5
-    for k, x0 in enumerate((cx - w, cx + 1)):
-        st = state
-        if state == "wink":
-            st = "happy" if k == 1 else "open"
-        if st in ("closed", "happy"):
-            r = top + h // 2
-            a, b = (r, r + 1) if st == "closed" else (r + 1, r)
-            s.put(x0, a, INK)
-            s.put(x0 + w - 1, a, INK)
-            for x in range(x0 + 1, x0 + w - 1):
-                s.put(x, b, INK)
+def tone(ramp, index, on=True):
+    """A ramp colour; two steps darker when the machine is powered off."""
+    return ramp[index] if on else ramp[max(0, index - 2)]
+
+
+def circ(d, p, r, fill):
+    d.ellipse([p[0] - r, p[1] - r, p[0] + r, p[1] + r], fill=fill)
+
+
+def star_points(cx, cy, r_out, r_in, turn=-90.0):
+    pts = []
+    for i in range(10):
+        r = r_out if i % 2 == 0 else r_in
+        a = math.radians(turn + i * 36)
+        pts.append((cx + math.cos(a) * r, cy + math.sin(a) * r))
+    return pts
+
+
+def quad(p0, c, p1, n=16):
+    pts = []
+    for i in range(n + 1):
+        t = i / float(n)
+        a, b, e = (1 - t) * (1 - t), 2 * t * (1 - t), t * t
+        pts.append((a * p0[0] + b * c[0] + e * p1[0], a * p0[1] + b * c[1] + e * p1[1]))
+    return pts
+
+
+FONT5 = {
+    "P": ["####.", "#...#", "#...#", "####.", "#....", "#....", "#...."],
+    "R": ["####.", "#...#", "#...#", "####.", "#.#..", "#..#.", "#...#"],
+    "I": ["###", ".#.", ".#.", ".#.", ".#.", ".#.", "###"],
+    "Z": ["#####", "....#", "...#.", "..#..", ".#...", "#....", "#####"],
+    "E": ["#####", "#....", "#....", "####.", "#....", "#....", "#####"],
+    "L": ["#....", "#....", "#....", "#....", "#....", "#....", "#####"],
+    "N": ["#...#", "##..#", "#.#.#", "#.#.#", "#..##", "#...#", "#...#"],
+    "K": ["#...#", "#..#.", "#.#..", "##...", "#.#..", "#..#.", "#...#"],
+    "O": [".###.", "#...#", "#...#", "#...#", "#...#", "#...#", ".###."],
+}
+FONT3 = {
+    "2": ["##.", "..#", ".#.", "#..", "###"],
+    "5": ["###", "#..", "##.", "..#", "##."],
+    "c": ["...", ".##", "#..", "#..", ".##"],
+    "W": ["#...#", "#...#", "#.#.#", "##.##", "#...#"],
+    "I": ["#", "#", "#", "#", "#"],
+    "N": ["#..#", "##.#", "#.##", "#..#", "#..#"],
+    "!": ["#", "#", "#", ".", "#"],
+}
+
+
+def text(d, x, y, word, font, colour):
+    for ch in word:
+        glyph = font[ch]
+        for gy, row in enumerate(glyph):
+            for gx, bit in enumerate(row):
+                if bit == "#":
+                    d.point((x + gx, y + gy), fill=colour)
+        x += len(glyph[0]) + 1
+    return x
+
+
+ICON_COLOURS = {
+    "k": INK, "w": PAPER[4], "p": PAPER[2], "r": RED[2], "R": RED[3], "b": BLUE[2], "B": BLUE[3],
+    "g": OLIVE[2], "G": OLIVE[3], "m": MUSTARD[3], "y": GOLD[3], "s": GREY[3], "t": TEAL[3],
+    "o": ROSE[3], "u": PLUM[3],
+}
+ICONS = {
+    "rocket": ["......kkk", ".....kwwk", "....kwbwk", "...kwwwk.", ".kkwwwk..", "krkwwk...",
+               "kRrkk....", "kmRk.....", ".kk......"],
+    "planet": ["..kkkkk..", ".kBBBbbk.", "mkBBbbbkm", "kmmmmmmmk", "mkbbbbbkm", ".kbbbbbk.",
+               "..kkkkk.."],
+    "mushroom": ["..kkkkk..", ".kGwGGGk.", "kGGGGwwGk", "kwGGGGwGk", "kkkkkkkkk", "..kwwwk..",
+                 "..kwwwk..", "..kkkkk.."],
+    "tag": ["kkkkkkkk", "kwwwwwwk", "kwkkwkwk", "kwwwwwwk", "kkkkkkkk"],
+    "star": ["....k....", "...kyk...", "kkkkykkkk", "kyyyyyyyk", ".kyyyyyk.", ".kyykyyk.",
+             "kyyk.kyyk", "kkk...kkk"],
+    "heart": [".kk.kk.", "kRRkRRk", "kRrrrrk", "krrrrrk", ".krrrk.", "..krk..", "...k..."],
+    "moon": ["..kkkk..", ".kwwwkk.", "kwwwk...", "kwwpk...", "kwwpk...", "kwwppkk.", ".kwpppk.",
+             "..kkkk.."],
+    "fish": ["..kkk..k.", ".ktttkkok", "ktktttook", ".ktttkkok", "..kkk..k."],
+    "bolt": ["...kkk", "..kyk.", ".kykk.", "kyyyk.", ".kkyk.", ".kyk..", "kyk...", "kk...."],
+    "eye": [".kkkkk.", "kwwkkwk", "kwwkkwk", ".kkkkk."],
+}
+
+
+def icon(d, x, y, name):
+    for gy, row in enumerate(ICONS[name]):
+        for gx, ch in enumerate(row):
+            if ch != ".":
+                d.point((x + gx, y + gy), fill=ICON_COLOURS[ch])
+
+
+def eye(img, cx, cy, rx, ry, state, look=(0, 0), side=1, brow=0, has_brow=True):
+    """A rubber-hose eye: tall oval, pie-cut pupil, shaded white, brow line.
+
+    state: open, half, closed, squeeze, happy, wide. side: -1 left, 1 right."""
+    if state == "wide":
+        ry += 1
+    d = ImageDraw.Draw(img)
+    d.ellipse([cx - rx - 1, cy - ry - 1, cx + rx + 1, cy + ry + 1], fill=INK)
+    lay = new(img.size)
+    e = ImageDraw.Draw(lay)
+    box = [cx - rx, cy - ry, cx + rx, cy + ry]
+    if state == "closed":
+        e.ellipse(box, fill=PAPER[2])
+        e.arc(box, 20, 160, fill=PAPER[1])
+        e.arc(box, 200, 300, fill=PAPER[3])
+        e.arc([cx - rx + 1, cy - 4, cx + rx - 1, cy + 4], 15, 165, fill=INK)
+        e.point([(cx - rx + 1, cy + 3), (cx + rx - 1, cy + 3)], fill=INK)
+    else:
+        e.ellipse(box, fill=PAPER[4])
+        e.arc(box, 30, 170, fill=PAPER[2])
+        e.arc([box[0] + 1, box[1] + 1, box[2] - 1, box[3] - 1], 50, 150, fill=PAPER[3])
+        if state == "squeeze":
+            x0, x1 = (cx - rx + 2, cx + 2) if side < 0 else (cx + rx - 2, cx - 2)
+            e.line([(x0, cy - 4), (x1, cy), (x0, cy + 4)], fill=INK, width=2)
+        elif state == "happy":
+            e.arc([cx - rx + 1, cy - 3, cx + rx - 1, cy + 8], 180, 360, fill=INK, width=2)
+        else:
+            prx = max(2, rx // 2)
+            pry = max(3, int(ry * 0.55)) - (1 if state == "wide" else 0)
+            px, py = cx + 1 + look[0], cy + 1 + look[1]
+            e.ellipse([px - prx, py - pry, px + prx, py + pry], fill=INK)
+            e.polygon([(px, py), (px + prx + 1, py - pry), (px + prx + 1, py - 1)], fill=PAPER[4])
+            e.point((px - prx + 1, py + pry - 2), fill=INK_SOFT)
+            if state == "half":
+                ly = cy - ry // 3
+                e.rectangle([cx - rx, cy - ry, cx + rx, ly], fill=PAPER[2])
+                e.line([(cx - rx, ly - 1), (cx + rx, ly - 1)], fill=PAPER[1])
+                e.line([(cx - rx, ly), (cx + rx, ly)], fill=INK)
+    mask = Image.new("L", img.size, 0)
+    ImageDraw.Draw(mask).ellipse(box, fill=255)
+    img.alpha_composite(clip(lay, mask))
+    if has_brow and state != "closed":
+        by = cy - ry - 4 - brow
+        tilt = 1 if state in ("squeeze",) else 0
+        d.arc([cx - rx, by + tilt, cx + rx, by + 6 + tilt], 205, 335, fill=INK, width=2)
+
+
+def bulb(d, x, y, lit):
+    d.ellipse([x - 3, y - 3, x + 3, y + 3], fill=INK)
+    d.ellipse([x - 2, y - 2, x + 2, y + 2], fill=GOLD[4] if lit else MUSTARD[0])
+    if lit:
+        d.ellipse([x - 1, y - 1, x + 1, y + 1], fill=PAPER[4])
+        d.point([(x + 2, y + 1), (x + 1, y + 2)], fill=GOLD[2])
+    else:
+        d.point((x - 1, y - 1), fill=MUSTARD[1])
+
+
+def lamp_lit(lamps, index):
+    if lamps is None:
+        return False
+    if lamps == "all":
+        return True
+    return (index + lamps) % 2 == 0
+
+
+def mini_capsule(d, cx, cy, ramp, ang, on=True):
+    """A toy capsule inside a globe: coloured half, clear half with a toy."""
+    box = [cx - 5, cy - 5, cx + 5, cy + 5]
+    d.ellipse([cx - 6, cy - 6, cx + 6, cy + 6], fill=INK)
+    d.ellipse(box, fill=PAPER[4] if on else GLASS[1])
+    d.arc(box, ang + 200, ang + 330, fill=PAPER[2] if on else GLASS[0])
+    d.pieslice(box, ang, ang + 180, fill=tone(ramp, 2, on))
+    d.arc(box, ang + 10, ang + 80, fill=tone(ramp, 1, on))
+    d.arc(box, ang + 100, ang + 165, fill=tone(ramp, 4, on))
+    dx, dy = math.cos(math.radians(ang)) * 5, math.sin(math.radians(ang)) * 5
+    d.line([(cx - dx, cy - dy), (cx + dx, cy + dy)], fill=INK)
+    nx, ny = math.cos(math.radians(ang + 90)), math.sin(math.radians(ang + 90))
+    tx, ty = int(round(cx - nx * 3)), int(round(cy - ny * 3))
+    d.rectangle([tx - 1, ty - 1, tx + 1, ty + 1], fill=INK_SOFT if on else BLACK[2])
+    d.point((tx, ty), fill=tone(ramp, 3, on))
+    hx, hy = int(round(cx + nx * 3 - 1)), int(round(cy + ny * 3 - 1))
+    d.point((hx, hy), fill=PAPER[4] if on else tone(ramp, 3, on))
+
+
+# ------------------------------------------------- capsule machines 001-004
+
+GUMBALLS = {
+    1: {"body": BRASS, "trim": BRASS, "plate": GREY, "cap": "dish", "shape": "flare",
+        "edges": (19, 53, 9, 62), "seed": 11,
+        "stickers": [("rocket", 18, 75), ("planet", 16, 87), ("mushroom", 14, 98), ("tag", 20, 108)]},
+    2: {"body": COPPER, "trim": COPPER, "plate": BRASS, "cap": "dome", "shape": "bell",
+        "edges": (20, 52, 8, 63), "seed": 23, "patina": True,
+        "stickers": [("fish", 17, 78), ("moon", 16, 88), ("heart", 14, 101)]},
+    3: {"body": IRON, "trim": GOLD, "plate": BRASS, "cap": "flat", "shape": "barrel",
+        "edges": (18, 54, 10, 61), "seed": 37, "pinstripe": True,
+        "stickers": [("star", 17, 78), ("eye", 17, 91), ("bolt", 15, 99)]},
+    4: {"body": BLUE, "trim": CHROME, "plate": GREY, "cap": "cone", "shape": "step",
+        "edges": (20, 52, 9, 62), "seed": 51, "enamel": True,
+        "stickers": [("heart", 19, 77), ("planet", 16, 88), ("star", 14, 100)]},
+}
+
+GLOBE_C = (36, 42)
+GLOBE_R = 26
+# dx, dy, colour ramp, angle of the coloured half: back of the pile first.
+GLOBE_CAPSULES = [
+    (-12, -7, MUSTARD, 200), (-1, -4, PLUM, 150), (-18, 3, TEAL, 250), (10, 1, OLIVE, 180),
+    (-7, 5, ROSE, 170), (4, 8, BLUE, 215), (19, 6, COPPER, 180), (15, 13, MUSTARD, 140),
+    (-14, 13, RED, 190), (-3, 16, OLIVE, 230), (8, 18, ROSE, 160), (-8, 22, BLUE, 180),
+    (2, 24, MUSTARD, 200),
+]
+G_EYES = ((42, 39), (54, 39))
+G_PIVOT = (44, 84)
+G_BODY_TOP, G_BODY_BOT = 71, 114
+
+
+def _shape(kind, t):
+    if kind == "bell":
+        return t * t
+    if kind == "barrel":
+        return 1 - (1 - t) * (1 - t)
+    if kind == "step":
+        return 0.5 * t if t < 0.72 else 0.36 + (t - 0.72) / 0.28 * 0.64
+    return t
+
+
+def _edges(spec, y, top, squash):
+    t = (y - top) / float(G_BODY_BOT - top)
+    f = _shape(spec["shape"], t)
+    tl, tr, bl, br = spec["edges"]
+    xl = int(round(tl + (bl - tl) * f - squash * t))
+    xr = int(round(tr + (br - tr) * f + squash * t))
+    xe = int(round(30 - 2 * t))
+    return xl, xe, xr
+
+
+def _cap(lay, style, T, cy):
+    d = ImageDraw.Draw(lay)
+    if style == "dish":
+        d.ellipse([30, cy - 10, 42, cy - 3], fill=T[2])
+        d.ellipse([14, cy - 5, 58, cy + 5], fill=T[1])
+        d.ellipse([14, cy - 5, 58, cy + 3], fill=T[2])
+        d.ellipse([18, cy - 5, 54, cy], fill=T[3])
+    elif style == "dome":
+        d.ellipse([33, cy - 11, 39, cy - 5], fill=T[2])
+        d.pieslice([16, cy - 8, 56, cy + 10], 180, 360, fill=T[2])
+        d.rounded_rectangle([12, cy + 1, 60, cy + 5], radius=2, fill=T[2])
+    elif style == "flat":
+        d.polygon([(36, cy - 11), (32, cy - 5), (40, cy - 5)], fill=T[3])
+        d.rounded_rectangle([19, cy - 6, 53, cy + 3], radius=3, fill=IRON[2])
+        d.rounded_rectangle([14, cy + 1, 58, cy + 5], radius=2, fill=T[2])
+    else:
+        d.ellipse([33, cy - 11, 39, cy - 5], fill=T[3])
+        d.polygon([(34, cy - 7), (38, cy - 7), (59, cy + 2), (13, cy + 2)], fill=T[2])
+        d.rounded_rectangle([12, cy + 1, 60, cy + 5], radius=2, fill=T[2])
+
+
+def _cap_details(img, style, T, cy):
+    d = ImageDraw.Draw(img)
+    if style == "dish":
+        d.line([(32, cy - 9), (36, cy - 9)], fill=T[4])
+        d.line([(31, cy - 8), (31, cy - 6)], fill=T[4])
+        d.line([(40, cy - 8), (41, cy - 5)], fill=T[1])
+        d.arc([18, cy - 5, 54, cy], 190, 260, fill=T[4])
+        d.line([(22, cy - 2), (30, cy - 3)], fill=T[4])
+        d.arc([14, cy - 5, 58, cy + 3], 10, 170, fill=T[1])
+        d.arc([14, cy - 5, 58, cy + 5], 20, 160, fill=T[0])
+        for x in (20, 28, 36, 44, 52):
+            d.point((x, cy + 2), fill=T[4])
+    elif style == "dome":
+        d.point([(34, cy - 9), (35, cy - 10)], fill=T[4])
+        d.arc([16, cy - 8, 56, cy + 10], 190, 250, fill=T[4], width=2)
+        d.arc([16, cy - 8, 56, cy + 10], 290, 350, fill=T[1], width=2)
+        for x in (26, 36, 46):
+            d.line([(x, cy - 6 + abs(x - 36) // 4), (x + (x - 36) // 5, cy)], fill=T[1])
+        d.line([(13, cy + 1), (59, cy + 1)], fill=T[4])
+        d.line([(13, cy + 5), (59, cy + 5)], fill=T[0])
+        d.line([(13, cy + 4), (59, cy + 4)], fill=T[1])
+        for x in range(15, 59, 4):
+            d.point((x, cy + 3), fill=OLIVE[3])
+    elif style == "flat":
+        d.line([(36, cy - 10), (34, cy - 6)], fill=T[4])
+        d.line([(21, cy - 5), (50, cy - 5)], fill=IRON[4])
+        d.line([(20, cy - 4), (20, cy)], fill=IRON[3])
+        d.line([(51, cy - 4), (52, cy)], fill=IRON[0])
+        d.line([(20, cy - 2), (52, cy - 2)], fill=T[3])
+        d.line([(20, cy - 1), (52, cy - 1)], fill=T[1])
+        d.line([(15, cy + 1), (57, cy + 1)], fill=T[4])
+        d.line([(15, cy + 2), (57, cy + 2)], fill=T[3])
+        d.line([(15, cy + 5), (57, cy + 5)], fill=T[0])
+        for x in range(17, 57, 5):
+            d.point((x, cy + 3), fill=T[0])
+    else:
+        d.point([(34, cy - 9), (35, cy - 10)], fill=PAPER[4])
+        d.line([(33, cy - 5), (18, cy + 1)], fill=T[4])
+        d.line([(34, cy - 4), (24, cy)], fill=T[3])
+        d.line([(40, cy - 5), (55, cy + 1)], fill=T[0])
+        d.line([(39, cy - 4), (48, cy)], fill=T[1])
+        d.line([(36, cy - 6), (36, cy)], fill=T[1])
+        d.line([(13, cy + 1), (59, cy + 1)], fill=T[4])
+        d.line([(13, cy + 5), (59, cy + 5)], fill=T[0])
+        d.line([(13, cy + 4), (59, cy + 4)], fill=T[1])
+        d.line([(13, cy + 3), (59, cy + 3)], fill=BLUE[2])
+
+
+def gumball(number, pose):
+    """One frame of a capsule machine. Pose keys: on, bob (globe, collar and
+    cap shift down), sink (body top compresses), squash (body flares), cap,
+    rattle, lever (radians), lamp, eyes, look, wink."""
+    spec = GUMBALLS[number]
+    B, T, P = spec["body"], spec["trim"], spec["plate"]
+    on = pose.get("on", True)
+    bob = pose.get("bob", 0)
+    sink = pose.get("sink", 0)
+    squash = pose.get("squash", 0)
+    rattle = pose.get("rattle", 0)
+    img = new(GACHA)
+
+    # --- flared body in three quarters: shaded side on the left, lit front ---
+    top = G_BODY_TOP + sink
+    lay = new(GACHA)
+    d = ImageDraw.Draw(lay)
+    rows = {}
+    for y in range(top, G_BODY_BOT + 1):
+        xl, xe, xr = rows[y] = _edges(spec, y, top, squash)
+        d.line([(xl, y), (xe - 1, y)], fill=B[1])
+        d.line([(xl, y), (xl + 1, y)], fill=B[0])
+        d.line([(xe, y), (xr, y)], fill=B[2])
+        d.point((xe, y), fill=B[4])
+        d.line([(xe + 1, y), (xe + 2, y)], fill=B[3])
+        for x in range(xr - 6, xr - 1):
+            if (x + y) % 2 == 0:
+                d.point((x, y), fill=B[1])
+        d.line([(xr - 1, y), (xr, y)], fill=B[1])
+        if y - top < 3:
+            d.line([(xe + 1, y), (xr, y)], fill=B[1])
+            d.line([(xl, y), (xe - 1, y)], fill=B[0])
+    rng = random.Random(spec["seed"])
+    for _ in range(46):
+        x, y = rng.randint(8, 62), rng.randint(G_BODY_TOP + 4, G_BODY_BOT - 1)
+        kind = rng.random()
+        if y not in rows:
             continue
-        y0, y1 = top, top + h - 1
-        if st == "wide":
-            y0 -= 1
-        white = box(x0, y0, x0 + w - 1, y1, 2 if big else 0)
-        if st == "half":
-            y0 = top + h // 2 - (1 if big else 0)
-            white = {q for q in white if q[1] >= y0}
-        s.puts(edge(white), INK)
-        s.puts(white, GLOVE)
-        if big:
-            pw, ph = 3, h - 4
-            if st == "wide":
-                ph = h - 6
-            px = (x0, (x0 + w - pw - 1) if k == 0 else (x0 + 1), x0 + w - pw)[lx + 1]
-            if st == "wide":
-                py = (y0 + y1 + 1 - ph) // 2
-            elif ly > 0:
-                py = y1 - ph + 1
-                if lx == 0:               # straight down: white above and beside
-                    px = x0 + (2 if k == 0 else 1)
-            elif ly < 0:
-                py = y0 + 1
-            else:
-                py = y1 - ph
-            pupil = box(px, py, px + pw - 1, py + ph - 1, 1 if pw == 3 else 0) & white
-            s.puts(pupil, INK)
-            if st != "half" and pw == 3:
-                s.put(px + 1, py + 1, GLOVE)          # glint
-        else:
-            px = (x0, (x0 + w - 1) if k == 0 else x0, x0 + w - 1)[lx + 1]
-            if st == "wide":
-                mid = (y0 + y1) // 2
-                rows = (mid, mid + 1)
-            else:
-                if st == "half":
-                    rows = range(y0, y1)
-                elif ly > 0:
-                    rows = range(y1 - 2, y1 + 1)
-                elif ly < 0:
-                    rows = range(y0, y0 + 3)
-                else:
-                    rows = range(y0 + 1, y1)
-            for y in rows:
-                s.put(px, y, INK)
-
-
-# ------------------------------------------------------------------ arms and gloves
-
-GLOVE_PAL = {"K": INK, "W": GLOVE, "S": DCREAM}
-
-# All gloves are written for the LEFT arm (thumb towards the body, on the right).
-_DOWN_TOP = [
-    "..KKKKK...",
-    ".KWWWWSK..",
-    "..KKKKK...",
-    ".KWWWWWK..",
-    "KWWWWWWWKK",
-    "KWWWWWWKWK",
-]
-GLOVES = {
-    # hanging hand with a rolled cuff; wrist at the top
-    "down": (_DOWN_TOP + [
-        "KWWKWKWWKK",
-        "KWWKWKWSK.",
-        ".KKKKKKK..",
-    ], (4, 0)),
-    # the same hand drumming: outer finger down / middle finger down
-    "drum_a": (_DOWN_TOP + [
-        "KWWKWKWWKK",
-        "KWWKWKWSK.",
-        "KWWKKKKK..",
-        ".KK.......",
-    ], (4, 0)),
-    "drum_b": (_DOWN_TOP + [
-        "KWWKWKWWKK",
-        "KWWKWKWSK.",
-        ".KKKWKKK..",
-        "....K.....",
-    ], (4, 0)),
-    # raised open hand, fingers up; wrist at the bottom
-    "open": ([
-        ".K.K.K..",
-        "KWKWKWK.",
-        "KWKWKWK.",
-        "KWWWWWKK",
-        "KWWWWWWK",
-        "KWWWWWK.",
-        ".KWWWSK.",
-        ".KKKKK..",
-        "KWWWWSK.",
-        ".KKKKK..",
-    ], (3, 9)),
-    # hand flicked outwards (wave); wrist at the bottom right
-    "wave": ([
-        ".K.K......",
-        "KWKWK.K...",
-        "KWKWKKWK..",
-        "KWWWWWWK..",
-        "KWWWWWWKK.",
-        ".KWWWWWWWK",
-        "..KWWWSKK.",
-        "...KKKKWK.",
-        "....KWWWK.",
-        ".....KKK..",
-    ], (6, 9)),
-    # closed fist that grabs the crank; wrist on the left
-    "fist": ([
-        ".K.KKKKKK.",
-        "KWKWWWWWWK",
-        "KWKWWKWKWK",
-        "KWKSWKWKWK",
-        "KWKSSWWWWK",
-        ".K.KKKKKK.",
-    ], (0, 3)),
-}
-
-
-def bez(pts, t):
-    pts = [(float(p[0]), float(p[1])) for p in pts]
-    while len(pts) > 1:
-        pts = [((1 - t) * a[0] + t * b[0], (1 - t) * a[1] + t * b[1]) for a, b in zip(pts, pts[1:])]
-    return pts[0]
-
-
-def noodle(pts):
-    """Constant-thickness (3 px) black arm along a Bezier curve (3 or 4 points)."""
-    out = set()
-    n = 72
-    for i in range(n + 1):
-        x, y = bez(pts, i / float(n))
-        xi, yi = int(math.floor(x + 0.5)), int(math.floor(y + 0.5))
-        out |= {(xi, yi), (xi + 1, yi), (xi - 1, yi), (xi, yi + 1), (xi, yi - 1)}
-    return out
-
-
-def mirror_pt(p, w):
-    return (w - 1 - p[0], p[1])
-
-
-def draw_arm(s, side, shoulder, spec, part):
-    """spec = (ctrl, wrist, glove, front) in LEFT-arm coordinates.
-
-    ctrl is one control point, or a pair of them for an S or loop shaped arm.
-    part: "arm", "glove" or "both". The right arm is the mirror image.
-    """
-    ctrl, wrist, glove, _front = spec
-    w = s.w
-    if part in ("arm", "both"):
-        mid = list(ctrl) if isinstance(ctrl[0], (tuple, list)) else [ctrl]
-        m = noodle([shoulder] + mid + [wrist])
-        if side == "R":
-            m = {mirror_pt(q, w) for q in m}
-        s.puts(m, INK)
-    if part in ("glove", "both"):
-        rows, (ax, ay) = GLOVES[glove]
-        gx, gy = wrist[0] - ax, wrist[1] - ay
-        if side == "R":
-            gx = w - 1 - (gx + len(rows[0]) - 1)
-        s.stamp(rows, gx, gy, GLOVE_PAL, flip=(side == "R"))
-
-
-# ------------------------------------------------------------------ shared machine parts
-
-HANDLE_DIRS = ((1, 0), (1, 1), (0, 1), (-1, 1), (-1, 0), (-1, -1), (0, -1), (1, -1))
-
-
-def handle_tip(x0, y0, handle):
-    dx, dy = HANDLE_DIRS[handle % 8]
-    n = 4 if dx and dy else 5
-    return (x0 + 5 + dx * n, y0 + 4 + dy * n)
-
-
-def crank_plate(s, x0, y0, handle=0, lamp=0, glint=-1):
-    """12 x 10 grey mechanism plate: rivets, dial, crank handle, pilot lamp.
-
-    glint 0..3 slides a specular tick across the dial (idle sparkle).
-    """
-    m = box(x0, y0, x0 + 11, y0 + 9)
-    top_left = {q for q in m if q[1] == y0 or q[0] == x0}
-    bot_right = {q for q in m if q[1] == y0 + 9 or q[0] == x0 + 11}
-    s.shape(m, STEEL, bot_right, DSTEEL, top_left - bot_right, LSTEEL)
-    for q in ((x0 + 10, y0 + 1), (x0 + 1, y0 + 8), (x0 + 10, y0 + 8)):
-        s.put(q[0], q[1], DSTEEL)
-    lamp_c = (DSTEEL, MUSTARD, PAPER)[lamp]
-    s.rect(x0 + 1, y0 + 1, x0 + 2, y0 + 2, lamp_c)
-    if lamp == 1:
-        s.put(x0 + 1, y0 + 1, PAPER)
-    cx, cy = x0 + 6, y0 + 5
-    dial = ell(cx, cy, 3.0, 3.0)
-    s.shape(dial, LSTEEL, dial - ell(cx - 0.8, cy - 0.8, 3.0, 3.0), STEEL)
-    if 0 <= glint <= 3:
-        gx, gy = ((x0 + 4, y0 + 7), (x0 + 4, y0 + 6), (x0 + 5, y0 + 3), (x0 + 7, y0 + 2))[glint]
-        s.put(gx, gy, PAPER)
-    # handle: a pale bar from the hub to the plate edge
-    dx, dy = HANDLE_DIRS[handle % 8]
-    n = 4 if dx and dy else 5
-    bar = set()
-    for i in range(n + 1):
-        px, py = x0 + 5 + dx * i, y0 + 4 + dy * i
-        bar |= {(px, py), (px + 1, py), (px, py + 1), (px + 1, py + 1)}
-    s.puts(edge(bar), INK)
-    s.puts(bar, PAPER)
-    s.rect(x0 + 5, y0 + 4, x0 + 6, y0 + 5, DSTEEL)
-
-
-def chute(s, x0, y0, x1, y1):
-    """Dark exit mouth with a steel frame; (x0, y0)-(x1, y1) is the frame."""
-    m = box(x0, y0, x1, y1, r=1)
-    top_left = {q for q in m if q[1] == y0 or q[0] == x0}
-    bot_right = {q for q in m if q[1] == y1 or q[0] == x1}
-    s.shape(m, STEEL, bot_right, DSTEEL, top_left - bot_right, LSTEEL)
-    hole = box(x0 + 2, y0 + 2, x1 - 2, y1 - 2)
-    s.puts(edge(hole) & m, INK)
-    s.puts(hole, INK)
-    s.rect(x1 - 3, y0 + 3, x1 - 2, y1 - 2, HOLE)      # inner right wall
-    s.rect(x0 + 3, y1 - 3, x1 - 2, y1 - 2, HOLE)      # tray floor
-
-
-def lamp(s, x, y, lit):
-    """2 x 2 sign bulb with outline. lit: 0 off, 1 warm, 2 flash."""
-    m = {(x, y), (x + 1, y), (x, y + 1), (x + 1, y + 1)}
-    s.puts(edge(m), INK)
-    s.puts(m, (DSTEEL, MUSTARD, PAPER)[lit])
-    if lit == 1:
-        s.put(x, y, PAPER)
-    elif lit == 0:
-        s.put(x, y, STEEL)
-
-
-KANA = {
-    "ku": [".####", ".#..#", "#...#", "...#.", ".##.."],
-    "re": ["#....", "#....", "#...#", "#..#.", "###.."],
-    "bar": [".....", ".....", "#####", ".....", "....."],
-    "n": ["#....", ".#..#", "....#", "...#.", "###.."],
-    "ra": [".###.", ".....", "#####", "....#", "..##."],
-    "tsu": [".....", "#.#.#", "....#", "...#.", ".##.."],
-    "ki": ["..#..", "#####", "..#..", "#####", "..#.."],
-}
-DIGITS = {
-    1: [".#.", "##.", ".#.", ".#.", "###"],
-    2: ["##.", "..#", ".#.", "#..", "###"],
-    3: ["##.", "..#", ".#.", "..#", "##."],
-    4: ["#.#", "#.#", "###", "..#", "..#"],
-}
-
-
-def glyph_rows(s, rows, x, y, c):
-    for j, row in enumerate(rows):
-        for i, ch in enumerate(row):
-            if ch == "#":
-                s.put(x + i, y + j, c)
-
-
-def kana_line(s, names, x, y, c):
-    for i, name in enumerate(names):
-        glyph_rows(s, KANA[name], x + i * 6, y, c)
-
-
-# ------------------------------------------------------------------ capsule machines 001-004
-
-GW, GH = 48, 84
-GCX = 24                 # centre line (between pixel 23 and 24)
-G_BOT = GH - 2           # last filled row; row GH-1 is the floor outline
-BASE_TOP = 50
-GLOBE_CY = 32
-PLATE = (18, 55)         # crank plate top-left at rest
-CHUTE_FRAME = (17, 65, 30, 77)
-GACHA_CHUTE = (24, 72)   # centre of the resting 12 x 12 capsule
-
-# ball layout inside the globe, back to front: (dx, dy, radius, has_eyes).
-# The three balls with eyes are, in order: top right, front centre, bottom right.
-BALL_SPOTS = (
-    (-9, 9, 5.6, False),
-    (-3, 11, 5.8, False),
-    (-13, 3, 5.8, False),
-    (-9, -7, 6.2, False),
-    (12, 0, 6.0, False),
-    (5, -8, 6.4, True),
-    (-4, 2, 6.4, True),
-    (7, 9, 6.4, True),
-)
-
-STYLES = {
-    1: dict(col="red", cap="ref", base="cone", balls="GWRWGYBR"),
-    2: dict(col="green", cap="dome", base="bell", balls="BWGWPRYB"),
-    3: dict(col="mustard", cap="flat", base="step", balls="GWBWPBRG"),
-    4: dict(col="blue", cap="pagoda", base="pot", balls="OWRWPYGR"),
-}
-
-RIM_H = {"cone": 7, "bell": 6, "step": 8, "pot": 5}
-
-
-def base_profile(style, t):
-    """Half width of the base body, t = 0 under the collar .. 1 above the rim."""
-    if style == "cone":
-        return int(round(12 + 4 * t))
-    if style == "bell":
-        return int(round(11 + 6 * t ** 2.4))
-    if style == "step":
-        return 12 if t < 0.5 else 15
-    return int(round(12 + 5 * math.sin(t * math.pi / 2)))      # pot
-
-
-def ball(s, cx, cy, r, key):
-    base, sh = BALL[key]
-    m = ell(cx + 0.5, cy + 0.5, r, r)
-    s.shape(m, base, m - ell(cx - 0.9, cy - 0.9, r, r), sh)
-    # glossy crescent, top left
-    s.put(cx - 3, cy - 4, PAPER)
-    s.put(cx - 4, cy - 3, PAPER)
-    if key != "W":
-        s.put(cx - 2, cy - 5, PAPER)
-        s.put(cx - 4, cy - 2, PAPER)
-
-
-CAP_ROWS = {
-    "ref": ({5: 8, 6: 10, 7: 11, 8: 11, 9: 11, 10: 11}, {11: 14, 12: 15, 13: 15, 14: 15, 15: 14}),
-    "dome": ({5: 5, 6: 8, 7: 10, 8: 11, 9: 12, 10: 12, 11: 12}, {12: 14, 13: 15, 14: 15, 15: 14}),
-    "flat": ({5: 3, 6: 4, 7: 4, 8: 11, 9: 12, 10: 12}, {11: 15, 12: 16, 13: 16, 14: 16, 15: 15}),
-    "pagoda": ({5: 2, 6: 3, 7: 2, 8: 5, 9: 7, 10: 9, 11: 11}, {12: 14, 13: 15, 14: 15, 15: 13}),
-}
-
-
-def gacha_cap(s, style, ox, oy, cols, bulbs=None):
-    """Cap = crown + wider brim. bulbs: 3 states (0 off, 1 warm, 2 flash) or None."""
-    base, sh, hl = cols
-    crown, brim = CAP_ROWS[style]
-    rows = {}
-    rows.update(crown)
-    rows.update(brim)
-    rows = {y + oy: hw for y, hw in rows.items()}
-    cx = GCX + ox
-    m = rows_mask(rows, cx)
-    s.shape(m, base)
-    brim_top = min(brim) + oy
-    crown_top = min(crown) + oy
-    wide_top = min(y for y, hw in crown.items() if hw >= 8) + oy
-    for y, hw in rows.items():
-        x0, x1 = cx - hw, cx + hw - 1
-        if y < brim_top:
-            # crown: lit streak on the left, shade on the right, seam above the brim
-            for x in (x0 + 2, x0 + 3):
-                if y > crown_top and x < cx - 1:
-                    s.put(x, y, hl)
-            for x in (x1 - 1, x1):
-                if x >= cx + 1:
-                    s.put(x, y, sh)
-            if y == brim_top - 1:
-                s.hline(x0, x1, y, sh)
-        else:
-            # brim: its top face catches the light (we look from above)
-            if y == brim_top:
-                s.hline(x0 + 1, cx + 4, y, hl)
-            if y == max(rows):
-                s.hline(x0, x1, y, sh)
-            for x in (x1 - 2, x1 - 1, x1):
-                s.put(x, y, sh)
-    # specular tick on the crown
-    s.put(cx - rows[wide_top + 1] + 4, wide_top + 1, PAPER)
-    s.put(cx - rows[wide_top + 1] + 5, wide_top + 1, PAPER)
-    if bulbs is not None:
-        for i, bx in enumerate((cx - 10, cx - 1, cx + 8)):
-            st = bulbs[i]
-            s.rect(bx, brim_top + 1, bx + 1, brim_top + 2, (DSTEEL, MUSTARD, PAPER)[st])
-            if st == 1:
-                s.put(bx, brim_top + 1, PAPER)
-            elif st == 0:
-                s.put(bx, brim_top + 1, STEEL)
-            s.hline(bx, bx + 1, brim_top + 3, INK)
-            s.put(bx + 2, brim_top + 2, INK)
-
-
-def price_tag(s, n, ax, ay, swing):
-    """Cream tag with the machine number, hanging by a string from the brim."""
-    tx, ty = ax + 1 + swing, ay + 3
-    s.put(ax, ay, INK)
-    s.put(ax + 1, ay + 1, INK)
-    s.put(ax + 1 + (1 if swing > 0 else 0), ay + 2, INK)
-    m = box(tx, ty, tx + 4, ty + 6)
-    s.shape(m, PAPER, {q for q in m if q[0] == tx + 4 or q[1] == ty + 6}, DCREAM)
-    glyph_rows(s, DIGITS[n], tx + 1, ty + 1, RED)
-
-
-def gacha_base(s, style, top, widen, cols):
-    base, sh, hl = cols
-    rim_h = RIM_H[style]
-    rim_top = G_BOT - rim_h + 1
-    rows = {}
-    for y in range(top, top + 3):
-        rows[y] = 13
-    body_top = top + 3
-    n = rim_top - body_top
-    for i in range(n):
-        t = i / float(max(1, n - 1))
-        rows[body_top + i] = base_profile(style, t) + widen
-    rim_hw = {"cone": 18, "bell": 19, "step": 18, "pot": 18}[style] + widen
-    for y in range(rim_top, G_BOT + 1):
-        k = G_BOT - y
-        rows[y] = rim_hw - (3 if k == 0 else 1 if k == 1 else 0)
-    if style == "pot":
-        rows[rim_top] = rim_hw - 1
-    m = rows_mask(rows, GCX)
-    s.shape(m, base)
-    for y, hw in rows.items():
-        x0, x1 = GCX - hw, GCX + hw - 1
-        if y < body_top:                      # collar ring
-            s.put(x0 + 2, y, hl)
-            s.put(x0 + 3, y, hl)
-            for x in (x1 - 2, x1 - 1, x1):
-                s.put(x, y, sh)
-            if y == body_top - 1:
-                s.hline(x0, x1, y, sh)
-        elif y < rim_top:                     # flared body
-            if y > body_top:
-                s.put(x0 + 2, y, hl)
-                s.put(x0 + 3, y, hl)
-            for x in (x1 - 2, x1 - 1, x1):
-                s.put(x, y, sh)
-            if y == rim_top - 1:
-                s.hline(x0, x1, y, sh)
-        else:                                 # foot rim, top face lit
-            if y == rim_top:
-                s.hline(x0 + 2, GCX + 6, y, hl)
-            for x in (x1 - 3, x1 - 2, x1 - 1, x1):
-                s.put(x, y, sh)
-            if y == G_BOT:
-                s.hline(x0, x1, y, sh)
-    if style == "step":                       # ledge of the lower tier
-        ys = [y for y in range(body_top + 1, rim_top) if rows[y] > rows[y - 1]]
-        for y in ys:
-            s.hline(GCX - rows[y] + 1, GCX + 5, y, hl)
-    # specular tick at the top of the body streak, scuffs on the foot rim
-    s.put(GCX - rows[body_top + 2] + 2, body_top + 2, PAPER)
-    s.put(GCX - rows[body_top + 3] + 2, body_top + 3, PAPER)
-    x0 = GCX - rows[G_BOT - 2]
-    s.put(x0 + 5, G_BOT - 2, sh)
-    s.put(x0 + 6, G_BOT - 1, sh)
-    s.put(GCX + 9, G_BOT - 2, hl)
-    return rows
-
-
-# arm specs in LEFT-arm coordinates: (ctrl, wrist, glove, front)
-G_ARM_OFF = ((6, 62), (8, 71), "down", False)
-G_ARM_IDLE = ((2, 57), (5, 67), "down", False)
-
-
-def gacha(n, on=True, sq=0, gdx=0, gdy=0, capdx=0, capdy=0, balls=None, eyes=None, la=None,
-          ra=None, handle=0, lamp_on=1, bulbs=None, tag=0, glint=-1):
-    """One capsule machine in a pose.
-
-    sq > 0 squashes the base by sq pixels (and widens it), sq < 0 stretches.
-    gdx / gdy lean and lower the globe and cap, capdx / capdy move only the cap.
-    balls: 8 (dx, dy) offsets; eyes: 3 (state, look) for the balls with eyes.
-    bulbs: the 3 brim lamps; tag: swing of the price tag; glint: dial sparkle.
-    """
-    st = STYLES[n]
-    cols = BODY[st["col"]]
-    s = Cv(GW, GH)
-    balls = balls or [(0, 0)] * 8
-    eyes = eyes or [("open", 1)] * 3
-    la = la or G_ARM_IDLE
-    ra = ra or G_ARM_IDLE
-    bulbs = bulbs or [1, 1, 1]
-    top = BASE_TOP + sq
-    widen = (sq + 1) // 2 if sq > 0 else -((-sq) // 2)
-    gcy = GLOBE_CY + sq + gdy
-    gx = GCX + gdx
-    shoulder = (GCX - 12 - widen + 1, top + 6)
-    arms = (("L", la), ("R", ra))
-
-    # globe
-    gm = ell(gx, gcy, 20, 18.5)
-    glass, glass_sh = (SKY, DSKY) if on else (OFFSKY, OFFDSKY)
-    s.shape(gm, glass, gm - ell(gx - 1.0, gcy - 1.0, 18.6, 17.1), glass_sh)
-    tmp = Cv(GW, GH)
-    e = 0
-    for i, (dx, dy, r, eyed) in enumerate(BALL_SPOTS):
-        bx, by = gx + dx + balls[i][0], gcy + dy + balls[i][1]
-        ball(tmp, bx, by, r, st["balls"][i])
-        if eyed:
-            state, look = eyes[e]
-            eye_pair(tmp, bx + 1, by - 3, 3, 6, state, look)
-            e += 1
-    s.paste_mask(tmp, gm)
-    # glass gloss, drawn over the balls: a pale rim on the lit side, a hard
-    # streak with a dot inside it, and a small bounce light bottom right
-    rim = gm - ell(gx, gcy, 19.0, 17.5)
-    streak = ell(gx, gcy, 17.4, 15.9) - ell(gx, gcy, 15.2, 13.7)
-    for (x, y) in rim:
-        a = math.degrees(math.atan2(gcy - (y + 0.5), (x + 0.5) - gx)) % 360
-        if on and (104 <= a <= 198 or 306 <= a <= 322):
-            s.put(x, y, PAPER)
-        elif not on and 120 <= a <= 170:
-            s.put(x, y, SKY)
-    for (x, y) in streak:
-        a = math.degrees(math.atan2(gcy - (y + 0.5), (x + 0.5) - gx)) % 360
-        if on and (130 <= a <= 162 or 114 <= a <= 121):
-            s.put(x, y, PAPER)
-        elif not on and 140 <= a <= 158:
-            s.put(x, y, SKY)
-
-    cap_oy = sq + gdy + capdy
-    gacha_cap(s, st["cap"], gdx + capdx, cap_oy, cols, bulbs if on else [0, 0, 0])
-    price_tag(s, n, gx + capdx + 14, 16 + cap_oy, tag)
-
-    for side, spec in arms:
-        if not spec[3]:
-            draw_arm(s, side, shoulder, spec, "arm")
-
-    gacha_base(s, st["base"], top, widen, cols)
-    py = PLATE[1] + (sq // 2 if sq < 0 else 0)
-    crank_plate(s, PLATE[0], py, handle, lamp_on if on else 0, glint)
-    chute(s, *CHUTE_FRAME)
-
-    for side, spec in arms:
-        draw_arm(s, side, shoulder, spec, "both" if spec[3] else "glove")
-    return s
-
-
-def crank_arm(handle, sq, swing=0):
-    """Right arm (in LEFT coordinates) holding the crank handle.
-
-    The shoulder is right next to the crank, so the noodle loops outwards in a
-    wide C before coming back to the fist; swing moves the elbow of the loop.
-    """
-    py = PLATE[1] + (sq // 2 if sq < 0 else 0)
-    tx, ty = handle_tip(PLATE[0], py, handle)
-    # mirror the handle tip into left-arm space; the fist's wrist is on its left
-    mx = GW - 1 - tx
-    wrist = (mx - 5, ty)
-    widen = (sq + 1) // 2 if sq > 0 else -((-sq) // 2)
-    sx, sy = GCX - 12 - widen + 1, BASE_TOP + sq + 6
-    c1 = (sx - 15, sy - 13 + swing)
-    c2 = (wrist[0] - 19, ty + 12 + swing)
-    return ((c1, c2), wrist, "fist", True)
-
-
-def gacha_static(n):
-    return gacha(n, on=False, eyes=[("closed", 0)] * 3, la=G_ARM_OFF, ra=G_ARM_OFF, lamp_on=0)
-
-
-def _arm(dx, dy, glove="down"):
-    c, w, g, f = G_ARM_IDLE
-    return ((c[0] + dx, c[1] + dy), (w[0] + dx, w[1] + dy), glove, f)
-
-
-IDLE_FRAMES = 48
-
-
-def _blink(f, at):
-    """Eye state override for a three-frame blink centred on frame `at`."""
-    if f in (at - 1, at + 1):
-        return "half"
-    if f == at:
-        return "closed"
-    return None
-
-
-def gacha_idle_frames(n):
-    """6 s loop: breathing, staggered glances, blinks, a look at the player, a
-    wink, balls jostling, drumming fingers and a yawn that lifts the cap."""
-    frames = []
-    for f in range(IDLE_FRAMES):
-        p = f % 12
-        breath = 1 if 6 <= p <= 11 else 0
-        capdy = -1 if p == 6 else 1 if p == 0 and f else 0      # the cap lags the globe
-        lag = 1 if 8 <= p or p <= 1 else 0
-        sway_l = -1 if 3 <= p <= 8 else 0
-        sway_r = -1 if 9 <= p or p <= 2 else 0
-        tag = (0, 0, 1, 1, 1, 0, 0, 0, -1, -1, 0, 0)[p]
-        sq = 0
-        # eyes: [top right ball, front ball, bottom right ball]
-        if f < 9:
-            looks = [1, 1, 1]
-        elif f < 16:
-            looks = [(0, 1), (0, 1), (0, 1)]                       # down at the player
-        elif f < 26:
-            looks = [-1 if f >= 17 else 1, -1, -1 if f >= 18 else 1]
-        elif f < 32:
-            looks = [1 if f >= 27 else -1, 1, 1 if f >= 28 else -1]
-        elif f < 40:
-            looks = [1, (-1, 1), (-1, 1)]                          # watching the drumming hand
-        else:
-            looks = [1, 1, 1]
-        states = ["open", "open", "open"]
-        for i, at in ((0, 5), (2, 13), (1, 22), (0, 30), (2, 37)):
-            b = _blink(f, at)
-            if b:
-                states[i] = b
-        if 27 <= f <= 29:
-            states[1] = "wink"
-        b = [(0, 0)] * 8
-        if f in (19, 21):
-            b[4] = (0, -1)
-        if f == 20:
-            b[4] = (0, -2)
-            b[5] = (0, -1)
-        if f in (33, 35):
-            b[3] = (0, -1)
-        if f == 34:
-            b[3] = (1, -2)
-            b[2] = (0, -1)
-        la = _arm(sway_l, lag)
-        if 32 <= f <= 39:
-            la = _arm(0, 0, "drum_a" if f % 2 == 0 else "drum_b")
-        # yawn: a slow stretch, lids droop, the cap lifts like a lid
-        if 40 <= f <= 45:
-            k = f - 40
-            sq = (0, -1, -1, -1, 0, 1)[k]
-            capdy = (-1, -2, -3, -2, 0, 0)[k]
-            breath = 0 if k < 5 else 1
-            states = [("half", "closed", "closed", "half", "open", "open")[k]] * 3
-            b = [(0, (0, -1, -1, -1, 0, 0)[k])] * 8
-        elif f in (46, 47):
-            breath = 1 if f == 46 else 0
-            capdy = 0
-        frames.append(gacha(
-            n, sq=sq, gdy=breath, capdy=capdy, balls=b,
-            eyes=list(zip(states, looks)), la=la, ra=_arm(sway_r, lag),
-            lamp_on=1 if f % 8 < 6 else 2,
-            bulbs=[2 if (f // 2) % 3 == i else 1 for i in range(3)],
-            tag=tag, glint=(f - 10) if 10 <= f <= 13 else -1))
-    return frames
-
-
-G_UP_MID = ((-1, 56), (3, 49), "open", True)
-G_UP_HIGH = ((-3, 50), (4, 40), "open", True)
-G_UP_OUT = ((-3, 47), (3, 38), "open", True)
-G_DN = ((1, 56), (4, 62), "down", False)
-
-
-def gacha_wake_frames(n, idle0):
-    """Power arrives, a crouch, a big Y stretch that pops the cap, settle."""
-    j1 = [(0, -1)] * 8
-    j2 = [(0, -2), (0, -1), (0, -2), (0, -1), (0, -2), (0, -2), (0, -1), (0, -2)]
-    flash, warm = [2, 2, 2], [1, 1, 1]
+        xl, xe, xr = rows[y]
+        if xl + 2 < x < xe - 1:
+            d.point((x, y), fill=B[0] if kind < 0.7 else B[2])
+        elif xe + 3 < x < xr - 2:
+            d.point((x, y), fill=B[1] if kind < 0.6 else B[3])
+    if spec.get("patina"):
+        for _ in range(14):
+            x, y0, n = rng.randint(10, 60), rng.randint(G_BODY_TOP, G_BODY_TOP + 16), rng.randint(4, 15)
+            for y in range(y0, y0 + n):
+                if y in rows and rows[y][0] + 1 < x < rows[y][2] - 1 and (x + y) % 2 == 0:
+                    side = x < rows[y][1]
+                    d.point((x, y), fill=OLIVE[2] if side else OLIVE[3])
+                    if n > 9 and y < y0 + n - 3:
+                        d.point((x + 1, y + 1), fill=TEAL[2] if side else TEAL[3])
+    if spec.get("enamel"):
+        for y in (top + 6, top + 7, top + 8):
+            if y in rows:
+                xl, xe, xr = rows[y]
+                d.line([(xl + 2, y), (xe - 1, y)], fill=PAPER[1])
+                d.line([(xe + 1, y), (xr - 2, y)], fill=PAPER[3] if y < top + 8 else PAPER[2])
+        for x, y in ((57, 108), (58, 109), (57, 109), (33, 111), (11, 106), (12, 107)):
+            if y in rows and rows[y][0] < x < rows[y][2]:
+                d.point((x, y), fill=GREY[1])
+    if spec.get("pinstripe"):
+        for y in range(top + 4, G_BODY_BOT - 2):
+            xl, xe, xr = rows[y]
+            d.point((xr - 3, y), fill=GOLD[2])
+            d.point((xl + 3, y), fill=GOLD[0])
+    y = G_BODY_BOT - 3
+    d.line([(rows[y][1] + 1, y), (rows[y][2] - 2, y)], fill=B[1])
+    d.line([(rows[y][0] + 2, y), (rows[y][1] - 1, y)], fill=B[0])
+    d.line([(rows[y][1] + 1, y + 1), (rows[y][2] - 2, y + 1)], fill=B[3])
+    # Foot slab.
+    Sl = T if spec.get("pinstripe") else B
+    sl, sr = rows[G_BODY_BOT][0] - 5, rows[G_BODY_BOT][2] + 4
+    d.rectangle([sl, 115, sr, 123], fill=Sl[2])
+    d.rectangle([sl, 115, 27, 123], fill=Sl[1])
+    d.line([(28, 115), (sr, 115)], fill=Sl[4])
+    d.line([(28, 116), (sr, 116)], fill=Sl[3])
+    d.line([(sl, 115), (27, 115)], fill=Sl[2])
+    d.rectangle([28, 122, sr, 123], fill=Sl[1])
+    d.rectangle([sl, 122, 27, 123], fill=Sl[0])
+    d.line([(sr - 1, 117), (sr - 1, 123)], fill=Sl[1])
+    d.line([(sr, 116), (sr, 123)], fill=Sl[0])
+    d.line([(sl, 116), (sl, 123)], fill=Sl[0])
+    d.point((28, 116), fill=Sl[4])
+    for x in range(33, sr - 2, 8):
+        d.point((x, 119), fill=Sl[4])
+        d.point((x + 1, 120), fill=Sl[0])
+    for x in range(sl + 4, 26, 7):
+        d.point((x, 119), fill=Sl[0])
+    if spec.get("patina"):
+        for x in range(sl + 1, sr, 3):
+            d.point((x, 117 + (x * 7) % 3), fill=OLIVE[3] if x > 27 else OLIVE[2])
+    d.rectangle([sl + 4, 124, sl + 11, 124], fill=BLACK[2])
+    d.rectangle([sr - 11, 124, sr - 4, 124], fill=BLACK[2])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    # Rivets at the front corners.
+    for x, y in ((33, 72 + sink), (rows[G_BODY_BOT - 8][2] - 4, G_BODY_BOT - 8)):
+        d.point((x, y), fill=B[4])
+        d.point((x + 1, y + 1), fill=B[0])
+    # Stickers on the shaded side.
+    for name, x, y in spec["stickers"]:
+        icon(d, x, y, name)
+
+    # --- coin plate, lever, chute ---------------------------------------------
+    d.rectangle([32, 73, 55, 93], fill=INK)
+    d.rectangle([33, 74, 54, 92], fill=P[3])
+    d.line([(33, 74), (54, 74)], fill=P[4])
+    d.line([(33, 74), (33, 91)], fill=P[4])
+    d.line([(34, 92), (54, 92)], fill=P[1])
+    d.line([(54, 75), (54, 92)], fill=P[2])
+    d.line([(34, 91), (53, 91)], fill=P[2])
+    for x, y in ((34, 75), (53, 75), (34, 91), (53, 91)):
+        d.point((x, y), fill=P[0])
+    text(d, 36, 76, "25c", FONT3, INK)
+    d.rectangle([50, 79, 51, 86], fill=INK)
+    d.point((51, 79), fill=P[1])
+    lamp = pose.get("lamp", on)
+    d.rectangle([49, 75, 52, 77], fill=INK)
+    d.rectangle([50, 76, 51, 76], fill=GOLD[4] if lamp else P[0])
+    circ(d, G_PIVOT, 5, INK)
+    circ(d, G_PIVOT, 4, P[2])
+    d.arc([G_PIVOT[0] - 4, G_PIVOT[1] - 4, G_PIVOT[0] + 4, G_PIVOT[1] + 4], 180, 280, fill=P[4])
+    d.arc([G_PIVOT[0] - 4, G_PIVOT[1] - 4, G_PIVOT[0] + 4, G_PIVOT[1] + 4], 10, 100, fill=P[0])
+    angle = pose.get("lever", 0.0)
+    hx = G_PIVOT[0] + int(round(math.cos(angle) * 8))
+    hy = G_PIVOT[1] + int(round(math.sin(angle) * 8))
+    lev = new(GACHA)
+    ld = ImageDraw.Draw(lev)
+    ld.line([G_PIVOT, (hx, hy)], fill=GREY[3], width=3)
+    circ(ld, G_PIVOT, 2, GREY[3])
+    circ(ld, (hx, hy), 2.5, RED[2])
+    stamp(img, lev)
+    d = ImageDraw.Draw(img)
+    d.line([G_PIVOT, (hx, hy)], fill=GREY[4])
+    d.point(G_PIVOT, fill=GREY[1])
+    circ(d, (hx, hy), 1.5, RED[3])
+    d.point((hx - 1, hy - 1), fill=RED[4])
+    d.point((hx + 1, hy + 2), fill=RED[1])
+    # Chute: a dark mouth with a lip; the game rests the capsule here.
+    d.rectangle([33, 94, 54, 114], fill=INK)
+    d.rectangle([34, 95, 53, 113], fill=BLACK[1])
+    d.rectangle([34, 95, 53, 96], fill=BLACK[0])
+    d.line([(34, 97), (34, 110)], fill=BLACK[0])
+    d.line([(53, 97), (53, 110)], fill=BLACK[2])
+    d.rectangle([34, 109, 53, 111], fill=BLACK[3])
+    d.line([(36, 109), (51, 109)], fill=BLACK[2])
+    d.rectangle([34, 112, 53, 113], fill=B[3])
+    d.line([(34, 112), (53, 112)], fill=B[4])
+    d.line([(34, 114), (53, 114)], fill=B[1])
+
+    # --- collar ------------------------------------------------------------------
+    lay = new(GACHA)
+    d = ImageDraw.Draw(lay)
+    d.rectangle([21, 66 + bob, 51, 72 + bob], fill=T[2])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.rectangle([21, 66 + bob, 29, 72 + bob], fill=T[1])
+    d.line([(30, 66 + bob), (51, 66 + bob)], fill=T[4])
+    d.line([(30, 67 + bob), (51, 67 + bob)], fill=T[3])
+    d.line([(21, 72 + bob), (51, 72 + bob)], fill=T[0])
+    d.line([(30, 71 + bob), (51, 71 + bob)], fill=T[1])
+    for x in range(23, 51, 4):
+        d.line([(x, 68 + bob), (x, 70 + bob)], fill=T[0] if x < 30 else T[1])
+    d.line([(50, 67 + bob), (51, 71 + bob)], fill=T[1])
+
+    # --- glass globe -------------------------------------------------------------
+    gx, gy = GLOBE_C[0], GLOBE_C[1] + bob
+    rx = GLOBE_R + (1 if bob > 1 else 0)
+    ry = GLOBE_R - (1 if bob > 1 else 0) + (1 if bob < -1 else 0)
+    box = [gx - rx, gy - ry, gx + rx, gy + ry]
+    lay = new(GACHA)
+    g = ImageDraw.Draw(lay)
+    g.ellipse(box, fill=GLASS[2] if on else GLASS[0])
+    if on:
+        g.ellipse([gx - rx - 1, gy - ry - 2, gx + rx - 5, gy + ry - 7], fill=GLASS[3])
+        for y in range(gy + 6, gy + ry, 2):
+            for x in range(gx + 8 + (y % 4) // 2 * 1, gx + rx, 2):
+                g.point((x, y), fill=GLASS[1] if (x + y) % 4 == 0 else GLASS[2])
+    g.rectangle([gx - 1, gy - ry, gx, gy + 2], fill=GREY[3] if on else GREY[0])
+    g.line([(gx - 1, gy - ry), (gx - 1, gy + 2)], fill=GREY[1] if on else BLACK[2])
+    for index, (dx, dy, ramp, ang) in enumerate(GLOBE_CAPSULES):
+        jx = rattle * (1 if index % 2 == 0 else -1)
+        jy = -abs(rattle) if index % 3 == 0 else (abs(rattle) // 2 if index % 3 == 1 else 0)
+        mini_capsule(g, gx + dx + jx, gy + dy + jy, ramp, ang + rattle * 12 * (1 if index % 2 else -1), on)
+    mask = Image.new("L", GACHA, 0)
+    ImageDraw.Draw(mask).ellipse(box, fill=255)
+    stamp(img, clip(lay, mask))
+    d = ImageDraw.Draw(img)
+    if on:
+        d.arc([box[0] + 3, box[1] + 3, box[2] - 3, box[3] - 3], 196, 246, fill=GLASS[4], width=3)
+        d.arc([box[0] + 3, box[1] + 3, box[2] - 3, box[3] - 3], 252, 262, fill=GLASS[4], width=2)
+        d.arc([box[0] + 2, box[1] + 2, box[2] - 2, box[3] - 2], 20, 70, fill=GLASS[4])
+        d.arc([box[0] + 1, box[1] + 1, box[2] - 1, box[3] - 1], 95, 170, fill=GLASS[1])
+    else:
+        d.arc([box[0] + 3, box[1] + 3, box[2] - 3, box[3] - 3], 200, 240, fill=GLASS[1], width=2)
+    # The machine's own eyes, big, on the globe.
+    state = pose.get("eyes", "open")
+    look = pose.get("look", (0, 0))
+    left = "closed" if pose.get("wink") else state
+    eye(img, G_EYES[0][0], G_EYES[0][1] + bob, 6, 11, left, look, side=-1, brow=-1, has_brow=on)
+    eye(img, G_EYES[1][0], G_EYES[1][1] + bob, 6, 11, state, look, side=1, brow=-1, has_brow=on)
+
+    # --- cap ---------------------------------------------------------------------
+    cy = 16 + bob + pose.get("cap", 0)
+    lay = new(GACHA)
+    _cap(lay, spec["cap"], T, cy)
+    stamp(img, lay)
+    _cap_details(img, spec["cap"], T, cy)
+    return finish(img)
+
+
+G_OFF = {"on": False, "eyes": "closed", "lamp": False}
+G_REST = {"eyes": "open", "look": (0, 0), "lamp": True}
+
+
+def gumball_idle():
+    """Four seconds at 8 fps: breathing, glances, two blinks, a rattle, a wink."""
+    poses = []
+    for i in range(32):
+        pose = dict(G_REST)
+        pose["bob"] = 1 if (i // 4) % 2 == 1 else 0
+        if 6 <= i < 11:
+            pose["look"] = (-2, 0)
+        elif 14 <= i < 18:
+            pose["look"] = (2, 1)
+        elif 23 <= i < 26:
+            pose["look"] = (0, -2)
+        if i in (3, 19):
+            pose["eyes"] = "half"
+        if i in (4, 20):
+            pose["eyes"] = "closed"
+        if i in (28, 29):
+            pose["wink"] = True
+        if i in (12, 13):
+            pose["rattle"] = 1 if i == 12 else -1
+        pose["lamp"] = (i // 3) % 2 == 0
+        poses.append(pose)
+    return poses
+
+
+def gumball_wake():
     return [
-        gacha_static(n),
-        gacha(n, sq=1, eyes=[("closed", 0)] * 3, la=G_ARM_OFF, ra=G_ARM_OFF, lamp_on=2, bulbs=flash),
-        gacha(n, sq=2, eyes=[("half", 0)] * 3, la=G_DN, ra=G_DN, lamp_on=2, bulbs=warm),
-        gacha(n, sq=-1, capdy=-1, eyes=[("wide", 0)] * 3, la=G_UP_MID, ra=G_UP_MID, balls=j1,
-              lamp_on=1, bulbs=flash, tag=1),
-        gacha(n, sq=-2, capdy=-2, eyes=[("wide", 0)] * 3, la=G_UP_HIGH, ra=G_UP_HIGH, balls=j2,
-              lamp_on=2, bulbs=warm, tag=1),
-        gacha(n, sq=-2, capdy=-1, eyes=[("happy", 0)] * 3, la=G_UP_OUT, ra=G_UP_OUT, balls=j1,
-              lamp_on=1, bulbs=flash, tag=-1),
-        gacha(n, sq=1, capdy=1, eyes=[("open", 0)] * 3, la=G_UP_MID, ra=G_UP_MID, lamp_on=1,
-              bulbs=warm, tag=-1),
-        gacha(n, sq=1, eyes=[("open", 1)] * 3, la=G_DN, ra=G_DN, lamp_on=1, bulbs=flash),
-        idle0,
+        dict(G_OFF),
+        dict(G_OFF, lamp=True),
+        {"eyes": "half", "bob": 1, "sink": 1},
+        {"eyes": "half", "bob": 3, "sink": 3, "squash": 2},
+        {"eyes": "wide", "bob": -2, "cap": -1, "rattle": 1},
+        {"eyes": "wide", "bob": -2, "look": (-2, 0)},
+        {"eyes": "open", "bob": 2, "sink": 2, "squash": 1, "look": (2, 0)},
+        {"eyes": "happy", "bob": 0},
+        dict(G_REST),
     ]
 
 
-def gacha_play_frames(n, idle0):
-    """Anticipation (lean away, wind the handle back), one full turn with squash
-    and stretch, an overshoot past the stop, a flick of the hand, settle."""
-    bal = ((0, 53), (3, 59), "open", True)           # left arm out for balance
-    bal_up = ((-2, 50), (3, 52), "open", True)
-    bal_wave = ((2, 55), (7, 62), "wave", True)
-    ja = [(1, 0), (-1, 0), (0, 1), (1, -1), (-1, 0), (0, -1), (1, 0), (-1, 1)]
-    jb = [(-1, -1), (1, -2), (0, -1), (-1, -2), (1, -1), (0, -2), (-1, -1), (1, -2)]
-    jc = [(0, 1), (1, 0), (-1, 0), (0, 0), (1, 1), (-1, 0), (0, 1), (1, 0)]
-    at_crank = [("open", (1, 1))] * 3
-    squint = [("half", 1)] * 3
-    wide = [("wide", 0)] * 3
-    happy = [("happy", 0)] * 3
-    flash, warm = [2, 2, 2], [1, 1, 1]
+def gumball_play():
+    """Anticipation, one full turn of the lever with the globe rattling, pop."""
     return [
-        gacha(n, sq=1, gdx=-1, eyes=at_crank, la=bal_wave, ra=crank_arm(7, 1, -2), handle=7,
-              lamp_on=2, bulbs=warm, tag=1),
-        gacha(n, sq=2, gdx=-2, capdx=-1, eyes=squint, la=bal, ra=crank_arm(0, 2, 0), handle=0,
-              balls=ja, lamp_on=2, bulbs=flash, tag=1),
-        gacha(n, sq=2, gdx=1, eyes=squint, la=bal, ra=crank_arm(2, 2, 3), handle=2, balls=jc,
-              lamp_on=1, bulbs=warm, tag=-1),
-        gacha(n, sq=-1, gdx=2, capdx=1, capdy=-1, eyes=wide, la=bal_up, ra=crank_arm(4, -1, 1),
-              handle=4, balls=jb, lamp_on=2, bulbs=flash, tag=-1),
-        gacha(n, sq=-3, gdx=0, capdy=-1, eyes=wide, la=bal_up, ra=crank_arm(6, -3, -3), handle=6,
-              balls=jb, lamp_on=1, bulbs=warm),
-        gacha(n, sq=2, gdx=-1, capdy=-2, eyes=squint, la=bal, ra=crank_arm(1, 2, 2), handle=1,
-              balls=jc, lamp_on=2, bulbs=flash, tag=1),
-        gacha(n, sq=1, gdx=1, capdy=1, eyes=happy, la=bal_wave, ra=crank_arm(0, 1, 0), handle=0,
-              balls=ja, lamp_on=2, bulbs=warm, tag=-1),
-        gacha(n, sq=-1, capdy=-1, eyes=happy, la=bal_wave, ra=bal_wave, balls=j_up(), lamp_on=1,
-              bulbs=flash),
-        gacha(n, sq=1, eyes=happy, la=_arm(0, -2), ra=_arm(0, -2), lamp_on=1, bulbs=warm),
-        idle0,
+        {"eyes": "open", "look": (2, 2), "bob": 2, "sink": 2, "squash": 1, "lever": -0.5},
+        {"eyes": "squeeze", "bob": 3, "sink": 3, "squash": 2, "lever": 0.9, "rattle": 2},
+        {"eyes": "squeeze", "bob": 1, "sink": 1, "lever": 1.9, "rattle": -2},
+        {"eyes": "squeeze", "bob": 3, "sink": 3, "squash": 2, "lever": 3.0, "rattle": 2},
+        {"eyes": "squeeze", "bob": 1, "sink": 1, "lever": 4.1, "rattle": -2},
+        {"eyes": "squeeze", "bob": 3, "sink": 3, "squash": 2, "lever": 5.3, "rattle": 2},
+        {"eyes": "wide", "bob": -2, "cap": -1, "lever": 0.0, "rattle": 1},
+        {"eyes": "wide", "bob": -2, "look": (0, 2)},
+        {"eyes": "happy", "bob": 1, "sink": 1},
+        dict(G_REST),
     ]
 
 
-def j_up():
-    return [(0, -1)] * 8
+# -------------------------------------------------------------- crane 005
+
+_CACHE = {}
 
 
-# ------------------------------------------------------------------ cabinets 005 / 006 (shared)
-
-CW, CH = 72, 104
-CCX = 36
-C_BOT = CH - 2
-CAB_SHOULDER = {5: (11, 78), 6: (11, 85)}
-
-C_ARM_OFF = {5: ((4, 80), (6, 90), "down", False), 6: ((5, 88), (6, 94), "down", False)}
-C_ARM_IDLE = {5: ((2, 76), (5, 86), "down", False), 6: ((2, 83), (5, 91), "down", False)}
-
-
-def cab_arm(n, dx, dy, glove="down"):
-    c, w, g, f = C_ARM_IDLE[n]
-    return ((c[0] + dx, c[1] + dy), (w[0] + dx, w[1] + dy), glove, f)
-
-
-def panel(s, x0, y0, x1, y1, cols, r=0):
-    """Outlined box, lit on its top and left edge, shaded on bottom and right."""
-    base, sh, hl = cols
-    m = box(x0, y0, x1, y1, r)
-    s.shape(m, base,
-            {q for q in m if q[1] == y1 or q[0] >= x1 - 1}, sh,
-            {q for q in m if (q[1] == y0 or q[0] == x0) and q[1] != y1 and q[0] < x1 - 1}, hl)
+def _plush_bear(img, cx, cy, ramp, on):
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    circ(d, (cx - 5, cy - 4), 2.5, tone(ramp, 2, on))
+    circ(d, (cx + 5, cy - 4), 2.5, tone(ramp, 2, on))
+    d.ellipse([cx - 7, cy - 5, cx + 7, cy + 6], fill=tone(ramp, 3, on))
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.arc([cx - 7, cy - 5, cx + 7, cy + 6], 10, 120, fill=tone(ramp, 2, on), width=2)
+    d.point([(cx - 5, cy - 4), (cx + 5, cy - 4)], fill=tone(ramp, 4, on))
+    d.ellipse([cx - 3, cy, cx + 3, cy + 4], fill=tone(PAPER, 3, on))
+    d.point([(cx - 3, cy - 1), (cx + 3, cy - 1), (cx, cy + 1), (cx - 1, cy + 1)], fill=INK)
+    d.point((cx, cy + 3), fill=INK_SOFT)
+    d.point((cx - 4, cy - 3), fill=tone(ramp, 4, on))
 
 
-def sticker(s, x0, y0, x1, y1):
-    m = box(x0, y0, x1, y1)
-    s.shape(m, PAPER, {q for q in m if q[1] == y1 or q[0] == x1}, DCREAM)
+def _plush_bunny(img, cx, cy, ramp, on):
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    d.ellipse([cx - 5, cy - 14, cx - 1, cy - 2], fill=tone(ramp, 3, on))
+    d.ellipse([cx + 1, cy - 13, cx + 5, cy - 2], fill=tone(ramp, 3, on))
+    d.ellipse([cx - 6, cy - 5, cx + 6, cy + 6], fill=tone(ramp, 4, on))
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.line([(cx - 3, cy - 11), (cx - 3, cy - 6)], fill=tone(ramp, 1, on))
+    d.line([(cx + 3, cy - 10), (cx + 3, cy - 6)], fill=tone(ramp, 1, on))
+    d.arc([cx - 6, cy - 5, cx + 6, cy + 6], 10, 120, fill=tone(ramp, 3, on), width=2)
+    d.point([(cx - 2, cy - 1), (cx + 2, cy - 1)], fill=INK)
+    d.point((cx, cy + 1), fill=tone(RED, 2, on))
+    d.point([(cx - 1, cy + 3), (cx, cy + 3), (cx + 1, cy + 3)], fill=INK_SOFT)
 
 
-# ------------------------------------------------------------------ 005 crane catcher
-
-CR_GLASS = (13, 25, 58, 61)          # glass interior, pixel-stable in idle / react
-CR_CHUTE_FRAME = (40, 80, 57, 97)
-CRANE_ANCHORS = {
-    "chute": [49, 89], "claw_rail_y": 28, "claw_min_x": 23, "claw_max_x": 49,
-    "claw_rest_x": 25, "grab_y": 33, "drop_x": 49, "drop_y": 55,
-}
-
-PLUSH = {
-    "bear": (MUSTARD, DMUST), "bunny": (PINK, DPINK), "cat": (CREAM, DCREAM),
-    "frog": (GREEN, DGREEN), "blob": (BLUE, NAVY), "fox": (ORANGE, DORANGE),
-}
+def _plush_star(img, cx, cy, on):
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    d.polygon(star_points(cx, cy, 8.5, 4.2), fill=tone(MUSTARD, 3, on))
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.polygon(star_points(cx - 1, cy - 1, 4.5, 2.4), fill=tone(MUSTARD, 4, on))
+    d.point([(cx - 2, cy), (cx + 2, cy)], fill=INK)
+    d.line([(cx - 1, cy + 2), (cx + 1, cy + 2)], fill=INK_SOFT)
 
 
-def plush(s, cx, cy, kind, awake):
-    base, sh = PLUSH[kind]
-    head = ell(cx + 0.5, cy + 0.5, 5.2, 4.8)
-    ears = set()
-    if kind == "bear":
-        ears = ell(cx - 3.5, cy - 4, 2, 2) | ell(cx + 4.5, cy - 4, 2, 2)
-    elif kind == "bunny":
-        ears = box(cx - 4, cy - 10, cx - 2, cy - 3, r=1) | box(cx + 2, cy - 10, cx + 4, cy - 3, r=1)
-    elif kind in ("cat", "fox"):
-        ears = poly([(cx - 5, cy - 2), (cx - 4, cy - 8), (cx - 0.5, cy - 3)]) | \
-               poly([(cx + 6, cy - 2), (cx + 5, cy - 8), (cx + 1.5, cy - 3)])
-    elif kind == "frog":
-        ears = ell(cx - 2.5, cy - 4, 2.2, 2.2) | ell(cx + 3.5, cy - 4, 2.2, 2.2)
-    m = head | ears
-    s.shape(m, base, m - ell(cx - 0.6, cy - 0.6, 5.2, 4.8) - ears, sh)
-    if kind == "bunny":
-        s.vline(cx - 3, cy - 8, cy - 5, PAPER)
-        s.vline(cx + 3, cy - 8, cy - 5, PAPER)
-    for ex in (cx - 2, cx + 2):
-        if awake:
-            s.put(ex, cy - 1, INK)
-            s.put(ex, cy, INK)
-        else:
-            s.put(ex, cy, INK)
-            s.put(ex + (1 if ex > cx else -1), cy, INK)
-    s.put(cx, cy + 2, INK)
-    if kind in ("bear", "cat", "fox"):
-        s.put(cx - 1, cy + 1, PAPER)
-        s.put(cx, cy + 1, PAPER)
-        s.put(cx + 1, cy + 1, PAPER)
-        s.put(cx, cy + 1, INK)
-        s.put(cx, cy + 2, PAPER)
+def _plush_die(img, x, y, on):
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    d.rounded_rectangle([x, y, x + 10, y + 10], radius=2, fill=tone(PAPER, 4, on))
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.line([(x + 1, y + 10), (x + 9, y + 10)], fill=tone(PAPER, 2, on))
+    d.line([(x + 10, y + 2), (x + 10, y + 9)], fill=tone(PAPER, 2, on))
+    d.line([(x + 2, y + 9), (x + 9, y + 9)], fill=tone(PAPER, 3, on))
+    for px, py in ((2, 2), (7, 2), (2, 7), (7, 7)):
+        d.rectangle([x + px, y + py, x + px + 1, y + py + 1], fill=INK)
+    d.rectangle([x + 4, y + 4, x + 5, y + 5], fill=tone(RED, 2, on))
 
 
-def mini_capsule(s, cx, cy, key):
-    base, sh = BALL[key]
-    m = ell(cx + 0.5, cy + 0.5, 3.6, 3.6)
-    s.shape(m, CREAM, m - ell(cx - 0.3, cy - 0.3, 3.6, 3.6), DCREAM)
-    s.puts({q for q in m if q[1] <= cy}, base)
-    s.put(cx - 1, cy - 2, PAPER)
+def _plush_ball(img, cx, cy, ramp, on):
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    circ(d, (cx, cy), 6, tone(ramp, 2, on))
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.arc([cx - 6, cy - 6, cx + 6, cy + 6], 10, 110, fill=tone(ramp, 1, on), width=2)
+    d.line([(cx - 5, cy - 1), (cx + 5, cy - 1)], fill=tone(PAPER, 3, on))
+    d.line([(cx - 6, cy), (cx + 6, cy)], fill=tone(PAPER, 4, on))
+    d.line([(cx - 5, cy + 1), (cx + 5, cy + 1)], fill=tone(PAPER, 2, on))
+    d.rectangle([cx - 3, cy - 4, cx - 2, cy - 3], fill=tone(ramp, 4, on))
 
 
-def crane(on=True, hdy=0, eyes=("open", 0), lamps=None, la=None, ra=None, joy=0, bulge=0,
-          btn=-1, coin=1, hop=None, slots=None):
-    """Crane catcher. hdy <= 0 lifts the head (roof + marquee) off the box.
-
-    btn: index of the panel button that is lit; coin: coin lamp state;
-    hop: 6 vertical offsets for the plush prizes (wake only: the glass
-    interior must not change in idle / react).
-    """
-    n = 5
-    cols = BODY["navy"]
-    base, sh, hl = cols
-    s = Cv(CW, CH)
-    la = la or C_ARM_IDLE[n]
-    ra = ra or C_ARM_IDLE[n]
-    lamps = lamps or [0] * 6
-    hop = hop or [0] * 6
-    shoulder = CAB_SHOULDER[n]
-    arms = (("L", la), ("R", ra))
-    for side, spec in arms:
-        if not spec[3]:
-            draw_arm(s, side, shoulder, spec, "arm")
-
-    # lower cabinet and plinth
-    panel(s, 12, 100, 59, C_BOT, (DSTEEL, HOLE, STEEL))
-    for x in (15, 18, 21, 50, 53, 56):                       # vents and feet
-        s.put(x, 101, INK)
-    panel(s, 10 - bulge, 75, 61 + bulge, 99, cols)
-    s.rect(11 - bulge, 77, 12 - bulge, 97, hl)
-    # coin plate with its lamp, price badge
-    panel(s, 15, 78, 25, 88, (STEEL, DSTEEL, LSTEEL))
-    s.rect(19, 80, 20, 85, INK)
-    s.put(19, 80, DSTEEL)
-    lamp_c = (DSTEEL, MUSTARD, PAPER)[coin if on else 0]
-    s.rect(23, 80, 23, 81, lamp_c)
-    badge = ell(33, 83, 4.2, 4.2)
-    s.shape(badge, RED, badge - ell(32.4, 82.4, 4.2, 4.2), DRED)
-    s.rect(32, 81, 33, 84, PAPER)                            # coin mark
-    s.put(31, 81, LRED)
-    # sign plate: ku-re-e-n (crane)
-    sticker(s, 14, 91, 37, 97)
-    kana_line(s, ("ku", "re", "bar", "n"), 15, 92, RED)
-    chute(s, *CR_CHUTE_FRAME)
-    s.put(59, 96, DNAVY)                                     # wear
-    s.put(58, 97, DNAVY)
-    s.put(59, 78, hl)
-
-    # glass box frame (cream pillars); it continues under the head as a neck
-    frame = box(10, 15, 61, 64)
-    s.shape(frame, CREAM, {q for q in frame if q[0] >= 60 or q[1] >= 64}, DCREAM,
-            {q for q in frame if q[0] == 10}, PAPER)
-    gx0, gy0, gx1, gy1 = CR_GLASS
-    inner = box(gx0, gy0, gx1, gy1)
-    s.puts(edge(inner), INK)
-    glass, glass_sh = (SKY, DSKY) if on else (OFFSKY, OFFDSKY)
-    s.puts(inner, glass)
-    s.rect(gx0, gy0, gx1, gy0 + 2, DSTEEL)                   # rail
-    s.hline(gx0, gx1, gy0, STEEL)
-    s.hline(gx0, gx1, gy0 + 3, INK)
-    s.rect(gx1 - 1, gy0 + 4, gx1, gy1, glass_sh)             # inner right wall
-    # prize bed seen from above
-    s.rect(gx0, 48, gx1, gy1, PINK)
-    s.hline(gx0, gx1, 48, DPINK)
-    s.rect(gx1 - 1, 49, gx1, gy1, DPINK)
-    # drop hole with a steel collar
-    collar = ell(49.5, 56.5, 8, 5)
-    s.puts(edge(collar) & inner, INK)
-    s.puts(collar & inner, STEEL)
-    s.puts(ell(49.5, 55.6, 8, 4.2) & collar & inner, LSTEEL)
-    hole = ell(49.5, 56.2, 6, 3.2)
-    s.puts(edge(hole), INK)
-    s.puts(hole, INK)
-    s.puts(hole - ell(48.6, 55.6, 6, 3.2), HOLE)
-    # highlights on the glass (behind the prizes: the game draws the claw on top)
-    for (x, y) in inner:
-        if 30 <= y <= 44:
-            d = (x - gx0) + (y - gy0)
-            if 22 <= d <= 24 or (on and 28 <= d <= 28):
-                s.put(x, y, PAPER if on else SKY)
-    # pile of plush prizes
-    tmp = Cv(CW, CH)
-    for i, (px, py, kind) in enumerate(((19, 49, "bear"), (30, 48, "frog"), (39, 50, "fox"))):
-        plush(tmp, px, py + hop[i], kind, on)
-    mini_capsule(tmp, 25, 54, "R")
-    mini_capsule(tmp, 35, 55, "B")
-    for i, (px, py, kind) in enumerate(((17, 57, "bunny"), (28, 58, "cat"), (38, 58, "blob"))):
-        plush(tmp, px, py + hop[3 + i], kind, on)
-    s.paste_mask(tmp, inner)
-
-    # control panel: sloped top (lit) and front lip, joystick and buttons
-    top_face = poly([(11, 66), (61, 66), (64, 72), (8, 72)])
-    s.shape(top_face, LSTEEL)
-    panel(s, 8, 72, 63, 74, (STEEL, DSTEEL, LSTEEL))
-    jx = 21 + joy
-    s.puts(edge(ell(21.5, 69.5, 2.5, 1.2)), INK)
-    s.puts(ell(21.5, 69.5, 2.5, 1.2), DSTEEL)
-    s.puts(line(21, 69, jx, 67, 2), INK)
-    knob = ell(jx + 1.0, 65.5, 2.5, 2.5)
-    s.shape(knob, RED, knob - ell(jx + 0.4, 64.9, 2.5, 2.5), DRED)
-    s.put(jx - 1, 64, PAPER)
-    for i, (bx, bc, bs) in enumerate(((32, MUSTARD, DMUST), (41, RED, DRED), (50, GREEN, DGREEN))):
-        b = box(bx, 68, bx + 4, 69)
-        s.puts(edge(b), INK)
-        s.puts(b, bc)
-        s.hline(bx, bx + 4, 69, bs)
-        s.put(bx, 68, PAPER)
-        if on and i == btn:
-            s.hline(bx, bx + 4, 68, PAPER)
-            s.hline(bx, bx + 4, 69, bc)
-
-    # head: roof seen from above + marquee with the eyes and the lamps
-    roof = poly([(13, 6 + hdy), (59, 6 + hdy), (63, 10 + hdy), (9, 10 + hdy)])
-    s.shape(roof, hl)
-    s.hline(18, 53, 7 + hdy, SKY)
-    panel(s, 8, 10 + hdy, 63, 22 + hdy, cols, r=1)
-    s.hline(10, 61, 21 + hdy, MUSTARD)
-    eye_pair(s, CCX, 9 + hdy, 6, 10, eyes[0], eyes[1])
-    for i, x in enumerate((11, 17, 23, 47, 53, 59)):
-        lamp(s, x, 14 + hdy, lamps[i] if on else 0)
-
-    for side, spec in arms:
-        draw_arm(s, side, shoulder, spec, "both" if spec[3] else "glove")
-    return s
+def crane_interior(on):
+    """The glass box: static, cached, pasted identically into every frame."""
+    key = ("crane", on)
+    if key in _CACHE:
+        return _CACHE[key]
+    x0, y0, x1, y1 = CRANE_GLASS
+    img = new(CAB)
+    d = ImageDraw.Draw(img)
+    d.rectangle([x0, y0, x1 - 1, y1 - 1], fill=GLASS[2] if on else GLASS[0])
+    if on:
+        d.rectangle([x0, y0, x1 - 1, y0 + 20], fill=GLASS[3])
+        for y in range(y0 + 21, y0 + 27):
+            for x in range(x0, x1):
+                if (x + y) % 2 == 0 and (y - y0 - 21) < 3 + (x % 3):
+                    d.point((x, y), fill=GLASS[3])
+        # Back corner of the box and its floor line.
+        d.line([(66, y0), (66, 86)], fill=GLASS[1])
+        d.line([(x0, 86), (66, 86)], fill=GLASS[1])
+        d.line([(66, 86), (x1 - 1, 92)], fill=GLASS[1])
+        for x in range(67, x1, 2):
+            for y in range(y0 + 3, 90, 2):
+                if (x + y) % 4 == 0:
+                    d.point((x, y), fill=GLASS[1])
+    else:
+        d.line([(66, y0), (66, 86)], fill=BLACK[2])
+        d.line([(x0, 86), (66, 86)], fill=BLACK[2])
+    # Rail the claw travels on.
+    d.rectangle([x0, y0, x1 - 1, y0 + 2], fill=tone(GREY, 3, on))
+    d.line([(x0, y0), (x1 - 1, y0)], fill=tone(GREY, 4, on))
+    d.line([(x0, y0 + 2), (x1 - 1, y0 + 2)], fill=tone(GREY, 1, on) if on else BLACK[1])
+    d.line([(x0, y0 + 3), (x1 - 1, y0 + 3)], fill=INK)
+    for x in range(x0 + 3, x1, 6):
+        d.point((x, y0 + 1), fill=tone(GREY, 1, on) if on else BLACK[1])
+    # Drop hole in the right corner.
+    d.rectangle([53, 90, 78, 104], fill=INK)
+    d.rectangle([54, 91, 77, 93], fill=tone(GREY, 3, on))
+    d.line([(54, 91), (77, 91)], fill=tone(GREY, 4, on))
+    d.rectangle([54, 94, 77, 104], fill=BLACK[1])
+    d.rectangle([54, 94, 77, 95], fill=BLACK[0])
+    d.line([(77, 96), (77, 104)], fill=BLACK[2])
+    for x in range(56, 77, 5):
+        d.point((x, 92), fill=tone(GREY, 1, on) if on else BLACK[0])
+    # The prize pile: back row, then front row.
+    _plush_bunny(img, 30, 91, ROSE, on)
+    _plush_bear(img, 17, 92, SEPIA, on)
+    _plush_star(img, 44, 93, on)
+    lay = new(CAB)
+    mini_capsule(ImageDraw.Draw(lay), 13, 100, BLUE, 200, on)
+    img.alpha_composite(lay)
+    _plush_ball(img, 25, 100, RED, on)
+    _plush_bear(img, 38, 100, TEAL, on)
+    _plush_die(img, 44, 96, on)
+    d = ImageDraw.Draw(img)
+    # Hard reflections on the front pane.
+    if on:
+        d.line([(14, 76), (28, 60)], fill=GLASS[4], width=2)
+        d.line([(19, 79), (27, 70)], fill=GLASS[4])
+        d.line([(58, 66), (64, 59)], fill=GLASS[4])
+    else:
+        d.line([(14, 76), (28, 60)], fill=GLASS[1])
+    mask = Image.new("L", CAB, 0)
+    ImageDraw.Draw(mask).rectangle([x0, y0, x1 - 1, y1 - 1], fill=255)
+    _CACHE[key] = clip(img, mask)
+    return _CACHE[key]
 
 
-# ------------------------------------------------------------------ 006 lucky plinko
+def crane(pose):
+    """One frame of the crane. Pose keys: on, eyes, look, wink, s (dome
+    stretch, negative squashes), hat (extra hat lift), lamps (None, 'all' or a
+    chase phase), mouth (smile, open, flat)."""
+    on = pose.get("on", True)
+    s = pose.get("s", 0)
+    lamps = pose.get("lamps", 0 if on else None)
+    R = RED
+    img = new(CAB)
 
-PK_BOARD = (8, 26, 63, 76)           # board interior, pixel-stable in idle / react
-PK_CHUTE_FRAME = (27, 82, 44, 97)
-PK_ROWS, PK_ROW_STEP, PK_COL_STEP = 6, 6, 5
-PK_START = (36, 29)
-PK_SLOT_Y = 72
-PK_SLOT_XS = [16, 26, 36, 46, 56]
-PLINKO_ANCHORS = {
-    "chute": [36, 90], "ball_start": list(PK_START), "rows": PK_ROWS, "row_step": PK_ROW_STEP,
-    "column_step": PK_COL_STEP, "slot_y": PK_SLOT_Y, "slot_xs": PK_SLOT_XS,
-}
+    # --- cream dome with the face (drawn first: the cabinet overlaps its base) --
+    ry = 26 + s
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    d.pieslice([22, 36 - ry, 96, 36 + ry], 180, 360, fill=PAPER[2])
+    d.polygon([(8, 41), (82, 41), (96, 36), (22, 36)], fill=PAPER[2])
+    d.pieslice([8, 41 - ry, 82, 41 + ry], 180, 360, fill=PAPER[3])
+    d.pieslice([11, 43 - ry, 70, 39 + ry - 4], 180, 360, fill=PAPER[4])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.arc([8, 41 - ry, 82, 41 + ry], 318, 360, fill=PAPER[1], width=2)
+    for y in range(41 - ry + 6, 40, 2):
+        for x in range(74, 96, 2):
+            if img.getpixel((x, y)) == PAPER[2] and (x + y) % 4 == 0:
+                d.point((x, y), fill=PAPER[1])
+    d.arc([22, 36 - ry, 96, 36 + ry], 300, 360, fill=PAPER[0], width=2)
+    d.arc([14, 44 - ry, 60, 80], 200, 250, fill=PAPER[4])
+    fy = -(s // 2) if s >= 0 else -((s - 1) // 2)
+    state = pose.get("eyes", "open")
+    look = pose.get("look", (0, 0))
+    left = "closed" if pose.get("wink") else state
+    eye(img, 35, 26 + fy, 6, 7, left, look, side=-1, brow=-1, has_brow=on)
+    eye(img, 51, 26 + fy, 6, 7, state, look, side=1, brow=-1, has_brow=on)
+    mouth = pose.get("mouth", "smile" if on else "flat")
+    if mouth == "open":
+        d.chord([37, 30 + fy, 49, 39 + fy], 0, 180, fill=INK)
+        d.rectangle([41, 37 + fy, 45, 37 + fy], fill=RED[3])
+    elif mouth == "smile":
+        d.arc([36, 30 + fy, 50, 38 + fy], 15, 165, fill=INK, width=2)
+        d.point([(35, 34 + fy), (51, 34 + fy)], fill=INK)
+    else:
+        d.line([(39, 37 + fy), (47, 37 + fy)], fill=INK)
 
+    # --- little top hat, tipped to the side ------------------------------------
+    hy = -s + pose.get("hat", 0) + 1
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    d.ellipse([64, 11 + hy, 90, 17 + hy], fill=BLACK[1])
+    d.polygon([(69, 14 + hy), (70, 4 + hy), (85, 5 + hy), (85, 14 + hy)], fill=BLACK[1])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.polygon([(69, 10 + hy), (85, 11 + hy), (85, 13 + hy), (69, 12 + hy)], fill=RED[2])
+    d.line([(69, 10 + hy), (85, 11 + hy)], fill=RED[3])
+    d.line([(71, 5 + hy), (84, 6 + hy)], fill=BLACK[3])
+    d.line([(71, 6 + hy), (71, 9 + hy)], fill=BLACK[3])
+    d.line([(72, 6 + hy), (72, 8 + hy)], fill=BLACK[2])
+    d.arc([64, 11 + hy, 90, 17 + hy], 100, 200, fill=BLACK[3])
+    d.arc([64, 11 + hy, 90, 17 + hy], 200, 250, fill=BLACK[2])
 
-def plinko_pegs():
-    """Top-left pixel of every 2 x 2 peg. Row k catches the ball after k hops."""
-    out = []
-    for k in range(PK_ROWS):
-        y = PK_START[1] + k * PK_ROW_STEP + 3
-        for o in range(-5, 6):
-            if (o - k) % 2 == 0:
-                out.append((PK_START[0] + o * PK_COL_STEP - 1, y))
-    return out
-
-
-def plinko(on=True, hdy=0, eyes=("open", 0), lamps=None, la=None, ra=None, bulge=0,
-           slots=None, coin=1, joy=0, btn=-1, hop=None):
-    """Lucky Plinko. hdy <= 0 lifts the arched head off the board.
-
-    slots: states of the five lamps on the ledge, one under each slot (they sit
-    outside the board interior, which must not change in idle / react).
-    """
-    n = 6
-    cols = BODY["pink"]
-    base, sh, hl = cols
-    s = Cv(CW, CH)
-    la = la or C_ARM_IDLE[n]
-    ra = ra or C_ARM_IDLE[n]
-    lamps = lamps or [0] * 6
-    slots = slots or [0] * 5
-    shoulder = CAB_SHOULDER[n]
-    arms = (("L", la), ("R", ra))
-    for side, spec in arms:
-        if not spec[3]:
-            draw_arm(s, side, shoulder, spec, "arm")
-
-    # pedestal (as wide as the crane's), plinth, tray ledge
-    panel(s, 12, 100, 59, C_BOT, (DSTEEL, HOLE, STEEL))
-    for x in (15, 18, 21, 50, 53, 56):
-        s.put(x, 101, INK)
-    panel(s, 10 - bulge, 81, 61 + bulge, 99, cols)
-    s.rect(11 - bulge, 83, 12 - bulge, 97, hl)
-    s.rect(11 - bulge, 95, 25, 96, MUSTARD)                    # trim stripe
-    s.hline(11 - bulge, 25, 97, DMUST)
-    panel(s, 15, 84, 21, 92, (STEEL, DSTEEL, LSTEEL))          # coin plate
-    s.rect(18, 86, 18, 90, INK)
-    lamp_c = (DSTEEL, MUSTARD, PAPER)[coin if on else 0]
-    s.rect(23, 85, 24, 86, lamp_c)
-    s.puts(edge(box(23, 85, 24, 86)), INK)
-    s.rect(23, 89, 24, 91, RED)                                # price dot
-    s.puts(edge(box(23, 89, 24, 91)), INK)
-    s.put(23, 89, LRED)
-    # square sticker: ra-tsu / ki-i (lucky)
-    sticker(s, 47, 84, 59, 96)
-    kana_line(s, ("ra", "tsu"), 48, 85, RED)
-    kana_line(s, ("ki", "bar"), 48, 91, NAVY)
-    chute(s, *PK_CHUTE_FRAME)
-    ledge = poly([(9, 78), (63, 78), (66, 81), (6, 81)])
-    s.shape(ledge, LSTEEL)
-    s.hline(6, 65, 80, STEEL)
-    for i, cx in enumerate(PK_SLOT_XS):                        # slot lamps on the ledge
-        lamp(s, cx - 1, 78, slots[i] if on else 0)
-
-    # board frame; it continues under the head as a neck
-    bx0, by0, bx1, by1 = PK_BOARD
-    frame = box(bx0 - 2, 18, bx1 + 2, by1 + 1)
-    s.shape(frame, base, {q for q in frame if q[0] >= bx1 + 2 or q[1] > by1}, sh,
-            {q for q in frame if q[0] == bx0 - 2}, hl)
-    inner = box(bx0, by0, bx1, by1)
-    ray_a, ray_b = (PAPER, CREAM) if on else (CREAM, OFFCREAM)
-    for (x, y) in inner:                                      # rising-sun rays
-        a = math.degrees(math.atan2(68 - (y + 0.5), (x + 0.5) - CCX))
-        s.put(x, y, ray_a if int((a + 7.5) // 15) % 2 == 0 else ray_b)
-    s.rect(bx0, by0, bx1, by0, DCREAM)                        # shade under the head
-    s.rect(bx0, by0, bx0, by1, DCREAM)
-    # slots
-    slot_top = PK_SLOT_Y - 6
-    slot_cols = (RED, MUSTARD, GREEN, MUSTARD, RED)
-    slot_sh = (DRED, DMUST, DGREEN, DMUST, DRED)
-    s.rect(bx0, slot_top + 2, bx1, by1, INK)
-    for i, cx in enumerate(PK_SLOT_XS):
-        s.rect(cx - 4, slot_top + 3, cx + 3, by1 - 1, slot_cols[i])
-        s.rect(cx - 4, by1 - 1, cx + 3, by1 - 1, slot_sh[i])
-        s.rect(cx + 3, slot_top + 3, cx + 3, by1 - 1, slot_sh[i])
-    for i in range(6):                                         # divider posts
-        x = PK_SLOT_XS[0] - PK_COL_STEP + i * 2 * PK_COL_STEP
-        s.rect(x - 1, slot_top, x, slot_top + 2, INK)
-        s.put(x - 1, slot_top, DSTEEL)
-    # pegs
-    for (px, py) in plinko_pegs():
-        peg = {(px, py), (px + 1, py), (px, py + 1), (px + 1, py + 1)}
-        s.puts(edge(peg) & inner, INK)
-        s.puts(peg, RED)
-        s.put(px, py, LRED)
-        s.put(px + 1, py + 1, DRED)
-
-    # head: arch with a lit top face, eyes and lamps
-    top_face = {q for q in ell(CCX, 25 + hdy - 3, 30, 17) if q[1] <= 21 + hdy}
-    s.shape(top_face, hl)
-    front = {q for q in ell(CCX, 25 + hdy, 30, 17) if q[1] <= 24 + hdy}
-    s.shape(front, base, front - ell(CCX - 1.5, 25 + hdy, 30, 17), sh)
-    s.hline(7, 64, 24 + hdy, sh)
-    s.hline(7, 64, 22 + hdy, MUSTARD)
-    eye_pair(s, CCX, 9 + hdy, 6, 10, eyes[0], eyes[1])
-    for i, (ang, sx) in enumerate(((22, -1), (42, -1), (60, -1), (60, 1), (42, 1), (22, 1))):
-        a = math.radians(ang)
-        lx = int(round(CCX + sx * 24.5 * math.cos(a) - 1))
-        ly = int(round(24 + hdy - 13.0 * math.sin(a)))
-        lamp(s, lx, ly, lamps[i] if on else 0)
-
-    for side, spec in arms:
-        draw_arm(s, side, shoulder, spec, "both" if spec[3] else "glove")
-    return s
-
-
-# ------------------------------------------------------------------ cabinet animations
-
-CAB = {5: crane, 6: plinko}
-
-
-def cab_static(n):
-    return CAB[n](on=False, eyes=("closed", 0), la=C_ARM_OFF[n], ra=C_ARM_OFF[n])
-
-
-def chase(f):
-    """Six sign lamps, a lit pair running along them."""
-    return [2 if (i - f) % 3 == 0 else 1 for i in range(6)]
-
-
-def ping(f):
-    """Five slot lamps, one bright lamp running to and fro."""
-    k = (0, 1, 2, 3, 4, 3, 2, 1)[f % 8]
-    return [2 if i == k else 1 for i in range(5)]
-
-
-def cab_idle_frames(n):
-    """6 s loop: breathing head, glances, blinks, a wink, a look down at the
-    player, drumming fingers, a chuckle; lamps chase, the joystick wiggles."""
-    frames = []
-    for f in range(IDLE_FRAMES):
-        p = f % 12
-        hdy = -1 if 6 <= p <= 11 else 0
-        lag = -1 if 8 <= p or p <= 1 else 0
-        sway_l = -1 if 3 <= p <= 8 else 0
-        sway_r = -1 if 9 <= p or p <= 2 else 0
-        if f < 8:
-            look = 1
-        elif f < 14:
-            look = 0
-        elif f < 20:
-            look = (0, 1)                 # down at the player
-        elif f < 28:
-            look = -1
-        elif f < 32:
-            look = 0
-        elif f < 40:
-            look = (-1, 1)                # watching the drumming hand
-        else:
-            look = 1
-        state = "open"
-        for at in (5, 16, 37):
-            state = _blink(f, at) or state
-        if 28 <= f <= 30:
-            state = "wink"
-        la = cab_arm(n, sway_l, lag)
-        ra = cab_arm(n, sway_r, lag)
-        if 32 <= f <= 39:
-            la = cab_arm(n, 0, 0, "drum_a" if f % 2 == 0 else "drum_b")
-        if 41 <= f <= 46:                 # chuckle: the head bobs, eyes squeezed
-            state = "happy"
-            hdy = (-2, 0, -2, 0, -1, 0)[f - 41]
-            la = cab_arm(n, -1, -1 + (f % 2))
-            ra = cab_arm(n, -1, -1 + (f % 2))
-        joy = (1, 1, -1, -1, 1, 0)[f - 21] if 21 <= f <= 26 else 0
-        frames.append(CAB[n](
-            hdy=hdy, eyes=(state, look), lamps=chase(f // 2), la=la, ra=ra,
-            joy=joy, btn=(f // 4) % 3, coin=1 if f % 8 < 6 else 2, slots=ping(f // 2)))
-    return frames
+    # --- maroon cabinet: lit front, shaded side on the right --------------------
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    d.rectangle([6, 40, 82, 151], fill=R[2])
+    d.polygon([(83, 40), (101, 34), (101, 145), (83, 151)], fill=R[1])
+    d.rectangle([8, 152, 18, 154], fill=BLACK[2])
+    d.rectangle([70, 152, 80, 154], fill=BLACK[2])
+    d.polygon([(91, 149), (99, 146), (99, 148), (91, 151)], fill=BLACK[2])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.line([(6, 40), (82, 40)], fill=R[4])
+    d.line([(6, 41), (82, 41)], fill=R[3])
+    d.line([(6, 42), (6, 150)], fill=R[3])
+    d.line([(82, 41), (82, 150)], fill=R[4])
+    d.line([(100, 36), (100, 145)], fill=R[0])
+    d.line([(101, 35), (101, 145)], fill=R[0])
+    d.line([(83, 41), (101, 35)], fill=R[2])
+    for y, col in ((52, R[0]), (106, R[0]), (122, R[0]), (146, R[0])):
+        d.line([(6, y), (82, y)], fill=R[1] if y != 146 else R[0])
+        d.line([(83, y), (101, y - 6)], fill=col)
+    # Sloped control shelf and its fascia.
+    d.rectangle([7, 107, 81, 113], fill=R[3])
+    d.line([(7, 107), (81, 107)], fill=R[4])
+    d.line([(7, 114), (81, 114)], fill=R[1])
+    d.polygon([(83, 107), (101, 101), (101, 107), (83, 113)], fill=R[2])
+    # Gold stripe, plinth.
+    d.line([(7, 123), (81, 123)], fill=MUSTARD[3])
+    d.line([(7, 124), (81, 124)], fill=MUSTARD[1])
+    d.line([(83, 123), (101, 117)], fill=MUSTARD[1])
+    d.rectangle([7, 147, 81, 151], fill=R[1])
+    d.line([(7, 151), (81, 151)], fill=R[0])
+    d.line([(7, 147), (81, 147)], fill=R[3])
+    d.polygon([(83, 147), (100, 141), (100, 145), (83, 151)], fill=R[0])
+    rng = random.Random(5)
+    for _ in range(60):
+        x, y = rng.randint(8, 80), rng.randint(116, 145)
+        d.point((x, y), fill=R[1] if rng.random() < 0.65 else R[3])
+    for _ in range(26):
+        x, y = rng.randint(85, 99), rng.randint(108, 140)
+        d.point((x, y), fill=R[0])
+    for x, y in ((8, 148), (9, 148), (8, 149), (80, 126), (79, 125), (7, 53), (8, 54)):
+        d.point((x, y), fill=SEPIA[3])
+    for x, y in ((9, 127), (79, 127), (9, 143), (79, 143)):
+        d.point((x, y), fill=MUSTARD[4])
+        d.point((x + 1, y + 1), fill=R[0])
+    # PRIZE sign with chasing bulbs.
+    d.rectangle([23, 41, 65, 51], fill=INK)
+    d.rectangle([24, 42, 64, 50], fill=PAPER[3] if on else PAPER[1])
+    d.line([(24, 42), (64, 42)], fill=PAPER[4] if on else PAPER[2])
+    d.line([(24, 50), (64, 50)], fill=PAPER[1] if on else PAPER[0])
+    text(d, 31, 43, "PRIZE", FONT5, INK)
+    for index, x in enumerate((11, 18, 70, 77)):
+        bulb(d, x, 46, lamp_lit(lamps, index))
+    for index, y in enumerate((42, 48)):
+        d.point((88 + index * 6, y - 3 - index * 2), fill=GOLD[4] if lamp_lit(lamps, index) else MUSTARD[0])
+    # Glass box.
+    x0, y0, x1, y1 = CRANE_GLASS
+    d.rectangle([x0 - 1, y0 - 1, x1, y1], fill=INK)
+    d.line([(7, 54), (7, 104)], fill=R[1])
+    img.alpha_composite(crane_interior(on))
+    d = ImageDraw.Draw(img)
+    side = [(85, 55), (98, 51), (98, 100), (85, 104)]
+    d.polygon(side, fill=GLASS[1] if on else GLASS[0], outline=INK)
+    if on:
+        d.line([(87, 72), (94, 60)], fill=GLASS[3])
+        d.line([(88, 75), (92, 68)], fill=GLASS[2])
+    d.polygon([(88, 80), (95, 78), (95, 89), (88, 91)], fill=PAPER[3] if on else PAPER[1], outline=INK_SOFT)
+    d.line([(90, 83), (93, 82)], fill=RED[2])
+    d.line([(90, 86), (93, 85)], fill=INK_SOFT)
+    d.line([(90, 88), (92, 87)], fill=INK_SOFT)
+    # Controls: joystick, buttons, coin plate.
+    d.ellipse([24, 109, 36, 114], fill=INK)
+    d.ellipse([25, 110, 35, 113], fill=GREY[1])
+    d.line([(26, 110), (33, 110)], fill=GREY[3])
+    d.rectangle([29, 106, 31, 111], fill=INK)
+    d.line([(30, 106), (30, 111)], fill=GREY[4])
+    d.ellipse([26, 100, 34, 108], fill=INK)
+    d.ellipse([27, 101, 33, 107], fill=RED[2])
+    d.ellipse([28, 102, 31, 105], fill=RED[3])
+    d.point((29, 102), fill=RED[4])
+    d.point([(32, 106), (33, 105)], fill=RED[1])
+    for cx, ramp in ((45, MUSTARD), (53, TEAL)):
+        d.ellipse([cx - 3, 108, cx + 3, 113], fill=INK)
+        d.ellipse([cx - 2, 109, cx + 2, 111], fill=ramp[3] if on else ramp[1])
+        d.line([(cx - 2, 112), (cx + 2, 112)], fill=ramp[1])
+        d.point((cx - 1, 109), fill=ramp[4] if on else ramp[2])
+    d.rectangle([60, 108, 79, 120], fill=INK)
+    d.rectangle([61, 109, 78, 119], fill=GREY[3])
+    d.line([(61, 109), (78, 109)], fill=GREY[4])
+    d.line([(61, 119), (78, 119)], fill=GREY[1])
+    d.line([(78, 110), (78, 119)], fill=GREY[2])
+    text(d, 63, 112, "25c", FONT3, INK)
+    d.rectangle([75, 111, 76, 117], fill=INK)
+    d.point([(62, 110), (62, 118)], fill=GREY[1])
+    # Chute door.
+    d.rectangle([13, 126, 45, 147], fill=INK)
+    d.rectangle([14, 127, 44, 146], fill=GREY[2])
+    d.line([(14, 127), (44, 127)], fill=GREY[4])
+    d.line([(14, 128), (14, 146)], fill=GREY[3])
+    d.line([(44, 128), (44, 146)], fill=GREY[1])
+    d.rectangle([16, 129, 42, 146], fill=INK)
+    d.rectangle([17, 130, 41, 146], fill=BLACK[1])
+    d.rectangle([17, 130, 41, 131], fill=BLACK[0])
+    d.rectangle([17, 143, 41, 146], fill=BLACK[3])
+    d.line([(19, 143), (39, 143)], fill=BLACK[2])
+    d.point([(15, 128), (43, 128), (15, 145), (43, 145)], fill=GREY[0])
+    # WIN! sticker and vents.
+    d.rectangle([52, 128, 76, 140], fill=INK_SOFT)
+    d.rectangle([53, 129, 75, 139], fill=PAPER[3])
+    d.line([(53, 129), (75, 129)], fill=PAPER[4])
+    d.line([(53, 139), (75, 139)], fill=PAPER[2])
+    text(d, 57, 132, "WIN!", FONT3, RED[1])
+    d.point([(54, 130), (74, 130), (54, 138), (74, 138)], fill=RED[2])
+    d.point([(75, 139), (74, 139), (75, 138)], fill=R[2])
+    for y in (142, 144):
+        d.line([(55, y), (73, y)], fill=R[0])
+        d.line([(55, y + 1), (73, y + 1)], fill=R[3])
+    d.line([(9, 153), (17, 153)], fill=BLACK[3])
+    d.line([(71, 153), (79, 153)], fill=BLACK[3])
+    return finish(img)
 
 
-def _cab_up(n, k):
-    """Raised-arm poses beside the glass box / board, never over their interior."""
-    if n == 5:
-        return (((-2, 77), (3, 68), "open", True), ((-3, 70), (4, 56), "open", True),
-                ((-4, 68), (3, 54), "open", True))[k]
-    return (((-3, 84), (3, 75), "open", True), ((-5, 79), (3, 64), "open", True),
-            ((-5, 76), (3, 62), "open", True))[k]
+C_OFF = {"on": False, "eyes": "closed", "lamps": None, "mouth": "flat"}
+C_REST = {"eyes": "open", "look": (0, 0), "lamps": 0}
 
 
-def cab_wake_frames(n, idle0):
-    fn = CAB[n]
-    off = C_ARM_OFF[n]
-    all2, all1 = [2] * 6, [1] * 6
+def crane_idle():
+    poses = []
+    for i in range(32):
+        pose = dict(C_REST)
+        pose["s"] = -1 if (i // 4) % 2 == 1 else 0
+        pose["hat"] = -1 if i % 8 == 4 else 0
+        pose["lamps"] = (i // 2) % 2
+        if 5 <= i < 10:
+            pose["look"] = (-2, 1)
+        elif 13 <= i < 17:
+            pose["look"] = (2, 1)
+        elif 24 <= i < 27:
+            pose["look"] = (1, -2)
+            pose["hat"] = -1
+        if i in (2, 20):
+            pose["eyes"] = "half"
+        if i in (3, 21):
+            pose["eyes"] = "closed"
+        if i in (29, 30):
+            pose["wink"] = True
+        poses.append(pose)
+    return poses
+
+
+def crane_wake():
     return [
-        cab_static(n),
-        fn(eyes=("closed", 0), lamps=all2, slots=[2] * 5, la=off, ra=off, bulge=1, coin=2),
-        fn(eyes=("half", 0), lamps=all1, slots=[1] * 5, la=off, ra=off, bulge=1,
-           hop=[0, -1, 0, -1, 0, -1]),
-        fn(hdy=-2, eyes=("wide", 0), lamps=all2, slots=[2] * 5, la=_cab_up(n, 0), ra=_cab_up(n, 0),
-           hop=[-1, -2, -1, -2, -1, -2], btn=0),
-        fn(hdy=-4, eyes=("wide", 0), lamps=all1, slots=[1] * 5, la=_cab_up(n, 1), ra=_cab_up(n, 1),
-           hop=[-2, -1, -2, -1, -2, -1], btn=1),
-        fn(hdy=-4, eyes=("happy", 0), lamps=all2, slots=[2] * 5, la=_cab_up(n, 2), ra=_cab_up(n, 2),
-           hop=[-1, 0, -1, 0, -1, 0], btn=2),
-        fn(hdy=-1, eyes=("open", 0), lamps=all1, slots=[1] * 5, la=_cab_up(n, 0), ra=_cab_up(n, 0)),
-        fn(hdy=0, eyes=("open", 0), lamps=chase(1), slots=ping(1), la=cab_arm(n, 0, -1),
-           ra=cab_arm(n, 0, -1), bulge=1),
-        idle0,
+        dict(C_OFF),
+        dict(C_OFF, lamps="all"),
+        {"eyes": "half", "s": -1, "lamps": "all", "mouth": "flat"},
+        {"eyes": "half", "s": -3, "lamps": 1, "mouth": "flat"},
+        {"eyes": "wide", "s": 2, "lamps": "all", "mouth": "open"},
+        {"eyes": "wide", "s": 1, "hat": -2, "look": (-2, 0), "lamps": 1, "mouth": "open"},
+        {"eyes": "open", "s": -2, "look": (2, 0), "lamps": 0},
+        {"eyes": "happy", "s": 0, "lamps": 1},
+        dict(C_REST),
     ]
 
 
-def cab_react_frames(n, idle0):
-    """Happy bounce: crouch, both arms thrown up beside the cabinet, a double
-    wave at the top, land with a bulge."""
-    fn = CAB[n]
-    all2, all1 = [2] * 6, [1] * 6
-    s2, s1 = [2] * 5, [1] * 5
+def crane_react():
     return [
-        fn(hdy=0, eyes=("wide", 0), lamps=all2, slots=s2, la=_cab_up(n, 0), ra=_cab_up(n, 0),
-           bulge=1, joy=1, btn=0, coin=2),
-        fn(hdy=-3, eyes=("happy", 0), lamps=all1, slots=s1, la=_cab_up(n, 1), ra=_cab_up(n, 1),
-           joy=-1, btn=1),
-        fn(hdy=-5 if n == 5 else -4, eyes=("happy", 0), lamps=all2, slots=s2, la=_cab_up(n, 2),
-           ra=_cab_up(n, 1),
-           joy=1, btn=2, coin=2),
-        fn(hdy=-4, eyes=("happy", 0), lamps=all1, slots=s1, la=_cab_up(n, 1), ra=_cab_up(n, 2),
-           joy=-1, btn=0),
-        fn(hdy=-1, eyes=("happy", 0), lamps=all2, slots=s2, la=_cab_up(n, 0), ra=_cab_up(n, 0),
-           btn=1, coin=2),
-        fn(hdy=0, eyes=("open", 0), lamps=all1, slots=s1, la=cab_arm(n, 0, -1),
-           ra=cab_arm(n, 0, -1), bulge=1),
-        idle0,
+        {"eyes": "wide", "s": -2, "lamps": "all", "look": (-2, 2), "mouth": "open"},
+        {"eyes": "squeeze", "s": -3, "lamps": 1},
+        {"eyes": "happy", "s": 2, "lamps": "all", "mouth": "open"},
+        {"eyes": "happy", "s": 1, "hat": -2, "lamps": 1, "mouth": "open"},
+        {"eyes": "happy", "s": -2, "lamps": "all"},
+        {"eyes": "open", "s": 1, "lamps": 1},
+        dict(C_REST),
     ]
 
 
-# ------------------------------------------------------------------ small pieces
+# -------------------------------------------------------------- plinko 006
 
-CAPSULES = {
-    "red": (RED, DRED, CREAM, DCREAM),
-    "blue": (BLUE, NAVY, CREAM, DCREAM),
-    "green": (GREEN, DGREEN, CREAM, DCREAM),
-    "mustard": (MUSTARD, DMUST, CREAM, DCREAM),
-    "gold": (GOLD, MUSTARD, MUSTARD, DMUST),
-}
+PEG_ROWS = 6
 
 
-def capsule(name):
-    top, top_sh, bot, bot_sh = CAPSULES[name]
-    s = Cv(12, 12)
-    m = ell(6, 6, 5.3, 5.3)
-    s.puts(edge(m), INK)
-    lit = ell(5.0, 5.0, 5.3, 5.3)
-    for (x, y) in m:
-        upper = (y + 0.5 - 6) < 0.9 - 0.3 * (x + 0.5 - 6)
-        if upper:
-            s.put(x, y, top if (x, y) in lit else top_sh)
-        else:
-            s.put(x, y, bot if (x, y) in lit else bot_sh)
-    for q in ((3, 3), (4, 2), (3, 2)):
-        s.put(q[0], q[1], PAPER)
-    if name == "gold":
-        for q in ((7, 3), (6, 4), (8, 4), (7, 5), (7, 4)):
-            s.put(q[0], q[1], PAPER)
-    return s
+def plinko_board(on):
+    """The upright peg board and its five slots: static, cached."""
+    key = ("plinko", on)
+    if key in _CACHE:
+        return _CACHE[key]
+    a = ANCHORS["machine_006"]
+    x0, y0, x1, y1 = PLINKO_BOARD
+    img = new(CAB)
+    d = ImageDraw.Draw(img)
+    base, shade, deep = (PAPER[3], PAPER[2], PAPER[1]) if on else (SEPIA[2], SEPIA[1], SEPIA[0])
+    d.rectangle([x0, y0, x1 - 1, y1 - 1], fill=base)
+    d.rectangle([x0, y0, x1 - 1, y0 + 2], fill=deep)
+    d.line([(x0, y0 + 3), (x1 - 1, y0 + 3)], fill=shade)
+    d.rectangle([x0, y0, x0 + 1, y1 - 1], fill=shade)
+    for y in range(y0 + 5, 108, 2):
+        for x in range(x0 + 2, x1 - 1):
+            if (x + y) % 4 == 0 and (x * 3 + y * 5) % 7 < 3:
+                d.point((x, y), fill=shade)
+    if on:
+        d.line([(x1 - 2, y0 + 4), (x1 - 2, 107)], fill=PAPER[4])
+    # Pegs.
+    sx, sy = a["ball_start"]
+    for j in range(PEG_ROWS):
+        py = sy + 6 + j * a["row_step"]
+        xs = [sx + k * 2 * a["column_step"] + (a["column_step"] if j % 2 else 0) for k in range(-3, 3)]
+        for px in xs:
+            if px - 2 < x0 + 2 or px + 2 > x1 - 3:
+                continue
+            d.rectangle([px, py + 1, px + 2, py + 3], fill=deep)
+            d.rectangle([px - 1, py - 2, px + 1, py + 2], fill=INK)
+            d.rectangle([px - 2, py - 1, px + 2, py + 1], fill=INK)
+            d.rectangle([px - 1, py - 1, px + 1, py + 1], fill=tone(BLUE, 2, on))
+            d.point((px - 1, py - 1), fill=tone(BLUE, 4, on))
+            d.point((px, py - 1), fill=tone(BLUE, 3, on))
+            d.point((px + 1, py + 1), fill=tone(BLUE, 1, on) if on else BLACK[1])
+    # Slots: dark pockets between dividers.
+    d.rectangle([x0, 109, x1 - 1, y1 - 1], fill=BLUE[0] if on else BLACK[1])
+    d.line([(x0, 108), (x1 - 1, 108)], fill=deep)
+    for index, cx in enumerate(a["slot_xs"]):
+        d.rectangle([cx - 4, 109, cx + 4, 110], fill=BLACK[1] if on else BLACK[0])
+        d.line([(cx - 4, y1 - 1), (cx + 4, y1 - 1)], fill=tone(BLUE, 2, on))
+        mark = GOLD[3] if index == 2 else (PAPER[2] if index in (1, 3) else PAPER[0])
+        d.line([(cx - 1 - (index == 2), y1 - 1), (cx + 1 + (index == 2), y1 - 1)],
+               fill=mark if on else BLUE[1])
+    for cx in [a["slot_xs"][0] - a["column_step"] + i * 2 * a["column_step"] for i in range(6)]:
+        d.rectangle([cx - 1, 107, cx + 1, y1 - 1], fill=INK)
+        d.line([(cx, 108), (cx, y1 - 1)], fill=tone(BLUE, 3, on))
+        d.point((cx, 108), fill=tone(BLUE, 4, on))
+    if on:
+        d.line([(31, 72), (40, 59)], fill=PAPER[4])
+        d.line([(33, 75), (38, 68)], fill=PAPER[4])
+    mask = Image.new("L", CAB, 0)
+    ImageDraw.Draw(mask).rectangle([x0, y0, x1 - 1, y1 - 1], fill=255)
+    _CACHE[key] = clip(img, mask)
+    return _CACHE[key]
 
 
-CLAW_PAL = {"K": INK, "R": RED, "D": DRED, "W": GLOVE, "S": DCREAM, "L": LRED, "T": STEEL}
+ARM_UP = {"w": (92, 37), "a": 0.1, "c": (108, 60)}
+ARM_LIMP = {"w": (97, 104), "a": math.pi, "c": (106, 92), "t": 1}
+SHOULDER = (96, 86)
+GLOVE = 1.35
 
-CLAW_OPEN = [
-    ".........KK.........",
-    ".........KK.........",
-    ".......KKKKKK.......",
-    "......KLRRRRRK......",
-    ".....KRWKRRWKDK.....",
-    ".....KRWKRRWKDK.....",
-    ".....KRRRRRRDDK.....",
-    "......KKKKKKKK......",
-    "....KKK......KKK....",
-    "...KKK........KKK...",
-    "..KKK..........KKK..",
-    ".KKK............KKK.",
-    ".KK..............KK.",
-    ".KK..............KK.",
-    ".KKK............KKK.",
-    "KWWWK..........KWWWK",
-    "KWWWWK........KWWWWK",
-    ".KWWSK........KWWSK.",
-    "..KKK..........KKK..",
-    "....................",
-]
 
-CLAW_CLOSED = [
-    ".........KK.........",
-    ".........KK.........",
-    ".......KKKKKK.......",
-    "......KLRRRRRK......",
-    ".....KRKKRRKKDK.....",
-    ".....KRWWRRWWDK.....",
-    ".....KRRRRRRDDK.....",
-    "......KKKKKKKK......",
-    ".....KKK....KKK.....",
-    "....KKK......KKK....",
-    "....KK........KK....",
-    "....KK........KK....",
-    "....KK........KK....",
-    "....KKK......KKK....",
-    ".....KKK....KKK.....",
-    "......KWWKKWWK......",
-    ".....KWWWWWWWSK.....",
-    "......KWWKKWSK......",
-    ".......KK..KK.......",
-    "....................",
-]
+def _arm(img, arm):
+    wx, wy = arm["w"]
+    ang = arm["a"]
+    thumb = arm.get("t", -1)
+    u = (math.sin(ang), -math.cos(ang))
+    v = (math.cos(ang), math.sin(ang))
+
+    def at(du, dv):
+        du, dv = du * GLOVE, dv * GLOVE
+        return (wx + u[0] * du + v[0] * dv, wy + u[1] * du + v[1] * dv)
+
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    for p in quad(SHOULDER, arm["c"], (wx, wy), 60):
+        d.rectangle([int(round(p[0])) - 1, int(round(p[1])) - 1, int(round(p[0])), int(round(p[1]))], fill=BLACK[1])
+    circ(d, SHOULDER, 2, BLUE[1])
+    stamp(img, lay)
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    circ(d, at(0.5, 0), 3.2 * GLOVE, PAPER[3])
+    stamp(img, lay)
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    circ(d, at(6, 0), 5.4 * GLOVE, PAPER[4])
+    for du, dv in ((10.5, -4.2), (12.5, 0), (10.5, 4.2)):
+        circ(d, at(du, dv), 2.5 * GLOVE, PAPER[4])
+    circ(d, at(5.5, 6.5 * thumb), 2.6 * GLOVE, PAPER[4])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    for k in (-2.2, 0, 2.2):
+        d.line([at(3.5, k), at(7.5, k)], fill=INK_SOFT)
+    for dv in (-2.1, 2.1):
+        d.line([at(10, dv), at(12.5, dv)], fill=INK_SOFT)
+    d.line([at(0.5, -2.5), at(0.5, 2.5)], fill=PAPER[1])
+    d.line([at(8, -4.5 * thumb), at(4, -5 * thumb)], fill=PAPER[2])
+
+
+def plinko(pose):
+    """One frame of the plinko. Pose keys: on, eyes, look, wink, s (glass dome
+    stretch), lamps, arm (dict with wrist w, angle a, bend c)."""
+    on = pose.get("on", True)
+    s = pose.get("s", 0)
+    lamps = pose.get("lamps", 0 if on else None)
+    B = BLUE
+    img = new(CAB)
+
+    # --- steel-blue cabinet: lit front, shaded side on the left, top visible ---
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    d.rectangle([23, 38, 93, 151], fill=B[2])
+    d.polygon([(4, 32), (22, 38), (22, 151), (4, 145)], fill=B[1])
+    d.polygon([(23, 37), (93, 37), (76, 32), (5, 32)], fill=B[3])
+    d.ellipse([24, 150, 33, 154], fill=B[0])
+    d.ellipse([83, 150, 92, 154], fill=B[0])
+    d.ellipse([5, 144, 12, 148], fill=B[0])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.line([(23, 38), (93, 38)], fill=B[4])
+    d.line([(23, 39), (93, 39)], fill=B[3])
+    d.line([(23, 40), (23, 150)], fill=B[4])
+    d.line([(24, 40), (24, 150)], fill=B[3])
+    d.rectangle([92, 40, 93, 150], fill=B[1])
+    d.line([(6, 33), (75, 33)], fill=B[4])
+    d.line([(8, 34), (22, 37)], fill=B[2])
+    d.rectangle([4, 34, 5, 144], fill=B[0])
+    d.line([(4, 33), (22, 39)], fill=B[2])
+    for y in (52, 126):
+        d.line([(25, y), (91, y)], fill=B[1])
+        d.line([(25, y + 1), (91, y + 1)], fill=B[3])
+        d.line([(4, y - 6), (22, y)], fill=B[0])
+    d.rectangle([25, 147, 91, 151], fill=B[1])
+    d.line([(25, 151), (91, 151)], fill=B[0])
+    d.polygon([(6, 141), (21, 146), (21, 150), (6, 145)], fill=B[0])
+    rng = random.Random(6)
+    for _ in range(40):
+        x, y = rng.randint(26, 90), rng.randint(128, 146)
+        d.point((x, y), fill=B[1] if rng.random() < 0.6 else B[3])
+    for _ in range(40):
+        x, y = rng.randint(7, 20), rng.randint(44, 138)
+        d.point((x, y), fill=B[0] if rng.random() < 0.8 else B[2])
+    for y in range(58, 124, 13):
+        for x in (24, 92):
+            d.point((x, y), fill=B[4])
+            d.point((x, y + 1), fill=B[0])
+    for x, y in ((7, 40), (19, 44), (7, 136), (19, 140), (7, 62), (19, 66), (7, 110), (19, 114)):
+        d.point((x, y), fill=B[3])
+        d.point((x + 1, y + 1), fill=B[0])
+    # Star badge on the side panel.
+    d.ellipse([5, 78, 21, 94], fill=INK)
+    d.ellipse([6, 79, 20, 93], fill=B[0])
+    d.arc([6, 79, 20, 93], 0, 360, fill=PAPER[1])
+    d.arc([6, 79, 20, 93], 180, 300, fill=PAPER[3])
+    d.polygon(star_points(13, 86, 5.6, 2.3), fill=PAPER[3] if on else PAPER[1])
+    d.point((13, 82), fill=PAPER[4] if on else PAPER[2])
+    for y in (100, 103):
+        d.line([(8, y), (18, y + 3)], fill=B[0])
+    for y in (70, 73):
+        d.line([(8, y - 4), (18, y - 1)], fill=B[0])
+    # PLINKO sign with chasing bulbs.
+    d.rectangle([37, 40, 79, 50], fill=INK)
+    d.rectangle([38, 41, 78, 49], fill=PAPER[3] if on else PAPER[1])
+    d.line([(38, 41), (78, 41)], fill=PAPER[4] if on else PAPER[2])
+    text(d, 42, 42, "PLINKO", FONT5, INK)
+    bulb(d, 30, 45, lamp_lit(lamps, 0))
+    bulb(d, 86, 45, lamp_lit(lamps, 1))
+    # Board.
+    x0, y0, x1, y1 = PLINKO_BOARD
+    d.rectangle([x0 - 1, y0 - 1, x1, y1], fill=INK)
+    img.alpha_composite(plinko_board(on))
+    d = ImageDraw.Draw(img)
+    # Tray under the board.
+    d.rectangle([45, 129, 71, 151], fill=INK)
+    d.rectangle([46, 130, 70, 150], fill=GREY[2])
+    d.line([(46, 130), (70, 130)], fill=GREY[4])
+    d.line([(46, 131), (46, 150)], fill=GREY[3])
+    d.line([(70, 131), (70, 150)], fill=GREY[1])
+    d.rectangle([47, 131, 69, 150], fill=INK)
+    d.rectangle([48, 132, 68, 150], fill=BLACK[1])
+    d.rectangle([48, 132, 68, 133], fill=BLACK[0])
+    d.rectangle([48, 147, 68, 150], fill=BLACK[3])
+    d.line([(50, 147), (66, 147)], fill=BLACK[2])
+    for cx in (34, 82):
+        d.polygon(star_points(cx, 138, 5.5, 2.4), fill=MUSTARD[3], outline=INK)
+        d.point((cx - 1, 137), fill=MUSTARD[4])
+    for cx in (29, 39, 77, 87):
+        d.point((cx, 131), fill=B[4])
+        d.point((cx + 1, 132), fill=B[0])
+
+    # --- glass dome with the eyes, sitting on the top face -----------------------
+    ry = 23 + s
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    d.ellipse([25, 31, 73, 39], fill=B[1])
+    stamp(img, lay)
+    lay = new(CAB)
+    d = ImageDraw.Draw(lay)
+    d.pieslice([28, 35 - ry, 70, 35 + ry], 180, 360, fill=GLASS[2] if on else GLASS[0])
+    d.ellipse([28, 32, 70, 38], fill=GLASS[2] if on else GLASS[0])
+    d.ellipse([46, 6 - s, 52, 12 - s], fill=B[2])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    if on:
+        mask = Image.new("L", CAB, 0)
+        ImageDraw.Draw(mask).pieslice([28, 35 - ry, 70, 35 + ry], 180, 360, fill=255)
+        lit = new(CAB)
+        ImageDraw.Draw(lit).ellipse([27, 34 - ry, 64, 30 + ry], fill=GLASS[3])
+        img.alpha_composite(clip(lit, mask))
+        d = ImageDraw.Draw(img)
+        d.arc([31, 38 - ry, 67, 32 + ry], 195, 245, fill=GLASS[4], width=3)
+        d.arc([30, 37 - ry, 68, 33 + ry], 300, 340, fill=GLASS[4])
+    else:
+        d.arc([31, 38 - ry, 67, 32 + ry], 200, 240, fill=GLASS[1], width=2)
+    d.point([(47, 8 - s), (48, 7 - s)], fill=B[4])
+    d.point([(51, 10 - s), (50, 11 - s)], fill=B[0])
+    d.arc([25, 31, 73, 39], 10, 170, fill=B[3], width=1)
+    d.arc([25, 30, 73, 38], 20, 160, fill=B[0])
+    fy = -(s // 2) if s >= 0 else -((s - 1) // 2)
+    state = pose.get("eyes", "open")
+    look = pose.get("look", (0, 0))
+    left = "closed" if pose.get("wink") else state
+    eye(img, 43, 24 + fy, 5, 7, left, look, side=-1, brow=-1, has_brow=on)
+    eye(img, 55, 24 + fy, 5, 7, state, look, side=1, brow=-1, has_brow=on)
+
+    # --- the waving arm ----------------------------------------------------------
+    _arm(img, pose.get("arm", ARM_UP if on else ARM_LIMP))
+    return finish(img)
+
+
+P_OFF = {"on": False, "eyes": "closed", "lamps": None, "arm": ARM_LIMP}
+P_REST = {"eyes": "open", "look": (0, 0), "lamps": 0, "arm": ARM_UP}
+
+
+def _wave(angle, dy=0):
+    return {"w": (92, 37 + dy), "a": angle, "c": (108, 60 + dy)}
+
+
+def plinko_idle():
+    poses = []
+    swing = [0.1, -0.1, -0.3, -0.1, 0.1, 0.3, 0.1, -0.1, -0.3, -0.1, 0.1, 0.3]
+    for i in range(32):
+        pose = dict(P_REST)
+        pose["s"] = -1 if (i // 4) % 2 == 1 else 0
+        pose["lamps"] = (i // 2) % 2
+        if 8 <= i < 20:
+            pose["arm"] = _wave(swing[i - 8])
+            pose["look"] = (2, 0)
+        if 22 <= i < 26:
+            pose["look"] = (-2, 1)
+        if i in (3, 27):
+            pose["eyes"] = "half"
+        if i in (4, 28):
+            pose["eyes"] = "closed"
+        if 12 <= i < 16:
+            pose["eyes"] = "happy"
+        poses.append(pose)
+    return poses
+
+
+def plinko_wake():
+    return [
+        dict(P_OFF),
+        dict(P_OFF, lamps="all"),
+        {"eyes": "half", "s": -1, "lamps": "all", "arm": ARM_LIMP},
+        {"eyes": "half", "s": -3, "lamps": 1, "arm": {"w": (97, 100), "a": math.pi, "c": (107, 90), "t": 1}},
+        {"eyes": "wide", "s": 3, "lamps": "all", "arm": {"w": (95, 58), "a": 0.0, "c": (108, 76)}},
+        {"eyes": "wide", "s": 2, "look": (2, 0), "lamps": 1, "arm": _wave(-0.3, -3)},
+        {"eyes": "open", "s": -2, "look": (2, 0), "lamps": 0, "arm": _wave(0.3, 1)},
+        {"eyes": "happy", "s": 0, "lamps": 1, "arm": _wave(-0.1)},
+        dict(P_REST),
+    ]
+
+
+def plinko_react():
+    return [
+        {"eyes": "wide", "s": -2, "lamps": "all", "look": (0, 2), "arm": _wave(0.1, 2)},
+        {"eyes": "squeeze", "s": -3, "lamps": 1, "arm": _wave(0.1, 4)},
+        {"eyes": "happy", "s": 3, "lamps": "all", "arm": _wave(-0.3, -4)},
+        {"eyes": "happy", "s": 2, "lamps": 1, "arm": _wave(0.3, -3)},
+        {"eyes": "happy", "s": -2, "lamps": "all", "arm": _wave(-0.3, 1)},
+        {"eyes": "open", "s": 1, "lamps": 1, "arm": _wave(0.2)},
+        dict(P_REST),
+    ]
+
+
+# ------------------------------------------------------------ loose sprites
+
+def capsule(ramp):
+    """18 x 18 toy capsule: coloured top, clear bottom with a tiny toy."""
+    img = new((18, 18))
+    lay = new((18, 18))
+    d = ImageDraw.Draw(lay)
+    box = [1, 1, 16, 16]
+    d.ellipse(box, fill=PAPER[4])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.arc(box, 10, 100, fill=GLASS[2], width=2)
+    d.arc(box, 100, 170, fill=GLASS[3])
+    d.pieslice(box, 180, 360, fill=ramp[2])
+    d.arc(box, 290, 360, fill=ramp[1], width=2)
+    d.arc([2, 2, 15, 15], 190, 260, fill=ramp[3], width=2)
+    d.rectangle([4, 4, 6, 5], fill=ramp[4])
+    d.point((4, 4), fill=PAPER[4])
+    d.point((4, 6), fill=ramp[4])
+    d.line([(1, 8), (16, 8)], fill=ramp[0])
+    d.line([(1, 9), (16, 9)], fill=INK)
+    d.line([(2, 10), (15, 10)], fill=PAPER[3])
+    # The toy: a tiny robot head.
+    toy = TEAL if ramp in (RED, MUSTARD, GOLD) else ROSE
+    d.rectangle([6, 11, 11, 15], fill=INK_SOFT)
+    d.rectangle([7, 12, 10, 14], fill=toy[3])
+    d.point([(7, 13), (10, 13)], fill=INK)
+    d.point((8, 11), fill=toy[2])
+    d.point((3, 12), fill=GLASS[4])
+    if ramp is GOLD:
+        d.point([(12, 3), (11, 4), (13, 4), (12, 5), (12, 4)], fill=PAPER[4])
+    return img
 
 
 def claw(is_open):
-    rows = CLAW_OPEN if is_open else CLAW_CLOSED
-    assert all(len(r) == 20 for r in rows) and len(rows) == 20
-    s = Cv(20, 20)
-    s.stamp(rows, 0, 0, CLAW_PAL)
-    return s
-
-
-BALL_PAL = {"K": INK, "W": GLOVE, "L": LSTEEL, "S": STEEL, "D": DSTEEL}
-PLINKO_BALL = [
-    ".KKKK.",
-    "KLWLLK",
-    "KWLLSK",
-    "KLLSSK",
-    "KLSSDK",
-    ".KKKK.",
-]
+    """30 x 30 crane claw hanging from its top centre (15, 0)."""
+    img = new((30, 30))
+    if is_open:
+        left = [(10, 9), (4, 14), (3, 21), (7, 27)]
+        mid = [(15, 11), (15, 19)]
+    else:
+        left = [(10, 9), (6, 15), (7, 22), (13, 27)]
+        mid = [(15, 11), (15, 16)]
+    right = [(29 - x, y) for x, y in left]
+    lay = new((30, 30))
+    d = ImageDraw.Draw(lay)
+    for pts in (left, right, mid):
+        d.line(pts, fill=GREY[3], width=2)
+        circ(d, pts[-1], 1.5, RED[2])
+        for p in pts[1:-1]:
+            circ(d, p, 1.5, GREY[2])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    for pts in (left, right):
+        d.line(pts[:3], fill=GREY[4])
+        for p in pts[1:-1]:
+            d.point(p, fill=GREY[1])
+        d.point(pts[-1], fill=RED[3])
+    d.point(mid[-1], fill=RED[3])
+    lay = new((30, 30))
+    d = ImageDraw.Draw(lay)
+    d.rectangle([14, 0, 15, 4], fill=GREY[2])
+    d.ellipse([8, 4, 21, 12], fill=BRASS[2])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.line([(14, 0), (14, 3)], fill=GREY[4])
+    d.arc([8, 4, 21, 12], 180, 290, fill=BRASS[4])
+    d.line([(11, 6), (14, 5)], fill=BRASS[4])
+    d.arc([8, 4, 21, 12], 0, 150, fill=BRASS[0])
+    d.line([(11, 10), (18, 10)], fill=BRASS[1])
+    # A tiny face on the hub: the claw is a character too.
+    d.rectangle([12, 7, 12, 8], fill=INK)
+    d.rectangle([17, 7, 17, 8], fill=INK)
+    return img
 
 
 def plinko_ball():
-    s = Cv(6, 6)
-    s.stamp(PLINKO_BALL, 0, 0, BALL_PAL)
-    return s
+    img = new((9, 9))
+    lay = new((9, 9))
+    d = ImageDraw.Draw(lay)
+    d.ellipse([1, 1, 7, 7], fill=GOLD[2])
+    stamp(img, lay)
+    d = ImageDraw.Draw(img)
+    d.arc([1, 1, 7, 7], 0, 110, fill=GOLD[0])
+    d.point([(5, 5), (4, 6), (6, 4)], fill=GOLD[1])
+    d.rectangle([2, 2, 3, 3], fill=GOLD[4])
+    d.point((4, 2), fill=GOLD[3])
+    d.point((2, 4), fill=GOLD[3])
+    d.point((2, 2), fill=PAPER[4])
+    return img
 
 
-# ------------------------------------------------------------------ catalogue
+# ------------------------------------------------------------ public tables
 
-def anchors():
-    out = {}
-    for n in (1, 2, 3, 4):
-        out["machine_%03d" % n] = {"chute": list(GACHA_CHUTE)}
-    out["machine_005"] = dict(CRANE_ANCHORS)
-    out["machine_006"] = dict(PLINKO_ANCHORS)
+def _frames(draw, poses):
+    cache, out = {}, []
+    for pose in poses:
+        key = repr(sorted(pose.items(), key=lambda kv: kv[0]))
+        if key not in cache:
+            cache[key] = draw(pose)
+        out.append(cache[key])
     return out
 
 
-def statics():
-    """name -> sprite, for every still image of section A."""
+def stills():
+    """name -> image, powered off (and the loose sprites)."""
     out = {}
-    for n in (1, 2, 3, 4):
-        out["machine_%03d" % n] = gacha_static(n)
-    out["machine_005"] = cab_static(5)
-    out["machine_006"] = cab_static(6)
-    for name in CAPSULES:
-        out["capsule_" + name] = capsule(name)
+    for n in range(1, 5):
+        out["machine_%03d" % n] = gumball(n, G_OFF)
+    out["machine_005"] = crane(C_OFF)
+    out["machine_006"] = plinko(P_OFF)
+    for name, ramp in S.CAPSULE.items():
+        out["capsule_" + name] = capsule(ramp)
     out["claw_open"] = claw(True)
     out["claw_closed"] = claw(False)
     out["plinko_ball"] = plinko_ball()
@@ -1417,16 +1444,17 @@ def statics():
 def animations():
     """name -> (frames, fps, loop)."""
     out = {}
-    for n in (1, 2, 3, 4):
-        idle = gacha_idle_frames(n)
-        key = "machine_%03d" % n
-        out[key + "_wake"] = (gacha_wake_frames(n, idle[0]), 15, False)
-        out[key + "_idle"] = (idle, 8, True)
-        out[key + "_play"] = (gacha_play_frames(n, idle[0]), 15, False)
-    for n in (5, 6):
-        idle = cab_idle_frames(n)
-        key = "machine_%03d" % n
-        out[key + "_wake"] = (cab_wake_frames(n, idle[0]), 15, False)
-        out[key + "_idle"] = (idle, 8, True)
-        out[key + "_react"] = (cab_react_frames(n, idle[0]), 15, False)
+    for n in range(1, 5):
+        def draw(pose, n=n):
+            return gumball(n, pose)
+        key = "machine_%03d_" % n
+        out[key + "wake"] = (_frames(draw, gumball_wake()), 15, False)
+        out[key + "idle"] = (_frames(draw, gumball_idle()), 8, True)
+        out[key + "play"] = (_frames(draw, gumball_play()), 15, False)
+    out["machine_005_wake"] = (_frames(crane, crane_wake()), 15, False)
+    out["machine_005_idle"] = (_frames(crane, crane_idle()), 8, True)
+    out["machine_005_react"] = (_frames(crane, crane_react()), 15, False)
+    out["machine_006_wake"] = (_frames(plinko, plinko_wake()), 15, False)
+    out["machine_006_idle"] = (_frames(plinko, plinko_idle()), 8, True)
+    out["machine_006_react"] = (_frames(plinko, plinko_react()), 15, False)
     return out

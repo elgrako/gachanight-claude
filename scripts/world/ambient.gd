@@ -25,44 +25,14 @@ const Swing = preload("res://scripts/world/swing.gd")
 ##   rigid   hanging only: fixed to the ceiling, so it does not swing when the
 ##           player runs past (everything else that hangs does)
 const PLACEMENT: Array = [
-	{"anim": "amb_wall_clock", "room": "bath", "at": Vector2(108.0, -50.0), "layer": "wall", "powered": false, "size": Vector2i(24, 36)},
-	{"anim": "amb_spider", "room": "bath", "at": Vector2(90.0, -104.0), "layer": "hanging", "powered": false, "size": Vector2i(12, 30)},
 	{"anim": "amb_tap_drip", "room": "bath", "on": "sink", "at": Vector2(0.0, -8.0), "layer": "on", "powered": false, "size": Vector2i(10, 26)},
-	{"anim": "amb_bubbles", "room": "bath", "on": "sink", "at": Vector2(8.0, -13.0), "layer": "on", "powered": false, "size": Vector2i(16, 32)},
-	{"anim": "amb_rubber_duck", "room": "bath", "on": "bath_shelf", "at": Vector2(24.0, 0.0), "layer": "on", "powered": false, "size": Vector2i(18, 14)},
-	{"anim": "amb_neon_sign", "room": "corridor", "at": Vector2(245.0, -76.0), "layer": "wall", "powered": true, "size": Vector2i(72, 28)},
-	{"anim": "amb_vending", "room": "corridor", "at": Vector2(257.0, 14.0), "layer": "floor", "powered": true, "size": Vector2i(46, 86), "solid": 12.0},
-	{"anim": "amb_plant_sway", "room": "corridor", "at": Vector2(186.0, 14.0), "layer": "floor", "powered": false, "size": Vector2i(24, 40), "solid": 6.0, "prop": "props/plant"},
-	{"anim": "amb_lantern", "room": "corridor", "at": Vector2(180.0, -104.0), "layer": "hanging", "powered": false, "size": Vector2i(20, 34)},
-	{"anim": "amb_lantern", "room": "hall", "at": Vector2(306.0, -104.0), "layer": "hanging", "powered": false, "size": Vector2i(20, 34)},
-	{"anim": "amb_claw_mobile", "room": "hall", "at": Vector2(583.0, -104.0), "layer": "hanging", "powered": false, "size": Vector2i(34, 30)},
-	{"anim": "amb_teru_bozu", "room": "hall", "at": Vector2(768.0, -104.0), "layer": "hanging", "powered": false, "size": Vector2i(14, 28)},
-	{"anim": "amb_cuckoo_clock", "room": "hall", "at": Vector2(789.0, -56.0), "layer": "wall", "powered": false, "size": Vector2i(26, 40)},
-	{"anim": "amb_pinwheel", "room": "hall", "at": Vector2(303.0, 16.0), "layer": "floor", "powered": false, "size": Vector2i(18, 30)},
-	{"anim": "amb_balloon", "room": "hall", "on": "crate", "at": Vector2(-9.0, -24.0), "layer": "on", "powered": false, "size": Vector2i(18, 44)},
-	{"anim": "amb_plant_sway", "room": "gallery", "at": Vector2(836.0, 16.0), "layer": "floor", "powered": false, "size": Vector2i(24, 40), "solid": 6.0, "prop": "props/plant"},
-	{"anim": "amb_plant_sway", "room": "gallery", "at": Vector2(1834.0, 16.0), "layer": "floor", "powered": false, "size": Vector2i(24, 40), "solid": 6.0, "prop": "props/plant"},
-	{"anim": "amb_robot_display", "room": "gallery", "on": "gallery_bench_a", "at": Vector2(0.0, -14.0), "layer": "on", "powered": false, "size": Vector2i(22, 28)},
-	{"anim": "amb_daruma", "room": "gallery", "on": "gallery_bench_b", "at": Vector2(-6.0, -14.0), "layer": "on", "powered": false, "size": Vector2i(22, 24)},
-	{"anim": "amb_candle", "room": "gallery", "on": "gallery_bench_b", "at": Vector2(12.0, -14.0), "layer": "on", "powered": false, "size": Vector2i(10, 20)},
-	{"anim": "amb_cat_sleep", "room": "gallery", "on": "gallery_rug", "at": Vector2(6.0, -12.0), "layer": "on", "powered": false, "size": Vector2i(36, 22)},
-	{"anim": "amb_spinning_top", "room": "gallery", "at": Vector2(1250.0, 96.0), "layer": "floor", "powered": false, "size": Vector2i(14, 14)},
-	{"anim": "amb_akabeko", "room": "gallery", "at": Vector2(1440.0, 94.0), "layer": "floor", "powered": false, "size": Vector2i(26, 20)},
-	{"anim": "amb_arcade_cab", "room": "reception", "at": Vector2(1884.0, 14.0), "layer": "floor", "powered": true, "size": Vector2i(40, 78), "solid": 12.0},
-	{"anim": "amb_calendar", "room": "reception", "at": Vector2(1915.0, -40.0), "layer": "wall", "powered": false, "size": Vector2i(18, 26)},
-	{"anim": "amb_ceiling_fan", "room": "reception", "at": Vector2(1918.0, -112.0), "layer": "hanging", "powered": true, "size": Vector2i(56, 24), "rigid": true},
+	{"anim": "amb_lantern", "room": "hall", "at": Vector2(252.0, -104.0), "layer": "hanging", "powered": false, "size": Vector2i(20, 34)},
+	{"anim": "amb_plant_sway", "room": "reception", "at": Vector2(866.0, 14.0), "layer": "floor", "powered": false, "size": Vector2i(24, 40), "solid": 6.0, "prop": "props/plant"},
+	{"anim": "amb_ceiling_fan", "room": "reception", "at": Vector2(880.0, -112.0), "layer": "hanging", "powered": true, "size": Vector2i(56, 24), "rigid": true},
 	{"anim": "amb_exit_sign", "room": "reception", "on": "door", "at": Vector2(0.0, -91.0), "layer": "on", "powered": true, "size": Vector2i(30, 14)},
-	{"anim": "amb_furin", "room": "reception", "at": Vector2(2066.0, -104.0), "layer": "hanging", "powered": false, "size": Vector2i(12, 30)},
 	{"anim": "amb_maneki_neko", "room": "reception", "on": "counter", "at": Vector2(15.0, -38.0), "layer": "on", "powered": false, "size": Vector2i(26, 32)},
-	{"anim": "amb_string_lights", "room": "staff", "at": Vector2(2137.0, -104.0), "layer": "hanging", "powered": true, "size": Vector2i(96, 14), "rigid": true},
-	{"anim": "amb_string_lights", "room": "staff", "at": Vector2(2233.0, -104.0), "layer": "hanging", "powered": true, "size": Vector2i(96, 14), "rigid": true},
-	{"anim": "amb_noren", "room": "staff", "at": Vector2(2304.0, -104.0), "layer": "hanging", "powered": false, "size": Vector2i(48, 22), "rigid": true},
-	{"anim": "amb_koinobori", "room": "staff", "at": Vector2(2198.0, -62.0), "layer": "wall", "powered": false, "size": Vector2i(64, 24)},
-	{"anim": "amb_radio", "room": "staff", "on": "staff_shelf", "at": Vector2(0.0, 0.0), "layer": "on", "powered": true, "size": Vector2i(30, 30)},
-	{"anim": "amb_music_notes", "room": "staff", "on": "staff_shelf", "at": Vector2(12.0, -26.0), "layer": "on", "powered": true, "size": Vector2i(16, 24), "hide_off": true},
-	{"anim": "amb_tv", "room": "staff", "at": Vector2(2130.0, 88.0), "layer": "floor", "powered": true, "size": Vector2i(38, 44), "solid": 8.0},
-	{"anim": "amb_jack_in_box", "room": "staff", "at": Vector2(2100.0, 56.0), "layer": "floor", "powered": false, "size": Vector2i(20, 34), "solid": 6.0},
-	{"anim": "amb_cymbal_monkey", "room": "staff", "at": Vector2(2250.0, 16.0), "layer": "floor", "powered": false, "size": Vector2i(24, 26), "solid": 6.0},
+	{"anim": "amb_string_lights", "room": "staff", "at": Vector2(1055.0, -104.0), "layer": "hanging", "powered": true, "size": Vector2i(96, 14), "rigid": true},
+	{"anim": "amb_wall_clock", "room": "staff", "at": Vector2(1116.0, -50.0), "layer": "wall", "powered": false, "size": Vector2i(24, 36)},
 	{"anim": "amb_fish_bowl", "room": "staff", "on": "table", "at": Vector2(-9.0, -20.0), "layer": "on", "powered": false, "size": Vector2i(26, 26)},
 	{"anim": "amb_mug_steam", "room": "staff", "on": "table", "at": Vector2(12.0, -20.0), "layer": "on", "powered": false, "size": Vector2i(14, 24)},
 ]
@@ -73,7 +43,7 @@ const UNPOWERED: Color = Color(0.5, 0.5, 0.56)
 const FOOTPRINT_INSET: float = 6.0
 
 # --- Moths: one circles each of these lamps (index into the store's lamps) -----
-const MOTH_LAMPS: Array = [3, 6]
+const MOTH_LAMPS: Array = [2]
 const MOTH_SIZE: Vector2i = Vector2i(14, 12)
 const MOTH_ORBIT: Vector2 = Vector2(15.0, 7.0)
 const MOTH_SPEED: float = 2.3
@@ -153,14 +123,10 @@ var _stray_rest: float = 1.0
 func setup(store: Node2D) -> void:
 	_store = store
 	_rng.randomize()
-	_build_bath_shelf()
 	for row in PLACEMENT:
 		_place(row)
 	_build_moths()
 	_build_mouse()
-	_build_windup()
-	_build_stray()
-	_build_train()
 
 
 ## Electric things run only with the power on; living things never stop.
@@ -203,7 +169,8 @@ func _place(row: Dictionary) -> void:
 		return
 	var sprite: AnimatedSprite2D = Sprites.animated([anim_name], size)
 	if layer == "hanging":
-		sprite.offset = Vector2(-floorf(size.x / 2.0), 0.0)
+		# Offsets are in sprite pixels: half of the frame actually drawn.
+		sprite.offset = Vector2(-floorf(sprite.sprite_frames.get_frame_texture(anim_name, 0).get_width() / 2.0), 0.0)
 	sprite.position = at
 	match layer:
 		"wall":
@@ -257,16 +224,12 @@ func _build_mouse() -> void:
 
 ## The little wall shelf in the bathroom; it is furniture other things stand on.
 func _build_bath_shelf() -> void:
-	var shelf: TextureRect = TextureRect.new()
-	shelf.texture = Sprites.texture("props/gallery_shelf", WINDUP_SHELF_SIZE, Color("#8a5a3a"))
-	shelf.stretch_mode = TextureRect.STRETCH_TILE
-	shelf.position = WINDUP_SHELF_AT
-	shelf.size = Vector2(WINDUP_SHELF_SIZE.x * WINDUP_SHELF_SEGMENTS, WINDUP_SHELF_SIZE.y)
-	shelf.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var shelf_size: Vector2 = Vector2(WINDUP_SHELF_SIZE.x * WINDUP_SHELF_SEGMENTS, WINDUP_SHELF_SIZE.y)
+	var shelf: TextureRect = Sprites.tiled("props/gallery_shelf", Rect2(WINDUP_SHELF_AT, shelf_size), WINDUP_SHELF_SIZE, Color("#8a5a3a"))
 	shelf.z_index = _store.Z_WALL
 	add_child(shelf)
-	_store.furniture["bath_shelf"] = WINDUP_SHELF_AT + Vector2(shelf.size.x / 2.0, WINDUP_SEAT)
-	_windup_range = Vector2(WINDUP_SHELF_AT.x + WINDUP_MARGIN, WINDUP_SHELF_AT.x + shelf.size.x - WINDUP_MARGIN - WINDUP_KEEP_CLEAR)
+	_store.furniture["bath_shelf"] = WINDUP_SHELF_AT + Vector2(shelf_size.x / 2.0, WINDUP_SEAT)
+	_windup_range = Vector2(WINDUP_SHELF_AT.x + WINDUP_MARGIN, WINDUP_SHELF_AT.x + shelf_size.x - WINDUP_MARGIN - WINDUP_KEEP_CLEAR)
 
 
 func _build_windup() -> void:
@@ -363,6 +326,9 @@ func _move_mouse(delta: float) -> void:
 
 
 func _move_windup(delta: float) -> void:
+	# Not in the compact store.
+	if _windup == null:
+		return
 	if _windup == null:
 		return
 	if _windup_pause > 0.0:
@@ -379,6 +345,9 @@ func _move_windup(delta: float) -> void:
 
 
 func _move_train(delta: float) -> void:
+	# Not in the compact store.
+	if _train == null:
+		return
 	if _train == null:
 		return
 	if _train_stop > 0.0:
@@ -398,6 +367,9 @@ func _move_train(delta: float) -> void:
 
 
 func _move_stray(delta: float) -> void:
+	# Not in the compact store.
+	if _stray == null:
+		return
 	if _stray == null:
 		return
 	if _stray.position.x == _stray_target:

@@ -32,13 +32,35 @@ const FLOOR_TILE: Vector2i = Vector2i(16, 10)
 ## colours of wall and floor.
 const ROOMS: Array = [
 	["bath", 0.0, "wall_bath", "floor_bath", "#bfd9d6", "#9fb7b9"],
-	["corridor", 170.0, "wall_corridor", "floor_hall", "#f1e2bd", "#c9a27a"],
-	["hall", 290.0, "wall_hall", "floor_hall", "#f3dcb4", "#c9a27a"],
-	["gallery", 810.0, "wall_gallery", "floor_gallery", "#1f2f66", "#6a4a36"],
-	["reception", 1860.0, "wall_reception", "floor_hall", "#f1e2bd", "#c9a27a"],
-	["staff", 2080.0, "wall_staff", "floor_staff", "#d4b88a", "#a9825a"],
+	["corridor", 140.0, "wall_corridor", "floor_hall", "#f1e2bd", "#c9a27a"],
+	["hall", 240.0, "wall_hall", "floor_hall", "#f3dcb4", "#c9a27a"],
+	["gallery", 670.0, "wall_gallery", "floor_gallery", "#1f2f66", "#6a4a36"],
+	["reception", 810.0, "wall_reception", "floor_hall", "#f1e2bd", "#c9a27a"],
+	["staff", 980.0, "wall_staff", "floor_staff", "#d4b88a", "#a9825a"],
 ]
-const STORE_WIDTH: float = 2340.0
+const STORE_WIDTH: float = 1130.0
+## Three separate scenes share this strip: the bathroom, the store itself and
+## the staff room. Only one shows at a time (the others are masked out), walls
+## close each one, and doors lead from one to another. Name -> first and last x.
+const ZONES: Dictionary = {
+	"bath": Vector2(0.0, 140.0),
+	"store": Vector2(140.0, 980.0),
+	"staff": Vector2(980.0, 1130.0),
+}
+## Doors between scenes, on the back wall: name, x, the zone it leads to and
+## the x of the door on the other side.
+const ZONE_DOORS: Array = [
+	["BathroomDoor", 168.0, "bath", 116.0],
+	["BathroomExit", 116.0, "store", 168.0],
+	["StaffDoor", 832.0, "staff", 1000.0],
+	["StaffExit", 1000.0, "store", 832.0],
+]
+const ZONE_DOOR_SIZE: Vector2 = Vector2(28.0, 62.0)
+## The drawn door (a 45 x 96 picture, so 30 x 64 in the world); the plain
+## rectangles above are used only while it is missing.
+const ZONE_DOOR_SPRITE: String = "props/zone_door"
+const ZONE_DOOR_SPRITE_SIZE: Vector2i = Vector2i(30, 64)
+const Z_MASK: int = 950
 const PILLAR_WIDTH: float = 14.0
 ## The part of the floor feet may stand on.
 const WALK_AREA: Rect2 = Rect2(12.0, 6.0, STORE_WIDTH - 24.0, FLOOR_DEPTH - 10.0)
@@ -58,12 +80,12 @@ const Z_GLOW: int = 500
 const Z_LABEL: int = 600
 
 # --- Bathroom and corridor ------------------------------------------------------
-const SPAWN: Vector2 = Vector2(58.0, 56.0)
-const TOILET_AT: Vector2 = Vector2(28.0, 18.0)
-const SINK_AT: Vector2 = Vector2(70.0, 10.0)
-const COIN_SPOTS: Array = [Vector2(106.0, 40.0), Vector2(130.0, 74.0), Vector2(148.0, 34.0)]
+const SPAWN: Vector2 = Vector2(60.0, 56.0)
+const TOILET_AT: Vector2 = Vector2(24.0, 18.0)
+const SINK_AT: Vector2 = Vector2(62.0, 10.0)
+const COIN_SPOTS: Array = [Vector2(84.0, 46.0), Vector2(98.0, 80.0), Vector2(70.0, 78.0)]
 const COIN_REACH: float = 13.0
-const SWITCH_X: float = 222.0
+const SWITCH_X: float = 212.0
 const SWITCH_Y: float = -30.0
 ## Wall things are used from the floor this far in front of the wall.
 const WALL_USE_OFFSET: Vector2 = Vector2(0.0, 10.0)
@@ -72,12 +94,12 @@ const WALL_USE_REACH: float = 22.0
 # --- Hall: the machines ---------------------------------------------------------
 ## Bottom centre of each machine: the front edge of its footprint.
 const MACHINE_SPOTS: Dictionary = {
-	"machine_001": Vector2(336.0, 14.0),
-	"machine_002": Vector2(406.0, 14.0),
-	"machine_003": Vector2(476.0, 14.0),
-	"machine_004": Vector2(546.0, 14.0),
-	"machine_005": Vector2(632.0, 16.0),
-	"machine_006": Vector2(730.0, 16.0),
+	"machine_001": Vector2(270.0, 14.0),
+	"machine_002": Vector2(334.0, 14.0),
+	"machine_003": Vector2(398.0, 14.0),
+	"machine_004": Vector2(462.0, 14.0),
+	"machine_005": Vector2(534.0, 16.0),
+	"machine_006": Vector2(618.0, 16.0),
 }
 const GACHA_SIZE: Vector2i = Vector2i(48, 84)
 const BIG_SIZE: Vector2i = Vector2i(72, 104)
@@ -86,12 +108,13 @@ const FOOTPRINT_INSET: float = 6.0
 const MACHINE_USE_OFFSET: Vector2 = Vector2(0.0, 10.0)
 const MACHINE_REACH: float = 20.0
 const MACHINE_FALLBACKS: Array = ["#e2231a", "#2e9e4f", "#f2b632", "#2f7de1", "#f0802a", "#f59ab5"]
-## Used when `machines/anchors.json` is missing or lacks a value. Sprite space,
-## origin at the top-left corner of the machine's canvas.
+## Used when `machines/anchors.json` is missing or lacks a value. Like that
+## file, in SPRITE pixels (Sprites.ART_SCALE per world pixel), origin at the
+## top-left corner of the machine's picture; `rows` is a count.
 const DEFAULT_ANCHORS: Dictionary = {
-	"gacha": {"chute": [24, 74]},
-	"claw": {"chute": [56, 92], "claw_rail_y": 14, "claw_min_x": 18, "claw_max_x": 54, "claw_rest_x": 20, "grab_y": 34, "drop_x": 56, "drop_y": 52},
-	"plinko": {"chute": [36, 94], "ball_start": [36, 14], "rows": 6, "row_step": 6, "column_step": 5, "slot_y": 60, "slot_xs": [16, 26, 36, 46, 56]},
+	"gacha": {"chute": [36, 111]},
+	"claw": {"chute": [84, 138], "claw_rail_y": 21, "claw_min_x": 27, "claw_max_x": 81, "claw_rest_x": 30, "grab_y": 51, "drop_x": 84, "drop_y": 78},
+	"plinko": {"chute": [54, 141], "ball_start": [54, 21], "rows": 6, "row_step": 9, "column_step": 7.5, "slot_y": 90, "slot_xs": [24, 39, 54, 69, 84]},
 }
 const ANCHORS_FILE: String = "res://assets/sprites/machines/anchors.json"
 ## Where the tossed coin lands, relative to the machine's bottom centre: the
@@ -158,38 +181,29 @@ const GRAB_SHAKE_TIME: float = 0.14
 const SQUASH_STEPS: Array = [Vector2(1.34, 0.67), Vector2(0.84, 1.17), Vector2.ONE]
 const SQUASH_STEP_TIME: float = 0.045
 
-# --- Gallery: every figure on the base of its rarity ---------------------------
-## Two rows of fifteen, in three blocks of five columns. A figure on its base is
-## 58 px tall, and two of them do not fit on the 104 px of wall under the
-## cornice: the upper row stands on wall shelves and the lower one on a long
-## display bench that stands on the floor in front of the wall.
-## Left edge of the first base of each block; the gaps between blocks (and at
-## both ends of the room) are where the lamps hang, clear of every figure.
-const GALLERY_BLOCK_XS: Array = [860.0, 1191.0, 1522.0]
-const GALLERY_PER_BLOCK: int = 5
-const GALLERY_STEP_X: float = 58.0
-const GALLERY_PER_ROW: int = 15
-## y of the bottom of the bases on each row: wall shelf, then bench.
-const GALLERY_ROW_YS: Array = [-45.0, 16.0]
-## Centres of the gaps beside the blocks.
-const GALLERY_GAP_XS: Array = [838.0, 1169.0, 1500.0, 1832.0]
-## The bench: first x, width (a whole number of shelf segments) and the floor
-## line of its front.
-const GALLERY_BENCH_X: float = 859.0
-const GALLERY_BENCH_WIDTH: float = 952.0
-const GALLERY_BENCH_FRONT: float = 30.0
-## Wall shelf segments under each block of the upper row.
-const GALLERY_SHELF_SEGMENTS: int = 9
-## Soft light washing up the felt behind each row: it is drawn behind the
-## figures, so it lights them without ever covering one.
-const GALLERY_BACKLIGHT: Color = Color(1.0, 0.86, 0.55, 0.34)
-const GALLERY_BACKLIGHT_HEIGHT: float = 50.0
-const GALLERY_BACKLIGHT_MARGIN: float = 6.0
-## Gallery lamps throw a narrow beam that stays inside its gap.
+# --- Gallery: one display cabinet with every figure on its rarity base ---------
+## Three shelves of ten in a single cabinet on the wall. Figures and bases are
+## shown at a quarter of their world size here, as miniatures; the prize panel
+## and the catalog show them full size.
+const GALLERY_SCALE: float = 0.25
+## The same, as the scale of a node showing figure or base art, and as world
+## pixels per sprite pixel of that art.
+const GALLERY_ART_SCALE: float = GALLERY_SCALE / Sprites.ART_SCALE
+const GALLERY_PER_ROW: int = 10
+## Centre of the first column and the step between columns.
+const GALLERY_FIRST_X: float = 686.0
+const GALLERY_STEP_X: float = 12.0
+## y of the bottom of the bases on each shelf, top to bottom.
+const GALLERY_ROW_YS: Array = [-70.0, -50.0, -30.0]
+## The cabinet's back board: left edge, top and size.
+const GALLERY_CABINET: Rect2 = Rect2(676.0, -90.0, 128.0, 64.0)
+const GALLERY_BOARD_COLOR: Color = Color("#3b2a24")
+## No lamps hang in the gallery: they would cover the top shelf.
+const GALLERY_GAP_XS: Array = []
 const GALLERY_CONE_BOTTOM: float = 17.0
 ## A discovered figure hops when the player walks by this close (in x).
-const GALLERY_HOP_REACH: float = 16.0
-const GALLERY_HOP: float = 3.0
+const GALLERY_HOP_REACH: float = 5.0
+const GALLERY_HOP: float = 1.0
 ## Neighbours do not loop in step: start frame and pace by position.
 const GALLERY_FRAME_STRIDE: int = 3
 const GALLERY_PACES: Array = [1.0, 0.92, 1.08, 0.96, 1.04]
@@ -197,11 +211,11 @@ const GALLERY_SHELF_SIZE: Vector2i = Vector2i(34, 12)
 ## A base's bottom row sits this far below the top edge of the shelf picture.
 const GALLERY_SHELF_SEAT: float = 9.0
 ## Silhouettes have no base: they stand straight on the shelf, a little back.
-const GALLERY_SILHOUETTE_LIFT: float = 2.0
+const GALLERY_SILHOUETTE_LIFT: float = 0.0
 const SILHOUETTE: Color = Color(0.07, 0.08, 0.12)
 
 # --- Reception and staff room -----------------------------------------------------
-const COUNTER_AT: Vector2 = Vector2(1952.0, 64.0)
+const COUNTER_AT: Vector2 = Vector2(900.0, 64.0)
 const COUNTER_SIZE: Vector2i = Vector2i(100, 50)
 const COUNTER_DEPTH: float = 12.0
 const COUNTER_USE_OFFSET: Vector2 = Vector2(0.0, 10.0)
@@ -214,13 +228,13 @@ const KEY_OFFSET: Vector2 = Vector2(-7.0, -40.0)
 ## The salesman on the screen perks up when the player steps to the counter.
 const COMPUTER_HOP: float = 1.0
 const COMPUTER_BUBBLE: Vector2 = Vector2(13.0, -29.0)
-const DOOR_X: float = 2030.0
+const DOOR_X: float = 944.0
 const DOOR_SIZE: Vector2i = Vector2i(58, 88)
 ## The glass opening inside the door picture, relative to its bottom centre.
 const DOOR_OPENING: Rect2 = Rect2(-24.0, -74.0, 47.0, 70.0)
 const SHELF_A_AT: Vector2 = Vector2(1956.0, 8.0)
-const LOCKER_AT: Vector2 = Vector2(2106.0, 7.0)
-const SOFA_AT: Vector2 = Vector2(2180.0, 20.0)
+const LOCKER_AT: Vector2 = Vector2(1030.0, 7.0)
+const SOFA_AT: Vector2 = Vector2(1084.0, 20.0)
 const SOFA_SIZE: Vector2i = Vector2i(80, 46)
 const SOFA_DEPTH: float = 20.0
 const SOFA_USE_OFFSET: Vector2 = Vector2(0.0, 10.0)
@@ -228,8 +242,8 @@ const SOFA_REACH: float = 30.0
 ## Where the sleeping player lies, relative to the sofa's bottom centre.
 const SOFA_SEAT: Vector2 = Vector2(0.0, -12.0)
 const SHELF_B_AT: Vector2 = Vector2(2300.0, 8.0)
-const TABLE_AT: Vector2 = Vector2(2246.0, 84.0)
-const POSTER_B_AT: Vector2 = Vector2(2145.0, -34.0)
+const TABLE_AT: Vector2 = Vector2(1066.0, 92.0)
+const POSTER_B_AT: Vector2 = Vector2(1084.0, -44.0)
 ## A one-plank wall shelf in the staff room (the radio plays on it): top-left
 ## corner of its picture.
 const STAFF_SHELF_AT: Vector2 = Vector2(2233.0, -38.0)
@@ -240,7 +254,7 @@ const POSTER_D_AT: Vector2 = Vector2(1169.0, -32.0)
 
 # --- Lamps -------------------------------------------------------------------------
 ## The gallery's own lamps hang in its gaps (GALLERY_GAP_XS) and come after these.
-const LAMP_XS: Array = [44.0, 196.0, 371.0, 511.0, 681.0, 1980.0, 2145.0]
+const LAMP_XS: Array = [60.0, 302.0, 430.0, 576.0, 890.0, 1066.0]
 const LAMP_SIZE: Vector2i = Vector2i(30, 34)
 ## The bulb sits this far below the top of the lamp picture; light starts there.
 const LAMP_BULB_Y: float = 28.0
@@ -352,6 +366,11 @@ var solids: Array = []
 var gallery: Dictionary = {}
 ## Named furniture positions that ambient props stand on.
 var furniture: Dictionary = {}
+## The scene showing now: a key of ZONES.
+var zone: String = "bath"
+## Doors between scenes: {node, zone, to}; `to` is where the player comes out.
+var zone_doors: Array = []
+var _zone_masks: Array = []
 ## The ambient life of the store (see ambient.gd).
 var ambient: Node2D
 ## Where the camera looks, so off-screen life can come into view. Set by main.
@@ -400,12 +419,14 @@ func _ready() -> void:
 	_build_gallery()
 	_build_reception()
 	_build_staff_room()
+	_build_zone_doors()
 	_build_lamps()
 	ambient = Ambient.new()
 	ambient.name = "Ambient"
 	add_child(ambient)
 	ambient.setup(self)
 	set_power(false, false)
+	set_zone(zone)
 
 
 func _draw() -> void:
@@ -416,6 +437,68 @@ func _draw() -> void:
 ## Draw order of something standing on the floor at depth `y`.
 static func floor_z(y: float) -> int:
 	return FLOOR_Z_BASE + int(y)
+
+
+## The zone a floor point belongs to.
+static func zone_at(x: float) -> String:
+	for zone_name in ZONES:
+		if x >= ZONES[zone_name].x and x < ZONES[zone_name].y:
+			return zone_name
+	return "store"
+
+
+## The part of a zone's floor feet may stand on.
+static func zone_walk_area(zone_name: String) -> Rect2:
+	var span: Vector2 = ZONES[zone_name]
+	return Rect2(span.x + 12.0, WALK_AREA.position.y, span.y - span.x - 24.0, WALK_AREA.size.y)
+
+
+## Shows one scene and hides the other two behind the night.
+func set_zone(zone_name: String) -> void:
+	zone = zone_name
+	var span: Vector2 = ZONES[zone_name]
+	_zone_masks[0].position = Vector2(span.x - 4000.0, -2000.0)
+	_zone_masks[1].position = Vector2(span.y, -2000.0)
+
+
+## Plain wooden doors on the back wall, and the two masks that hide whatever
+## is outside the current scene.
+func _build_zone_doors() -> void:
+	for row in ZONE_DOORS:
+		var node: Node2D = _interactable(row[0], Vector2(row[1], 0.0), WALL_USE_REACH)
+		node.use_offset = WALL_USE_OFFSET
+		node.z_index = Z_WALL
+		if Sprites.has_texture(ZONE_DOOR_SPRITE):
+			# Bottom centre on the wall's foot line, like the plain door.
+			node.add_child(Sprites.standing(ZONE_DOOR_SPRITE, ZONE_DOOR_SPRITE_SIZE))
+			zone_doors.append({"node": node, "zone": row[2], "to": Vector2(row[3], 0.0) + WALL_USE_OFFSET})
+			continue
+		var half: float = ZONE_DOOR_SIZE.x / 2.0
+		var tall: float = ZONE_DOOR_SIZE.y
+		# Frame, leaf, two panels and a knob.
+		var parts: Array = [
+			[Rect2(-half - 2.0, -tall - 2.0, ZONE_DOOR_SIZE.x + 4.0, tall + 2.0), C_INK],
+			[Rect2(-half, -tall, ZONE_DOOR_SIZE.x, tall), Color("#9c5a2e")],
+			[Rect2(-half + 4.0, -tall + 5.0, ZONE_DOOR_SIZE.x - 8.0, 22.0), Color("#b9743f")],
+			[Rect2(-half + 4.0, -30.0, ZONE_DOOR_SIZE.x - 8.0, 25.0), Color("#b9743f")],
+			[Rect2(half - 7.0, -32.0, 3.0, 4.0), C_MUSTARD],
+		]
+		for part in parts:
+			var piece: ColorRect = ColorRect.new()
+			piece.position = part[0].position
+			piece.size = part[0].size
+			piece.color = part[1]
+			piece.mouse_filter = Control.MOUSE_FILTER_IGNORE
+			node.add_child(piece)
+		zone_doors.append({"node": node, "zone": row[2], "to": Vector2(row[3], 0.0) + WALL_USE_OFFSET})
+	for index in range(2):
+		var mask: ColorRect = ColorRect.new()
+		mask.color = C_NIGHT
+		mask.size = Vector2(4000.0, 4000.0)
+		mask.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		mask.z_index = Z_MASK
+		add_child(mask)
+		_zone_masks.append(mask)
 
 
 ## First and last x of a room.
@@ -432,9 +515,7 @@ static func room_range(room_name: String) -> Vector2:
 static func gallery_spot(index: int) -> Vector2:
 	var row: int = clampi(index / GALLERY_PER_ROW, 0, GALLERY_ROW_YS.size() - 1)
 	var column: int = index - row * GALLERY_PER_ROW
-	var block: int = clampi(column / GALLERY_PER_BLOCK, 0, GALLERY_BLOCK_XS.size() - 1)
-	var within: int = column - block * GALLERY_PER_BLOCK
-	return Vector2(GALLERY_BLOCK_XS[block] + Sprites.BASE_SIZE.x / 2.0 + within * GALLERY_STEP_X, GALLERY_ROW_YS[row])
+	return Vector2(GALLERY_FIRST_X + column * GALLERY_STEP_X, GALLERY_ROW_YS[row])
 
 
 func is_power_on() -> bool:
@@ -471,12 +552,7 @@ func _build_shell() -> void:
 
 
 func _tiled(path: String, area: Rect2, fallback_size: Vector2i, fallback_color: Color) -> TextureRect:
-	var rect: TextureRect = TextureRect.new()
-	rect.texture = Sprites.texture(path, fallback_size, fallback_color)
-	rect.stretch_mode = TextureRect.STRETCH_TILE
-	rect.position = area.position
-	rect.size = area.size
-	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	var rect: TextureRect = Sprites.tiled(path, area, fallback_size, fallback_color)
 	add_child(rect)
 	return rect
 
@@ -623,12 +699,12 @@ func set_display(figures: Array) -> void:
 		var figure: Dictionary = figures[index]
 		var figure_id: String = figure["id"]
 		var foot: Vector2 = gallery_spot(index)
-		# The upper row hangs on the wall; the lower one stands on the bench,
-		# which is a thing on the floor: the player walks in front of it.
-		var layer: int = Z_WALL + 2 if foot.y <= 0.0 else floor_z(GALLERY_BENCH_FRONT) + 1
+		# The whole cabinet hangs on the wall, behind everything on the floor.
+		var layer: int = Z_WALL + 2
 		var fresh: bool = not gallery.has(figure_id)
 		if fresh:
 			var sprite: AnimatedSprite2D = Sprites.figure_sprite(figure_id)
+			sprite.scale = Vector2(GALLERY_ART_SCALE, GALLERY_ART_SCALE)
 			sprite.z_index = layer + 1
 			add_child(sprite)
 			gallery[figure_id] = {"figure": sprite, "base": null, "discovered": false, "foot": foot, "rest": foot, "near": false}
@@ -637,7 +713,8 @@ func set_display(figures: Array) -> void:
 		var base: AnimatedSprite2D = entry["base"]
 		if discovered and base == null:
 			base = Sprites.base_sprite(str(figure.get("rarity_id", "common")))
-			base.position = foot - Vector2(Sprites.BASE_SIZE.x / 2.0, Sprites.BASE_SIZE.y)
+			base.position = foot - Vector2(Sprites.BASE_SIZE.x / 2.0, Sprites.BASE_SIZE.y) * GALLERY_ART_SCALE
+			base.scale = Vector2(GALLERY_ART_SCALE, GALLERY_ART_SCALE)
 			base.z_index = layer
 			# Neighbours of one rarity do not glint in step.
 			base.frame = index % maxi(base.sprite_frames.get_frame_count(base.animation), 1)
@@ -647,7 +724,7 @@ func set_display(figures: Array) -> void:
 			base.visible = discovered
 		var sprite_now: AnimatedSprite2D = entry["figure"]
 		if discovered:
-			entry["rest"] = foot + Vector2(0.0, Sprites.BASE_STAND.y - Sprites.BASE_SIZE.y)
+			entry["rest"] = foot + Vector2(0.0, (Sprites.BASE_STAND.y - Sprites.BASE_SIZE.y) * GALLERY_ART_SCALE)
 			sprite_now.modulate = Color.WHITE
 			if sprite_now.animation != Sprites.FIGURE_IDLE or not sprite_now.is_playing():
 				sprite_now.play(Sprites.FIGURE_IDLE)
@@ -662,8 +739,7 @@ func set_display(figures: Array) -> void:
 		sprite_now.position = entry["rest"]
 		if discovered and not entry["discovered"] and not fresh:
 			# A figure joining the collection twinkles on its shelf.
-			_sparkle(sprite_now.position + Vector2(8.0, -30.0))
-			_sparkle(sprite_now.position + Vector2(-10.0, -12.0))
+			_sparkle(sprite_now.position + Vector2(0.0, -6.0))
 		entry["discovered"] = discovered
 
 
@@ -741,20 +817,27 @@ func _anchor(machine_id: String, kind: String, key: String) -> Variant:
 	return DEFAULT_ANCHORS[kind][key]
 
 
-## A point of the machine's sprite, relative to its bottom centre.
+## A point of the machine's sprite, relative to its bottom centre. Anchors are
+## measured on the picture, in sprite pixels; `canvas` and every result are in
+## world pixels.
 func _anchor_point(machine_id: String, kind: String, key: String, canvas: Vector2i) -> Vector2:
 	var raw: Variant = _anchor(machine_id, kind, key)
 	if not raw is Array or raw.size() < 2:
 		raw = DEFAULT_ANCHORS[kind][key]
-	return Vector2(float(raw[0]) - canvas.x / 2.0, float(raw[1]) - canvas.y)
+	return Vector2(Sprites.to_world(float(raw[0])) - canvas.x / 2.0, Sprites.to_world(float(raw[1])) - canvas.y)
 
 
 func _anchor_x(machine_id: String, kind: String, key: String, canvas: Vector2i) -> float:
-	return float(_anchor(machine_id, kind, key)) - canvas.x / 2.0
+	return Sprites.to_world(float(_anchor(machine_id, kind, key))) - canvas.x / 2.0
 
 
 func _anchor_y(machine_id: String, kind: String, key: String, canvas: Vector2i) -> float:
-	return float(_anchor(machine_id, kind, key)) - canvas.y
+	return Sprites.to_world(float(_anchor(machine_id, kind, key))) - canvas.y
+
+
+## A distance measured on the machine's picture, in world pixels.
+func _anchor_length(machine_id: String, kind: String, key: String) -> float:
+	return Sprites.to_world(float(_anchor(machine_id, kind, key)))
 
 
 func _capsule_texture(color_name: String) -> Texture2D:
@@ -1030,7 +1113,8 @@ func _tray_sparkle(machine: Dictionary, tray: Vector2) -> void:
 	var capsule: Sprite2D = machine["capsule"]
 	var squash: Tween = capsule.create_tween()
 	for step in SQUASH_STEPS:
-		squash.tween_callback(capsule.set_scale.bind(step))
+		# On top of the scale every sprite is drawn at.
+		squash.tween_callback(capsule.set_scale.bind(step * Sprites.DRAW_SCALE))
 		squash.tween_interval(SQUASH_STEP_TIME)
 
 
@@ -1056,7 +1140,7 @@ func _rest_machine(machine: Dictionary) -> void:
 	machine["root"].position = machine["at"]
 	machine["capsule"].visible = false
 	machine["capsule"].rotation = 0.0
-	machine["capsule"].scale = Vector2.ONE
+	machine["capsule"].scale = Sprites.DRAW_SCALE
 	match machine["type"]:
 		"claw":
 			machine["claw"].position = Vector2(machine["claw_rest_x"], machine["claw_rail_y"])
@@ -1144,7 +1228,6 @@ func _build_bathroom() -> void:
 	_floor_prop("props/toilet", TOILET_AT, Vector2i(30, 40), 18.0)
 	_floor_prop("props/sink", SINK_AT, Vector2i(30, 50), 10.0)
 	furniture["sink"] = SINK_AT
-	_wall_prop("props/poster_c", Vector2(140.0, -50.0), Vector2i(28, 36))
 	for index in range(COIN_SPOTS.size()):
 		var spot: Vector2 = COIN_SPOTS[index]
 		var coin: Node2D = _interactable("Coin%d" % index, spot, COIN_REACH)
@@ -1167,14 +1250,10 @@ func _build_corridor() -> void:
 	_switch_sprite = Sprites.standing("props/power_switch_off", Vector2i(20, 28), Color("#4a5160"))
 	_switch_sprite.position = Vector2(0.0, SWITCH_Y)
 	power_switch.add_child(_switch_sprite)
-	_wall_prop("props/poster_a", Vector2(194.0, -34.0), Vector2i(28, 36))
 
 
 func _build_hall() -> void:
-	_wall_prop("props/sign_gacha", Vector2(441.0, WALL_TOP + 28.0), Vector2i(110, 28)).z_index = Z_HANGING
-	_decal("props/rug", HALL_RUG_AT, Vector2i(96, 34))
-	_floor_prop("props/crate", CRATE_AT, Vector2i(28, 30), 8.0)
-	furniture["crate"] = CRATE_AT
+	_wall_prop("props/sign_gacha", Vector2(366.0, WALL_TOP + 28.0), Vector2i(110, 28)).z_index = Z_HANGING
 	for machine_id in MACHINE_SPOTS:
 		_build_machine(machine_id)
 
@@ -1202,7 +1281,7 @@ func _build_machine(machine_id: String) -> void:
 	root.add_child(off)
 	var action: String = "play" if kind == "gacha" else "react"
 	var names: Array = ["%s_idle" % machine_id, "%s_wake" % machine_id, "%s_%s" % [machine_id, action]]
-	var still: Texture2D = off.texture if Sprites.has_texture("machines/%s" % machine_id) else Sprites.placeholder(canvas, fallback)
+	var still: Texture2D = off.texture if Sprites.has_texture("machines/%s" % machine_id) else Sprites.placeholder(Sprites.art_size(canvas), fallback)
 	var anim: AnimatedSprite2D = Sprites.animated(names, canvas, fallback, still)
 	for one_shot in [names[1], names[2]]:
 		anim.sprite_frames.set_animation_loop(one_shot, false)
@@ -1230,11 +1309,8 @@ func _build_machine(machine_id: String) -> void:
 			rope.default_color = C_INK
 			rope.points = PackedVector2Array([Vector2.ZERO, Vector2.ZERO])
 			root.add_child(rope)
-			var claw: Sprite2D = Sprite2D.new()
-			claw.centered = false
-			claw.texture = Sprites.texture("machines/claw_open", CLAW_SIZE, C_INK)
 			# The claw hangs from the top centre of its picture.
-			claw.offset = Vector2(-CLAW_SIZE.x / 2.0, 0.0)
+			var claw: Sprite2D = Sprites.hanging("machines/claw_open", CLAW_SIZE, C_INK)
 			claw.position = Vector2(machine["claw_rest_x"], machine["claw_rail_y"])
 			root.add_child(claw)
 			machine["claw"] = claw
@@ -1243,29 +1319,27 @@ func _build_machine(machine_id: String) -> void:
 			var top: Vector2 = _anchor_point(machine_id, kind, "ball_start", canvas)
 			machine["ball_start"] = top
 			machine["rows"] = maxi(int(_anchor(machine_id, kind, "rows")), 1)
-			machine["row_step"] = float(_anchor(machine_id, kind, "row_step"))
-			machine["column_step"] = float(_anchor(machine_id, kind, "column_step"))
+			machine["row_step"] = _anchor_length(machine_id, kind, "row_step")
+			machine["column_step"] = _anchor_length(machine_id, kind, "column_step")
 			var slot_y: float = _anchor_y(machine_id, kind, "slot_y", canvas)
 			var slot_xs: Variant = _anchor(machine_id, kind, "slot_xs")
 			if not slot_xs is Array or slot_xs.is_empty():
 				slot_xs = DEFAULT_ANCHORS[kind]["slot_xs"]
 			var slots: Array = []
 			for slot_x in slot_xs:
-				slots.append(Vector2(float(slot_x) - canvas.x / 2.0, slot_y))
+				slots.append(Vector2(Sprites.to_world(float(slot_x)) - canvas.x / 2.0, slot_y))
 			machine["slots"] = slots
 			var lamp: Polygon2D = Polygon2D.new()
 			lamp.polygon = PackedVector2Array([Vector2(-4, -4), Vector2(4, -4), Vector2(4, 4), Vector2(-4, 4)])
 			lamp.color = Color(1.0, 0.95, 0.6, 0.7)
 			lamp.visible = false
 			root.add_child(lamp)
-			var ball: Sprite2D = Sprite2D.new()
-			ball.texture = Sprites.texture("machines/plinko_ball", Vector2i(6, 6), C_CREAM)
+			var ball: Sprite2D = Sprites.part("machines/plinko_ball", Vector2i(6, 6), C_CREAM)
 			ball.visible = false
 			root.add_child(ball)
 			machine["ball"] = ball
 			machine["slot_lamp"] = lamp
-	var capsule: Sprite2D = Sprite2D.new()
-	capsule.texture = _capsule_texture("red")
+	var capsule: Sprite2D = Sprites.part("machines/capsule_red", CAPSULE_SIZE, Color(CAPSULE_FALLBACKS["red"]))
 	capsule.visible = false
 	root.add_child(capsule)
 	machine["capsule"] = capsule
@@ -1454,63 +1528,30 @@ func _animate_coins() -> void:
 ## floor for the lower one, each washed by a light from behind; `set_display`
 ## stands the figures on them. A poster and keepsakes fill the gaps.
 func _build_gallery() -> void:
-	var block_width: float = GALLERY_STEP_X * (GALLERY_PER_BLOCK - 1) + Sprites.BASE_SIZE.x
-	var shelf_width: float = float(GALLERY_SHELF_SEGMENTS * GALLERY_SHELF_SIZE.x)
-	var additive: CanvasItemMaterial = CanvasItemMaterial.new()
-	additive.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
-	for block_x in GALLERY_BLOCK_XS:
-		var shelf: TextureRect = _tiled("props/gallery_shelf", Rect2(block_x - (shelf_width - block_width) / 2.0, GALLERY_ROW_YS[0] - GALLERY_SHELF_SEAT, shelf_width, GALLERY_SHELF_SIZE.y), GALLERY_SHELF_SIZE, Color("#8a5a3a"))
-		shelf.z_index = Z_WALL + 1
-		for row_y in GALLERY_ROW_YS:
-			# Brightest where the row stands, fading out up the wall.
-			var seat: float = minf(row_y - GALLERY_SHELF_SEAT, 0.0)
-			var left: float = block_x - GALLERY_BACKLIGHT_MARGIN
-			var right: float = block_x + block_width + GALLERY_BACKLIGHT_MARGIN
-			var light: Polygon2D = Polygon2D.new()
-			light.polygon = PackedVector2Array([Vector2(left, seat - GALLERY_BACKLIGHT_HEIGHT), Vector2(right, seat - GALLERY_BACKLIGHT_HEIGHT), Vector2(right, seat), Vector2(left, seat)])
-			var faded: Color = Color(GALLERY_BACKLIGHT, 0.0)
-			light.color = Color.WHITE
-			light.vertex_colors = PackedColorArray([faded, faded, GALLERY_BACKLIGHT, GALLERY_BACKLIGHT])
-			light.material = additive
-			light.z_index = Z_WALL
-			light.visible = false
-			add_child(light)
-			_gallery_lights.append(light)
-	# The bench: a plank top like the shelves, and a front in the colours of the
-	# reception counter. It is solid from its front line back to the wall.
-	var bench_z: int = floor_z(GALLERY_BENCH_FRONT)
-	var top_y: float = GALLERY_ROW_YS[1] - GALLERY_SHELF_SEAT
-	var top: TextureRect = _tiled("props/gallery_shelf", Rect2(GALLERY_BENCH_X, top_y, GALLERY_BENCH_WIDTH, GALLERY_SHELF_SIZE.y), GALLERY_SHELF_SIZE, Color("#8a5a3a"))
-	top.z_index = bench_z
-	var face_y: float = GALLERY_ROW_YS[1]
-	var face_height: float = GALLERY_BENCH_FRONT - face_y
-	# Bands of the front, top to bottom: y offset, height, colour, side inset.
-	var bands: Array = [
-		[0.0, face_height, C_INK, 0.0],
-		[1.0, face_height - 2.0, Color("#e2231a"), 1.0],
-		[1.0, 1.0, Color("#f0802a"), 1.0],
-		[4.0, 1.0, C_INK, 1.0],
-		[5.0, 4.0, C_CREAM, 1.0],
-		[9.0, 1.0, C_INK, 1.0],
-		[face_height - 3.0, 2.0, Color("#4a5160"), 1.0],
-	]
-	for band in bands:
-		var strip: ColorRect = ColorRect.new()
-		strip.color = band[2]
-		strip.position = Vector2(GALLERY_BENCH_X + band[3], face_y + band[0])
-		strip.size = Vector2(GALLERY_BENCH_WIDTH - band[3] * 2.0, band[1])
-		strip.mouse_filter = Control.MOUSE_FILTER_IGNORE
-		strip.z_index = bench_z
-		add_child(strip)
-	var bench_centre: Vector2 = Vector2(GALLERY_BENCH_X + GALLERY_BENCH_WIDTH / 2.0, GALLERY_BENCH_FRONT)
-	_shadow(bench_centre + Vector2(0.0, 1.0), Vector2(GALLERY_BENCH_WIDTH / 2.0 + 2.0, 3.0))
-	_solid(bench_centre, GALLERY_BENCH_WIDTH, GALLERY_BENCH_FRONT)
-	# Keepsakes stand on the bench in the gaps between the blocks.
-	furniture["gallery_bench_a"] = Vector2(GALLERY_GAP_XS[1], GALLERY_BENCH_FRONT)
-	furniture["gallery_bench_b"] = Vector2(GALLERY_GAP_XS[2], GALLERY_BENCH_FRONT)
-	_wall_prop("props/poster_d", POSTER_D_AT, Vector2i(28, 36))
-	_decal("props/rug", GALLERY_RUG_AT, Vector2i(96, 34))
-	furniture["gallery_rug"] = GALLERY_RUG_AT
+	# The cabinet: a dark back board in an ink frame, and one plank per shelf.
+	var frame: ColorRect = ColorRect.new()
+	frame.color = C_INK
+	frame.position = GALLERY_CABINET.position - Vector2(2.0, 2.0)
+	frame.size = GALLERY_CABINET.size + Vector2(4.0, 2.0)
+	frame.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	frame.z_index = Z_WALL
+	add_child(frame)
+	var board: ColorRect = ColorRect.new()
+	board.color = GALLERY_BOARD_COLOR
+	board.position = GALLERY_CABINET.position
+	board.size = GALLERY_CABINET.size
+	board.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	board.z_index = Z_WALL
+	add_child(board)
+	for row_y in GALLERY_ROW_YS:
+		# Thin planks: the miniatures are only a few pixels tall.
+		var plank: ColorRect = ColorRect.new()
+		plank.color = Color("#b9743f")
+		plank.position = Vector2(GALLERY_CABINET.position.x, row_y)
+		plank.size = Vector2(GALLERY_CABINET.size.x, 2.0)
+		plank.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		plank.z_index = Z_WALL + 1
+		add_child(plank)
 
 
 func _build_reception() -> void:
@@ -1536,7 +1577,6 @@ func _build_reception() -> void:
 	_door_glow.z_index = Z_DECAL + 1
 	_door_glow.visible = false
 	add_child(_door_glow)
-	_floor_prop("props/shelf_a", SHELF_A_AT, Vector2i(58, 84), 6.0)
 	reception = _interactable("Reception", COUNTER_AT, COUNTER_REACH)
 	reception.use_offset = COUNTER_USE_OFFSET
 	reception.z_index = floor_z(COUNTER_AT.y)
@@ -1554,7 +1594,6 @@ func _build_reception() -> void:
 
 func _build_staff_room() -> void:
 	_floor_prop("props/locker", LOCKER_AT, Vector2i(30, 74), 5.0)
-	_floor_prop("props/shelf_b", SHELF_B_AT, Vector2i(58, 84), 6.0)
 	sofa = _interactable("Sofa", SOFA_AT, SOFA_REACH)
 	sofa.use_offset = SOFA_USE_OFFSET
 	sofa.z_index = floor_z(SOFA_AT.y)
@@ -1564,10 +1603,6 @@ func _build_staff_room() -> void:
 	_floor_prop("props/table", TABLE_AT, Vector2i(46, 32), 12.0)
 	furniture["table"] = TABLE_AT
 	_wall_prop("props/poster_b", POSTER_B_AT, Vector2i(28, 36))
-	var shelf: TextureRect = _tiled("props/gallery_shelf", Rect2(STAFF_SHELF_AT, Vector2(GALLERY_SHELF_SIZE)), GALLERY_SHELF_SIZE, Color("#8a5a3a"))
-	shelf.z_index = Z_WALL
-	# Things on it stand a little back from the plank's front edge.
-	furniture["staff_shelf"] = STAFF_SHELF_AT + Vector2(GALLERY_SHELF_SIZE.x / 2.0, GALLERY_SHELF_SEAT - 2.0)
 
 
 ## Pendant lamps along the top of the wall, each with a cone and a pool of

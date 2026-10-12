@@ -9,6 +9,7 @@ const CatalogPanel = preload("res://scripts/ui/catalog_panel.gd")
 const SofaPanel = preload("res://scripts/ui/sofa_panel.gd")
 const ReceptionPanel = preload("res://scripts/ui/reception_panel.gd")
 const EndingPanel = preload("res://scripts/ui/ending_panel.gd")
+const MachineScene = preload("res://scripts/ui/machine_scene.gd")
 
 const TOAST_SECONDS: float = 3.5
 
@@ -32,6 +33,8 @@ signal modal_changed(is_open: bool)
 signal rebirth_requested(selection: Dictionary)
 signal quit_requested
 signal ending_finished
+## The player jumped to another machine from inside the machine scene.
+signal machine_changed(machine_id: String)
 
 var prize_panel: PanelContainer
 var catalog_panel: PanelContainer
@@ -39,6 +42,9 @@ var sofa_panel: PanelContainer
 var reception_panel: PanelContainer
 var pause_panel: PanelContainer
 var ending_panel: Control
+## The view from inside a machine. It is a place, not a panel: panels (prize,
+## catalog) open on top of it and closing them returns to it.
+var machine_scene: Control
 
 var _core: RefCounted
 var _coins: Label
@@ -57,12 +63,19 @@ var _toast_timer: float = 0.0
 var _fade: ColorRect
 var _modals: Dictionary = {}  # name -> backdrop Control
 var _open_modal: String = ""
+var _machine_open: bool = false
 var _new_figure_ids: Dictionary = {}
 
 
 func setup(core: RefCounted) -> void:
 	_core = core
 	_build_hud()
+	machine_scene = MachineScene.new()
+	machine_scene.visible = false
+	add_child(machine_scene)
+	machine_scene.prize_ready.connect(_on_machine_prize_ready)
+	machine_scene.machine_changed.connect(func(machine_id: String) -> void: machine_changed.emit(machine_id))
+	machine_scene.exit_requested.connect(close_machine)
 	prize_panel = PrizePanel.new()
 	_add_modal("prize", prize_panel)
 	catalog_panel = CatalogPanel.new()
@@ -116,11 +129,39 @@ func _process(delta: float) -> void:
 # --- Public -----------------------------------------------------------------
 
 func is_modal_open() -> bool:
-	return _open_modal != ""
+	return _open_modal != "" or _machine_open
 
 
+## The panel on top, or "machine" when only the machine scene is showing.
 func open_modal_name() -> String:
-	return _open_modal
+	if _open_modal != "":
+		return _open_modal
+	return "machine" if _machine_open else ""
+
+
+func is_machine_open() -> bool:
+	return _machine_open
+
+
+## Steps inside a machine.
+func open_machine(machine_id: String) -> void:
+	_machine_open = true
+	machine_scene.open(_core, machine_id)
+	machine_scene.active = _open_modal == ""
+	_prompt_plate.visible = false
+	modal_changed.emit(true)
+
+
+## Back to the hall, whatever is open.
+func close_machine() -> void:
+	if not _machine_open:
+		return
+	if _open_modal != "":
+		_modals[_open_modal].visible = false
+		_open_modal = ""
+	_machine_open = false
+	machine_scene.close()
+	modal_changed.emit(false)
 
 
 func set_prompt(text: String) -> void:
@@ -130,6 +171,10 @@ func set_prompt(text: String) -> void:
 
 
 func toast(text: String) -> void:
+	if _machine_open:
+		# The HUD is behind the machine scene: say it there.
+		machine_scene.flash(text)
+		return
 	_toast.text = text
 	_toast_plate.visible = true
 	_toast_timer = TOAST_SECONDS
@@ -157,7 +202,7 @@ func open_prize() -> void:
 func toggle_catalog() -> void:
 	if _open_modal == "catalog":
 		close_modal()
-	elif _open_modal == "":
+	elif _open_modal == "" and not (_machine_open and machine_scene.is_playing()):
 		catalog_panel.refresh(_core)
 		_show_modal("catalog")
 
@@ -181,12 +226,17 @@ func open_ending(stats: Dictionary) -> void:
 	ending_panel.play(stats)
 
 
-## Closes whatever is open. Esc cannot leave the ending; it has its own button.
+## Closes whatever is on top: a panel first, then the machine scene. Esc cannot
+## leave the ending; it has its own button.
 func close_modal() -> void:
 	if _open_modal == "":
+		close_machine()
 		return
 	_modals[_open_modal].visible = false
 	_open_modal = ""
+	if _machine_open:
+		machine_scene.active = true
+		return
 	modal_changed.emit(false)
 
 
@@ -369,6 +419,7 @@ func _show_modal(modal_name: String) -> void:
 		_modals[_open_modal].visible = false
 	_open_modal = modal_name
 	_modals[modal_name].visible = true
+	machine_scene.active = false
 	_prompt_plate.visible = false
 	modal_changed.emit(true)
 
@@ -409,9 +460,15 @@ func _objective_text() -> String:
 	return "Complete collections, then rest on the staff room sofa"
 
 
+func _on_machine_prize_ready(capsule_color: String) -> void:
+	prize_panel.reveal_capsule = capsule_color
+	open_prize()
+
+
 func _on_prize_resolved(result: Dictionary) -> void:
 	close_modal()
-	if result["choice"] == "sell":
+	# Inside a machine the scene itself reports the sale.
+	if result["choice"] == "sell" and not _machine_open:
 		toast("+%s" % Format.coins(result["coins_gained"]))
 
 

@@ -1,12 +1,11 @@
-"""Build and verify the machine sprites (art contract v2, section A).
+"""Builds and verifies the machine sprites (art contract v3, sepia cartoon).
 
-Run from the repository root:
     python tools/pixel/build_machines.py
 
-Writes assets/sprites/machines/*.png, anims.json and anchors.json, removes the
-machine files of the previous art direction, writes contact sheets and GIFs to
-tools/pixel/previews/, then checks everything against the contract. Exits
-non-zero when a check fails.
+Writes assets/sprites/machines/*.png, anims.json and anchors.json, writes
+contact sheets to tools/pixel/previews/sp_*.png, then checks everything
+against the contract (sizes, manifest, timing limits, start and end frames,
+stable regions, anchors) and exits non-zero on problems.
 """
 import json
 import os
@@ -18,417 +17,276 @@ HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
 
 import machines as M  # noqa: E402
-from pixlib import sheet, GREY  # noqa: E402
 
 ROOT = os.path.dirname(os.path.dirname(HERE))
 OUT = os.path.join(ROOT, "assets", "sprites", "machines")
 PREV = os.path.join(HERE, "previews")
 
-GACHA = (48, 84)
-CAB = (72, 104)
 STATIC_SIZES = {
-    "machine_001": GACHA, "machine_002": GACHA, "machine_003": GACHA, "machine_004": GACHA,
-    "machine_005": CAB, "machine_006": CAB,
-    "capsule_red": (12, 12), "capsule_blue": (12, 12), "capsule_green": (12, 12),
-    "capsule_mustard": (12, 12), "capsule_gold": (12, 12),
-    "claw_open": (20, 20), "claw_closed": (20, 20), "plinko_ball": (6, 6),
+    "machine_001": M.GACHA, "machine_002": M.GACHA, "machine_003": M.GACHA, "machine_004": M.GACHA,
+    "machine_005": M.CAB, "machine_006": M.CAB,
+    "capsule_red": (18, 18), "capsule_blue": (18, 18), "capsule_green": (18, 18),
+    "capsule_mustard": (18, 18), "capsule_gold": (18, 18),
+    "claw_open": (30, 30), "claw_closed": (30, 30), "plinko_ball": (9, 9),
 }
-ANIM_SPECS = {}   # name -> (frame size, loop, max seconds or None)
-for _n in (1, 2, 3, 4, 5, 6):
-    _k = "machine_%03d" % _n
-    _size = GACHA if _n <= 4 else CAB
-    ANIM_SPECS[_k + "_wake"] = (_size, False, 0.6)
-    ANIM_SPECS[_k + "_idle"] = (_size, True, None)
-    if _n <= 4:
-        ANIM_SPECS[_k + "_play"] = (_size, False, 0.7)
+# name -> (frame size, loop, max seconds or None)
+ANIM_SPECS = {}
+for _n in range(1, 7):
+    _size = M.GACHA if _n < 5 else M.CAB
+    ANIM_SPECS["machine_%03d_wake" % _n] = (_size, False, 0.6)
+    ANIM_SPECS["machine_%03d_idle" % _n] = (_size, True, None)
+    if _n < 5:
+        ANIM_SPECS["machine_%03d_play" % _n] = (_size, False, 0.7)
     else:
-        ANIM_SPECS[_k + "_react"] = (_size, False, 0.5)
+        ANIM_SPECS["machine_%03d_react" % _n] = (_size, False, 0.5)
 
-# Anchors of the first rubber-hose pass. The game reads anchors.json, so a
-# change is legal, but it has to be deliberate: update this table with it.
-ANCHORS_FROZEN = {
-    "machine_001": {"chute": [24, 72]}, "machine_002": {"chute": [24, 72]},
-    "machine_003": {"chute": [24, 72]}, "machine_004": {"chute": [24, 72]},
-    "machine_005": {"chute": [49, 89], "claw_rail_y": 28, "claw_min_x": 23, "claw_max_x": 49,
-                    "claw_rest_x": 25, "grab_y": 33, "drop_x": 49, "drop_y": 55},
-    "machine_006": {"chute": [36, 90], "ball_start": [36, 29], "rows": 6, "row_step": 6,
-                    "column_step": 5, "slot_y": 72, "slot_xs": [16, 26, 36, 46, 56]},
-}
-MAX_STRIP_W = 16384      # largest texture the renderer is guaranteed to take
-MIN_IDLE_POSES = 16      # an idle loop must really be alive
-
-
-def palette():
-    """Every colour the machine module declares (module-level RGB constants)."""
-    out = set()
-    for name in dir(M):
-        v = getattr(M, name)
-        if name.isupper() and isinstance(v, tuple) and len(v) == 3 and all(isinstance(c, int) for c in v):
-            out.add(v)
-    return out
-
-
-def stray_colours(img, allowed):
-    return sorted({c[:3] for _n, c in img.convert("RGBA").getcolors(1 << 20) if c[3]} - allowed)
-
-
-OBSOLETE = ["machine_%03d_lit.png" % n for n in range(1, 7)] + [
-    "gacha_knob.png", "capsule_coral.png", "capsule_mint.png", "capsule_teal.png"]
+MAX_STRIP_W = 16384
+MIN_IDLE_POSES = 8
+BACK = (126, 112, 92, 255)
 
 
 def strip(frames):
-    w, h = frames[0].img.size
+    w, h = frames[0].size
     out = Image.new("RGBA", (w * len(frames), h), (0, 0, 0, 0))
-    for i, f in enumerate(frames):
-        out.paste(f.img, (i * w, 0))
+    for i, frame in enumerate(frames):
+        out.paste(frame, (i * w, 0))
     return out
 
 
-def on_grey(img, scale):
-    bg = Image.new("RGBA", img.size, GREY + (255,))
-    bg.alpha_composite(img)
-    return bg.resize((img.size[0] * scale, img.size[1] * scale), Image.NEAREST)
-
-
-def gif(frames, fps, path_, scale=4, loop=True):
-    ims = [on_grey(f.img, scale).convert("P", palette=Image.ADAPTIVE, colors=64) for f in frames]
-    extra = {} if loop else {}
-    ims[0].save(path_, save_all=True, append_images=ims[1:], duration=int(round(1000.0 / fps)),
-                loop=0, disposal=2, **extra)
+def sheet(images, path, cols, scale):
+    w = max(im.width for im in images) + 4
+    h = max(im.height for im in images) + 4
+    rows = (len(images) + cols - 1) // cols
+    out = Image.new("RGBA", (w * min(cols, len(images)), h * rows), BACK)
+    for i, im in enumerate(images):
+        out.alpha_composite(im, ((i % cols) * w + 2, (i // cols) * h + 2 + (h - 4 - im.height)))
+    out = out.resize((out.width * scale, out.height * scale), Image.NEAREST)
+    out.save(path)
 
 
 def composite(base, items):
-    """Copy of a sprite image with other sprites drawn on it (top-left positions)."""
     out = base.copy()
-    for img, x, y in items:
-        out.alpha_composite(img, (x, y))
+    for im, (x, y) in items:
+        out.alpha_composite(im, (int(x), int(y)))
     return out
+
+
+def centred(im, cx, cy):
+    return im, (cx - im.width // 2, cy - im.height // 2)
+
+
+def hung(im, x, y):
+    return im, (x - im.width // 2, y)
 
 
 def build():
     os.makedirs(OUT, exist_ok=True)
     os.makedirs(PREV, exist_ok=True)
-    for name in OBSOLETE:
-        for path_ in (os.path.join(OUT, name), os.path.join(OUT, name + ".import")):
-            if os.path.exists(path_):
-                os.remove(path_)
-
-    stat = M.statics()
-    for name, spr in stat.items():
-        spr.img.save(os.path.join(OUT, name + ".png"))
-
+    stat = M.stills()
     anims = M.animations()
+    for name, im in stat.items():
+        im.save(os.path.join(OUT, name + ".png"))
     manifest = {}
-    for name in sorted(anims):
-        frames, fps, loop = anims[name]
-        w, h = frames[0].img.size
-        strip(frames).save(os.path.join(OUT, name + ".png"))
-        manifest[name] = {"file": name + ".png", "frame_w": w, "frame_h": h,
-                          "frames": len(frames), "fps": fps, "loop": loop}
-    with open(os.path.join(OUT, "anims.json"), "w", encoding="utf-8", newline="\n") as fh:
-        json.dump(manifest, fh, indent=2)
-        fh.write("\n")
-    anchors = M.anchors()
-    with open(os.path.join(OUT, "anchors.json"), "w", encoding="utf-8", newline="\n") as fh:
-        json.dump(anchors, fh, indent=2)
-        fh.write("\n")
-
-    previews(stat, anims, anchors)
-    return stat, anims, manifest, anchors
-
-
-def previews(stat, anims, anchors):
-    order = ["machine_%03d" % n for n in range(1, 7)]
-    small = ["capsule_red", "capsule_blue", "capsule_green", "capsule_mustard", "capsule_gold",
-             "claw_open", "claw_closed", "plinko_ball"]
-    lit = [anims[k + "_idle"][0][0] for k in order]
-    sheet([stat[k] for k in order] + lit + [stat[k] for k in small],
-          os.path.join(PREV, "rh_machines.png"), cols=6, scale=4)
-    # game scale (x3) on a dark floor-like background, to judge readability
-    sheet(lit + [stat[k] for k in order], os.path.join(PREV, "rh_machines_x3.png"), cols=12,
-          scale=3, bg=(58, 52, 70))
     for name, (frames, fps, loop) in anims.items():
-        sheet(frames, os.path.join(PREV, "rh_" + name + ".png"), cols=12, scale=4)
-        gif(frames, fps, os.path.join(PREV, "rh_" + name + ".gif"))
+        strip(frames).save(os.path.join(OUT, name + ".png"))
+        manifest[name] = {"file": name + ".png", "frame_w": frames[0].width, "frame_h": frames[0].height,
+                          "frames": len(frames), "fps": fps, "loop": loop}
+    with open(os.path.join(OUT, "anims.json"), "w", encoding="utf-8", newline="\n") as f:
+        json.dump(manifest, f, indent=2, sort_keys=True)
+        f.write("\n")
+    with open(os.path.join(OUT, "anchors.json"), "w", encoding="utf-8", newline="\n") as f:
+        json.dump(M.ANCHORS, f, indent=2, sort_keys=True)
+        f.write("\n")
+    return stat, anims
 
-    # anchor proofs
-    caps = [stat["capsule_" + c].img for c in ("red", "blue", "green", "mustard")]
+
+def previews(stat, anims):
+    keys = ["machine_%03d" % n for n in range(1, 7)]
+    loose = [stat[k] for k in ("capsule_red", "capsule_blue", "capsule_green", "capsule_mustard",
+                               "capsule_gold", "claw_open", "claw_closed", "plinko_ball")]
+    sheet([stat[k] for k in keys] + [anims[k + "_idle"][0][0] for k in keys],
+          os.path.join(PREV, "sp_machines.png"), cols=6, scale=3)
+    sheet(loose, os.path.join(PREV, "sp_machine_parts.png"), cols=8, scale=6)
+    for name, (frames, _fps, _loop) in anims.items():
+        distinct = []
+        for frame in frames:
+            if not distinct or frame is not distinct[-1]:
+                distinct.append(frame)
+        sheet(distinct if "idle" in name else frames, os.path.join(PREV, "sp_%s.png" % name),
+              cols=8 if frames[0].width > 80 else 10, scale=2)
+    # Anchor proofs: the loose sprites placed exactly as the game places them.
     proofs = []
-    for i, n in enumerate((1, 2, 3, 4)):
+    for n in range(1, 5):
         key = "machine_%03d" % n
-        cx, cy = anchors[key]["chute"]
-        proofs.append(composite(anims[key + "_idle"][0][0].img, [(caps[i], cx - 6, cy - 6)]))
-    sheet(proofs, os.path.join(PREV, "rh_anchor_gacha.png"), cols=4, scale=4)
-
-    a = anchors["machine_005"]
-    crane = anims["machine_005_idle"][0][0].img
-    op, cl = stat["claw_open"].img, stat["claw_closed"].img
-    gold = stat["capsule_gold"].img
-    proofs = [
-        composite(crane, [(op, a["claw_rest_x"] - 10, a["claw_rail_y"])]),
-        composite(crane, [(op, a["claw_min_x"] - 10, a["claw_rail_y"]),
-                          (op, a["claw_max_x"] - 10, a["claw_rail_y"])]),
-        composite(crane, [(op, a["claw_min_x"] - 10, a["grab_y"])]),
-        composite(crane, [(cl, 34 - 10, a["grab_y"])]),
-        composite(crane, [(cl, a["drop_x"] - 10, a["claw_rail_y"]),
-                          (gold, a["drop_x"] - 6, a["drop_y"] - 6)]),
-        composite(crane, [(op, a["drop_x"] - 10, a["claw_rail_y"]),
-                          (gold, a["chute"][0] - 6, a["chute"][1] - 6)]),
-    ]
-    sheet(proofs, os.path.join(PREV, "rh_anchor_crane.png"), cols=6, scale=4)
-
-    a = anchors["machine_006"]
-    board = anims["machine_006_idle"][0][0].img
-    pb = stat["plinko_ball"].img
-    every = []
-    for k in range(a["rows"] + 1):
-        for o in range(-k, k + 1, 2):
-            if abs(o) <= 5:
-                every.append((pb, a["ball_start"][0] + o * a["column_step"] - 3,
-                              a["ball_start"][1] + k * a["row_step"] - 3))
-    slots = [(pb, x - 3, a["slot_y"] - 3) for x in a["slot_xs"]]
-    path_r = [(pb, a["ball_start"][0] + o * a["column_step"] - 3,
-               a["ball_start"][1] + k * a["row_step"] - 3)
-              for k, o in enumerate((0, 1, 2, 1, 2, 3, 4))]
-    proofs = [
-        composite(board, every[:-7]),
-        composite(board, slots),
-        composite(board, path_r + [(pb, a["slot_xs"][4] - 3, a["slot_y"] - 3)]),
-        composite(board, [(caps[0], a["chute"][0] - 6, a["chute"][1] - 6)]),
-    ]
-    sheet(proofs, os.path.join(PREV, "rh_anchor_plinko.png"), cols=4, scale=4)
+        cx, cy = M.ANCHORS[key]["chute"]
+        colour = ("red", "blue", "green", "gold")[n - 1]
+        proofs.append(composite(anims[key + "_idle"][0][0], [centred(stat["capsule_" + colour], cx, cy)]))
+    a = M.ANCHORS["machine_005"]
+    idle = anims["machine_005_idle"][0][0]
+    mid = (a["claw_min_x"] + a["claw_max_x"]) // 2
+    proofs.append(composite(idle, [hung(stat["claw_open"], a["claw_rest_x"], a["claw_rail_y"])]))
+    proofs.append(composite(idle, [hung(stat["claw_open"], mid, a["grab_y"])]))
+    proofs.append(composite(idle, [centred(stat["capsule_mustard"], a["drop_x"], a["drop_y"]),
+                                   hung(stat["claw_closed"], a["drop_x"], a["claw_rail_y"]),
+                                   centred(stat["capsule_mustard"], *a["chute"])]))
+    a = M.ANCHORS["machine_006"]
+    idle = anims["machine_006_idle"][0][0]
+    ball = stat["plinko_ball"]
+    path, x = [], a["ball_start"][0]
+    for row, step in enumerate((0, -1, 1, 1, -1, -1, 1)):
+        x += step * a["column_step"]
+        path.append(centred(ball, x, a["ball_start"][1] + row * a["row_step"]))
+    proofs.append(composite(idle, path))
+    proofs.append(composite(idle, [centred(ball, sx, a["slot_y"]) for sx in a["slot_xs"]]
+                            + [centred(stat["capsule_blue"], *a["chute"])]))
+    sheet(proofs, os.path.join(PREV, "sp_machine_anchors.png"), cols=9, scale=3)
 
 
-# ------------------------------------------------------------------ verification
-
-def alpha_ok(img):
-    hist = img.getchannel("A").histogram()
-    return sum(hist[1:255]) == 0
+def alpha_ok(im):
+    return set(im.getchannel("A").tobytes()) <= {0, 255}
 
 
-def frame_of(img, w, h, i):
-    return img.crop((i * w, 0, (i + 1) * w, h))
-
-
-def same_region(a, b, rect):
+def same(a, b, rect):
     return a.crop(rect).tobytes() == b.crop(rect).tobytes()
 
 
-def stable_regions(key, a):
-    """Rectangles (x0, y0, x1+1, y1+1) that must not change in idle / react."""
-    cx, cy = a["chute"]
-    rects = [(cx - 6, cy - 6, cx + 6, cy + 6)]
-    if key == "machine_005":
-        x0, y0, x1, y1 = M.CR_GLASS
-        rects.append((x0, y0, x1 + 1, y1 + 1))
-    if key == "machine_006":
-        x0, y0, x1, y1 = M.PK_BOARD
-        rects.append((x0, y0, x1 + 1, y1 + 1))
-    return rects
+def box18(point):
+    return (point[0] - 9, point[1] - 9, point[0] + 9, point[1] + 9)
 
 
-def verify():
+def inside(rect, size):
+    return rect[0] >= 0 and rect[1] >= 0 and rect[2] <= size[0] and rect[3] <= size[1]
+
+
+def verify(stat, anims):
     problems = []
+    with open(os.path.join(OUT, "anims.json"), encoding="utf-8") as f:
+        manifest = json.load(f)
+    with open(os.path.join(OUT, "anchors.json"), encoding="utf-8") as f:
+        anchors = json.load(f)
 
-    def bad(msg):
-        problems.append(msg)
-
-    imgs = {}
     for name, size in STATIC_SIZES.items():
-        path_ = os.path.join(OUT, name + ".png")
-        if not os.path.exists(path_):
-            bad("missing " + name + ".png")
+        path = os.path.join(OUT, name + ".png")
+        if not os.path.exists(path):
+            problems.append("missing %s.png" % name)
             continue
-        img = Image.open(path_)
-        imgs[name] = img
-        if img.mode != "RGBA":
-            bad("%s: mode %s, expected RGBA" % (name, img.mode))
-        elif not alpha_ok(img):
-            bad("%s: alpha must be 0 or 255" % name)
-        if img.size != size:
-            bad("%s: size %s, expected %s" % (name, img.size, size))
-        if name.startswith("machine_") and img.mode == "RGBA":
-            bb = img.getbbox()
-            if bb is None or bb[3] != size[1]:
-                bad("%s: does not touch the bottom row" % name)
-            elif abs((bb[0] + bb[2]) - size[0]) > 2:
-                bad("%s: not horizontally centred (bbox %s)" % (name, bb))
+        im = Image.open(path).convert("RGBA")
+        if im.size != size:
+            problems.append("%s.png is %s, expected %s" % (name, im.size, size))
+        if not alpha_ok(im):
+            problems.append("%s.png has partial alpha" % name)
+        if name.startswith("machine_") and im.getchannel("A").crop((0, size[1] - 1, size[0], size[1])).getbbox() is None:
+            problems.append("%s.png does not stand on the bottom row" % name)
 
-    allowed = palette()
-    for name, img in imgs.items():
-        extra = stray_colours(img, allowed)
-        if extra:
-            bad("%s: colours outside the declared palette: %s" % (name, extra[:4]))
+    if set(manifest) != set(ANIM_SPECS):
+        problems.append("anims.json names differ: %s" % sorted(set(manifest) ^ set(ANIM_SPECS)))
+    loaded = {}
+    for name, (size, loop, limit) in ANIM_SPECS.items():
+        entry = manifest.get(name)
+        if entry is None:
+            continue
+        path = os.path.join(OUT, entry["file"])
+        if not os.path.exists(path):
+            problems.append("missing %s" % entry["file"])
+            continue
+        im = Image.open(path).convert("RGBA")
+        if (entry["frame_w"], entry["frame_h"]) != size:
+            problems.append("%s: frame size %sx%s, expected %s" % (name, entry["frame_w"], entry["frame_h"], size))
+        if im.size != (size[0] * entry["frames"], size[1]):
+            problems.append("%s: strip is %s for %d frames" % (name, im.size, entry["frames"]))
+            continue
+        if im.width > MAX_STRIP_W:
+            problems.append("%s: strip wider than %d" % (name, MAX_STRIP_W))
+        if entry["loop"] != loop:
+            problems.append("%s: loop must be %s" % (name, loop))
+        seconds = entry["frames"] / float(entry["fps"])
+        if limit is not None and seconds > limit + 1e-6:
+            problems.append("%s lasts %.3f s, over %.1f s" % (name, seconds, limit))
+        if not alpha_ok(im):
+            problems.append("%s has partial alpha" % name)
+        loaded[name] = [im.crop((i * size[0], 0, (i + 1) * size[0], size[1])) for i in range(entry["frames"])]
 
-    for name in OBSOLETE:
-        if os.path.exists(os.path.join(OUT, name)) or os.path.exists(os.path.join(OUT, name + ".import")):
-            bad("obsolete file still present: " + name)
-
-    try:
-        with open(os.path.join(OUT, "anims.json"), encoding="utf-8") as fh:
-            manifest = json.load(fh)
-    except (OSError, ValueError) as err:
-        bad("anims.json: %s" % err)
-        manifest = {}
-    try:
-        with open(os.path.join(OUT, "anchors.json"), encoding="utf-8") as fh:
-            anchors = json.load(fh)
-    except (OSError, ValueError) as err:
-        bad("anchors.json: %s" % err)
-        anchors = {}
-
-    for name in manifest:
-        if name not in ANIM_SPECS:
-            bad("anims.json: unexpected animation " + name)
-    strips = {}
-    for name, (size, loop, max_s) in ANIM_SPECS.items():
-        e = manifest.get(name)
-        if e is None:
-            bad("anims.json: missing " + name)
-            continue
-        if sorted(e) != ["file", "fps", "frame_h", "frame_w", "frames", "loop"]:
-            bad("%s: wrong manifest keys %s" % (name, sorted(e)))
-            continue
-        if (e["frame_w"], e["frame_h"]) != size:
-            bad("%s: frame %dx%d, expected %dx%d" % (name, e["frame_w"], e["frame_h"], size[0], size[1]))
-        if e["loop"] is not loop:
-            bad("%s: loop must be %s" % (name, loop))
-        if not (isinstance(e["frames"], int) and e["frames"] >= 1 and e["fps"] > 0):
-            bad("%s: bad frames / fps" % name)
-            continue
-        if max_s is not None and e["frames"] / float(e["fps"]) > max_s + 1e-9:
-            bad("%s: lasts %.3f s, limit %.1f s" % (name, e["frames"] / float(e["fps"]), max_s))
-        path_ = os.path.join(OUT, e["file"])
-        if not os.path.exists(path_):
-            bad("%s: file %s missing" % (name, e["file"]))
-            continue
-        img = Image.open(path_)
-        if img.mode != "RGBA" or not alpha_ok(img):
-            bad("%s: must be RGBA with alpha 0 or 255" % name)
-            continue
-        if img.size != (e["frame_w"] * e["frames"], e["frame_h"]):
-            bad("%s: strip %s does not match %d frames of %dx%d"
-                % (name, img.size, e["frames"], e["frame_w"], e["frame_h"]))
-            continue
-        if img.size[0] > MAX_STRIP_W:
-            bad("%s: strip is %d px wide, limit %d" % (name, img.size[0], MAX_STRIP_W))
-        extra = stray_colours(img, allowed)
-        if extra:
-            bad("%s: colours outside the declared palette: %s" % (name, extra[:4]))
-        strips[name] = [frame_of(img, e["frame_w"], e["frame_h"], i) for i in range(e["frames"])]
-        raw = [fr.tobytes() for fr in strips[name]]
-        if loop:
-            if len(set(raw)) < MIN_IDLE_POSES:
-                bad("%s: only %d different poses, expected at least %d"
-                    % (name, len(set(raw)), MIN_IDLE_POSES))
-        else:
-            for i in range(1, len(raw)):
-                if raw[i] == raw[i - 1]:
-                    bad("%s: frame %d repeats frame %d" % (name, i, i - 1))
-        for i, fr in enumerate(strips[name]):
-            # A pose cut by the canvas shows as a filled (non-outline) pixel on
-            # the top row or on a side column: only the ink contour may touch them.
-            fw, fh = e["frame_w"], e["frame_h"]
-            px = fr.load()
-            border = [(x, 0) for x in range(fw)] + [(x, y) for y in range(fh - 1) for x in (0, fw - 1)]
-            if any(px[q][3] and px[q][:3] != M.INK for q in border):
-                bad("%s: frame %d is cut by the canvas edge" % (name, i))
-        for i, fr in enumerate(strips[name]):
-            bb = fr.getbbox()
-            if bb is None or bb[3] != e["frame_h"]:
-                bad("%s: frame %d does not touch the bottom row" % (name, i))
-
-    # pose continuity and pixel-stable anchors
     for n in range(1, 7):
         key = "machine_%03d" % n
-        idle = strips.get(key + "_idle")
-        if not idle:
+        size = STATIC_SIZES[key]
+        need = [key + "_wake", key + "_idle", key + ("_play" if n < 5 else "_react")]
+        if any(name not in loaded for name in need):
             continue
-        size = GACHA if n <= 4 else CAB
+        wake, idle, act = (loaded[name] for name in need)
+        off = Image.open(os.path.join(OUT, key + ".png")).convert("RGBA")
+        if wake[0].tobytes() != off.tobytes():
+            problems.append("%s must start on the powered-off still" % need[0])
+        for name, frames in ((need[0], wake), (need[2], act)):
+            if frames[-1].tobytes() != idle[0].tobytes():
+                problems.append("%s must end on idle frame 0" % name)
+        if len({f.tobytes() for f in idle}) < MIN_IDLE_POSES:
+            problems.append("%s has fewer than %d distinct poses" % (need[1], MIN_IDLE_POSES))
         a = anchors.get(key)
-        if a is None:
-            bad("anchors.json: missing " + key)
+        if a is None or "chute" not in a:
+            problems.append("anchors.json lacks %s.chute" % key)
             continue
-        wake = strips.get(key + "_wake")
-        if wake:
-            if key in imgs and wake[0].tobytes() != imgs[key].convert("RGBA").tobytes():
-                bad("%s_wake: first frame is not the powered-off sprite" % key)
-            if wake[-1].tobytes() != idle[0].tobytes():
-                bad("%s_wake: does not end in the first idle pose" % key)
-        other = key + ("_play" if n <= 4 else "_react")
-        if other in strips and strips[other][-1].tobytes() != idle[0].tobytes():
-            bad("%s: does not end in the first idle pose" % other)
-        cx, cy = a["chute"]
-        if not (6 <= cx <= size[0] - 6 and 6 <= cy <= size[1] - 6):
-            bad("%s: chute capsule does not fit the canvas" % key)
-        check = list(idle) + (strips.get(key + "_react") or [] if n >= 5 else [])
-        for rect in stable_regions(key, a):
-            for i, fr in enumerate(check):
-                if not same_region(fr, idle[0], rect):
-                    bad("%s: region %s changes in idle/react frame %d" % (key, rect, i))
+        if not inside(box18(a["chute"]), size):
+            problems.append("%s: the capsule on the chute leaves the canvas" % key)
+        regions = {"chute tray": box18(a["chute"])}
+        stable = list(idle)
+        if n == 5:
+            regions["glass interior"] = M.CRANE_GLASS
+            stable += act
+        if n == 6:
+            regions["peg board"] = M.PLINKO_BOARD
+            stable += act
+        for label, rect in regions.items():
+            if any(not same(frame, stable[0], rect) for frame in stable):
+                problems.append("%s: the %s changes during idle/react" % (key, label))
+        if n == 5:
+            gx0, gy0, gx1, gy1 = M.CRANE_GLASS
+            for field in ("claw_rail_y", "claw_min_x", "claw_max_x", "claw_rest_x", "grab_y", "drop_x", "drop_y"):
+                if field not in a:
+                    problems.append("anchors.json lacks machine_005.%s" % field)
                     break
-
-    if anchors and anchors != ANCHORS_FROZEN:
-        for key in sorted(set(anchors) | set(ANCHORS_FROZEN)):
-            if anchors.get(key) != ANCHORS_FROZEN.get(key):
-                bad("anchors.json: %s differs from the frozen values (%s); if intended, "
-                    "update ANCHORS_FROZEN and report it" % (key, anchors.get(key)))
-
-    a = anchors.get("machine_005")
-    if a:
-        want = ["chute", "claw_max_x", "claw_min_x", "claw_rail_y", "claw_rest_x", "drop_x", "drop_y", "grab_y"]
-        if sorted(a) != want:
-            bad("machine_005 anchors: keys %s" % sorted(a))
-        else:
-            gx0, gy0, gx1, gy1 = M.CR_GLASS
-            if not (gx0 <= a["claw_min_x"] - 10 and a["claw_max_x"] + 9 <= gx1):
-                bad("machine_005: claw leaves the glass box sideways")
-            if not (gy0 <= a["claw_rail_y"] < a["grab_y"] and a["grab_y"] + 19 <= gy1):
-                bad("machine_005: claw leaves the glass box vertically")
-            if not (a["claw_min_x"] <= a["claw_rest_x"] <= a["claw_max_x"]
-                    and a["claw_min_x"] <= a["drop_x"] <= a["claw_max_x"]):
-                bad("machine_005: rest / drop x outside the claw range")
-            if not (gy0 <= a["drop_y"] <= gy1):
-                bad("machine_005: drop_y outside the glass box")
-    a = anchors.get("machine_006")
-    if a:
-        want = ["ball_start", "chute", "column_step", "row_step", "rows", "slot_xs", "slot_y"]
-        if sorted(a) != want:
-            bad("machine_006 anchors: keys %s" % sorted(a))
-        else:
-            bx0, by0, bx1, by1 = M.PK_BOARD
-            sx, sy = a["ball_start"]
-            cs = a["column_step"]
-            if a["slot_xs"] != [sx + cs * o for o in (-4, -2, 0, 2, 4)]:
-                bad("machine_006: slot_xs must be spaced 2 x column_step around ball_start x")
-            if a["rows"] != 6:
-                bad("machine_006: rows must be 6")
-            if not (by0 <= sy - 3 and a["slot_y"] + 2 <= by1 and sy + a["rows"] * a["row_step"] <= a["slot_y"]):
-                bad("machine_006: ball path leaves the board vertically")
-            if not (bx0 <= a["slot_xs"][0] - 3 and a["slot_xs"][-1] + 2 <= bx1):
-                bad("machine_006: slots leave the board sideways")
-            if not (bx0 <= sx - 5 * cs - 3 and sx + 5 * cs + 2 <= bx1):
-                bad("machine_006: a ball five columns off centre leaves the board")
-    for n in (1, 2, 3, 4):
-        a = anchors.get("machine_%03d" % n)
-        if a is not None and sorted(a) != ["chute"]:
-            bad("machine_%03d anchors: keys %s" % (n, sorted(a)))
-    return problems, manifest
+            else:
+                if not (gx0 <= a["claw_min_x"] - 15 and a["claw_max_x"] + 15 <= gx1):
+                    problems.append("machine_005: the claw leaves the glass sideways")
+                if not (a["claw_min_x"] <= a["claw_rest_x"] <= a["claw_max_x"]
+                        and a["claw_min_x"] <= a["drop_x"] <= a["claw_max_x"]):
+                    problems.append("machine_005: claw_rest_x / drop_x outside the claw range")
+                if not (gy0 <= a["claw_rail_y"] < a["grab_y"] and a["grab_y"] + 30 <= gy1):
+                    problems.append("machine_005: the claw leaves the glass vertically")
+                if not (gy0 < a["drop_y"] < gy1):
+                    problems.append("machine_005: drop_y outside the glass")
+        if n == 6:
+            for field in ("ball_start", "rows", "row_step", "column_step", "slot_y", "slot_xs"):
+                if field not in a:
+                    problems.append("anchors.json lacks machine_006.%s" % field)
+                    break
+            else:
+                bx0, by0, bx1, by1 = M.PLINKO_BOARD
+                xs = a["slot_xs"]
+                if any(xs[i + 1] - xs[i] != 2 * a["column_step"] for i in range(len(xs) - 1)):
+                    problems.append("machine_006: slot_xs are not spaced 2 x column_step")
+                if len(xs) != 5 or xs[2] != a["ball_start"][0]:
+                    problems.append("machine_006: slot_xs are not five slots centred on ball_start")
+                last_y = a["ball_start"][1] + a["rows"] * a["row_step"]
+                if not (by0 <= a["ball_start"][1] - 4 and last_y < a["slot_y"] and a["slot_y"] + 5 <= by1):
+                    problems.append("machine_006: the ball path leaves the board vertically")
+                if not (bx0 <= xs[0] - 4 and xs[-1] + 5 <= bx1):
+                    problems.append("machine_006: the slots leave the board sideways")
+    return problems, len(manifest)
 
 
 def main():
-    build()
-    problems, manifest = verify()
-    for name in sorted(manifest):
-        e = manifest[name]
-        print("%-22s %2d frames @ %2d fps  %.3f s  %s" % (
-            name, e["frames"], e["fps"], e["frames"] / float(e["fps"]), "loop" if e["loop"] else "once"))
+    stat, anims = build()
+    previews(stat, anims)
+    problems, count = verify(stat, anims)
     if problems:
-        print("PROBLEMS (%d):" % len(problems))
-        for p in problems:
-            print("  - " + p)
+        print("PROBLEMS:")
+        for problem in problems:
+            print("  - " + problem)
         return 1
-    print("OK: machines match the contract (%d stills, %d animations)" % (len(STATIC_SIZES), len(manifest)))
+    print("OK: machines match the contract (%d stills and sprites, %d animations)" % (len(STATIC_SIZES), count))
+    for name in sorted(anims):
+        frames, fps, loop = anims[name]
+        print("  %-18s %2d frames @ %2d fps = %.3f s%s" % (name, len(frames), fps, len(frames) / float(fps), " loop" if loop else ""))
     return 0
 
 

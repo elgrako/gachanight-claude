@@ -157,6 +157,14 @@ Los costes a partir de la tercera máquina **no están confirmados**. Codex crea
 
 **Nunca generar una recompensa vendible ilimitadamente sin pagar una nueva tirada.** La venta, colección, puntos y bonificaciones deben estar protegidos de reentradas.
 
+### 5.2 bis. Escenas de máquina y sala como lobby — CONFIRMADO (2026-10-12)
+
+- La sala de máquinas es el **lobby**: el jugador camina entre máquinas y con `E` **entra** en una. No sale la figura directamente.
+- Dentro, la máquina se ve de frente, como en primera persona, y se **juega a mano**: gachapón (mantener `E` para girar la manivela), grúa (`A`/`D` mueve la garra, `E` la suelta), plinko (`A`/`D` elige columna, `E` suelta la bola).
+- Desde dentro se puede **saltar directamente a otra máquina** (`Q`/`R`, `1`–`6` o las pestañas) o **salir al pasillo** (`Esc`). Al salir, el personaje queda delante de la última máquina usada.
+- El flujo de premio de 5.2 no cambia: se paga al meter la moneda, el premio queda decidido y guardado en ese momento, y termina en Sell/Keep. **Pendiente de decisión:** si la habilidad del jugador debe influir en el premio; hoy no influye.
+- Primera versión con formas simples; el arte de estas escenas es provisional.
+
 ### 5.3. Una figura ya completada no puede guardarse más — CONFIRMADO
 
 Si el contador de una figura es igual a su requisito (`copies_held >= copies_required`):

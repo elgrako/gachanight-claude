@@ -12,8 +12,8 @@ const BOB_SPEED: float = 2.4
 const CAPSULE_SIZE: Vector2i = Vector2i(40, 40)
 ## Frame of `capsule_open` with the biggest flash: the figure appears under it.
 const REVEAL_FRAME: int = 7
-## The figure pops in over these sizes, in sprite-pixel steps relative to its
-## final pixel size (whole pixels keep the art crisp), one step per POP_STEP.
+## The figure pops in over these sizes, in steps of one screen pixel per world
+## pixel relative to its final size, one step per POP_STEP.
 const POP_STEPS: Array = [-3, -1, 1, 0]
 const POP_STEP: float = 0.05
 ## The burst is drawn at this share of the figure's pixel size (rounded down to
@@ -76,10 +76,13 @@ func _stack_size() -> Vector2:
 	return Vector2(Sprites.BASE_SIZE.x, Sprites.FIGURE_SIZE.y + Sprites.BASE_SIZE.y - Sprites.BASE_STAND.y)
 
 
-## Whole screen pixels per sprite pixel, so the art stays crisp.
+## Screen pixels per sprite pixel. The stack fills the control by a whole
+## number of pixels per WORLD pixel, as it did before the art grew finer, so
+## it keeps its size on screen; one sprite pixel is then 1 / ART_SCALE of
+## that, which is a whole number of real pixels on a 1080p screen.
 func _pixel_size() -> float:
-	var stack: Vector2 = _stack_size()
-	return maxf(floorf(minf(size.x / stack.x, size.y / stack.y)), 1.0)
+	var stack: Vector2 = _stack_size() / Sprites.ART_SCALE
+	return maxf(floorf(minf(size.x / stack.x, size.y / stack.y)), 1.0) / Sprites.ART_SCALE
 
 
 ## Top-left corner of the base frame on this control.
@@ -103,7 +106,7 @@ func _layout_effects() -> void:
 	_capsule.scale = Vector2(pixel, pixel)
 	if _burst != null:
 		_burst.position = centre
-		var burst_pixel: float = maxf(floorf(pixel * BURST_SCALE), 1.0)
+		var burst_pixel: float = maxf(floorf(pixel * Sprites.ART_SCALE * BURST_SCALE), 1.0) / Sprites.ART_SCALE
 		_burst.scale = Vector2(burst_pixel, burst_pixel)
 	if base != null:
 		base.position = _base_origin()
@@ -212,7 +215,7 @@ func _draw() -> void:
 	var step: int = int(_pop_time / POP_STEP)
 	if step < POP_STEPS.size():
 		# Popping out of the capsule: small, a little too big, then settled.
-		var popped: Vector2 = Vector2(_texture.get_size()) * maxf(pixel + POP_STEPS[step], 1.0)
+		var popped: Vector2 = Vector2(_texture.get_size()) * maxf(pixel + POP_STEPS[step] / Sprites.ART_SCALE, 1.0 / Sprites.ART_SCALE)
 		draw_texture_rect(_texture, Rect2((feet - Vector2(popped.x / 2.0, popped.y)).floor(), popped), false)
 		return
 	if animated:
@@ -220,6 +223,6 @@ func _draw() -> void:
 		var frame: int = int(_time * _idle_fps) % _frames.get_frame_count(Sprites.FIGURE_IDLE)
 		draw_texture_rect(_frames.get_frame_texture(Sprites.FIGURE_IDLE, frame), Rect2((feet - Vector2(picture.x / 2.0, picture.y)).floor(), picture), false)
 		return
-	# No loop drawn: a springy little hop on the base, by whole sprite pixels.
-	var lift: float = maxf(roundf(sin(_time * BOB_SPEED) * BOB_PIXELS), 0.0) * pixel
+	# No loop drawn: a springy little hop on the base, by whole world pixels.
+	var lift: float = maxf(roundf(sin(_time * BOB_SPEED) * BOB_PIXELS), 0.0) * pixel * Sprites.ART_SCALE
 	draw_texture_rect(_texture, Rect2((feet - Vector2(picture.x / 2.0, picture.y + lift)).floor(), picture), false)

@@ -7,6 +7,9 @@ extends Control
 
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
 const SILHOUETTE: Color = Color(0.07, 0.08, 0.12)
+## A silhouette stands this many sprite pixels above the bottom of the base
+## frame it does not show.
+const SILHOUETTE_FOOT: int = 6
 
 var look: Dictionary = {}
 var silhouette: bool = false
@@ -78,10 +81,13 @@ func _stack_size() -> Vector2:
 	return Vector2(Sprites.BASE_SIZE.x, Sprites.FIGURE_SIZE.y + Sprites.BASE_SIZE.y - Sprites.BASE_STAND.y)
 
 
-## Whole screen pixels per sprite pixel keep the art crisp.
+## Screen pixels per sprite pixel. The stack fills the control by a whole
+## number of pixels per WORLD pixel, as it did before the art grew finer, so
+## it keeps its size on screen; one sprite pixel is then 1 / ART_SCALE of
+## that, which is a whole number of real pixels on a 1080p screen.
 func _pixel_size() -> float:
-	var stack: Vector2 = _stack_size()
-	return maxf(floorf(minf(size.x / stack.x, size.y / stack.y)), 1.0)
+	var stack: Vector2 = _stack_size() / Sprites.ART_SCALE
+	return maxf(floorf(minf(size.x / stack.x, size.y / stack.y)), 1.0) / Sprites.ART_SCALE
 
 
 ## Top-left corner of the base frame on this control.
@@ -108,7 +114,7 @@ func _draw() -> void:
 	var origin: Vector2 = _base_origin()
 	# A discovered figure has its feet on the base; a silhouette stands where
 	# the base's own foot would be.
-	var feet: Vector2 = origin + Vector2(Sprites.BASE_STAND.x, Sprites.BASE_STAND.y if base != null else Sprites.BASE_SIZE.y - 4) * pixel
+	var feet: Vector2 = origin + Vector2(Sprites.BASE_STAND.x, Sprites.BASE_STAND.y if base != null else Sprites.BASE_SIZE.y - SILHOUETTE_FOOT) * pixel
 	# Multiplying by a near-black colour keeps the alpha, which is the outline.
 	var shown: Texture2D = _frames.get_frame_texture(Sprites.FIGURE_IDLE, _frame) if animated else _texture
 	draw_texture_rect(shown, Rect2((feet - Vector2(picture.x / 2.0, picture.y)).floor(), picture), false, SILHOUETTE if silhouette else Color.WHITE)

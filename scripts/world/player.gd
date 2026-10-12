@@ -6,8 +6,8 @@ extends Node2D
 
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
 
-const WALK_SPEED: float = 46.0
-const RUN_SPEED: float = 96.0
+const WALK_SPEED: float = 80.0
+const RUN_SPEED: float = 150.0
 ## The floor is seen at an angle, so a step away from the camera covers fewer
 ## screen pixels than a step sideways.
 const DEPTH_SPEED_FACTOR: float = 0.7

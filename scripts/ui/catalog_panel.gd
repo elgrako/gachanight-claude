@@ -70,7 +70,8 @@ func _cell(figure: Dictionary, order: int) -> Control:
 	column.add_theme_constant_override("separation", 2)
 	cell.add_child(column)
 	var icon: Control = FigureIcon.new()
-	# Room for the 56 x 58 stack of figure and base at two screen pixels each.
+	# Room for the stack of figure and base (56 x 58 world pixels) at two
+	# screen pixels each.
 	icon.custom_minimum_size = Vector2(112, 116)
 	icon.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	icon.time_offset = order * IDLE_STAGGER

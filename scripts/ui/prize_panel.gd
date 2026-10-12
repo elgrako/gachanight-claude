@@ -42,7 +42,8 @@ func _ready() -> void:
 	_new_tag.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	column.add_child(_new_tag)
 	figure_view = FigureView.new()
-	# Room for the 56 x 58 stack of figure and base at four screen pixels each.
+	# Room for the stack of figure and base (56 x 58 world pixels) at four
+	# screen pixels each.
 	figure_view.custom_minimum_size = Vector2(240, 236)
 	figure_view.size_flags_horizontal = Control.SIZE_SHRINK_CENTER
 	column.add_child(figure_view)
