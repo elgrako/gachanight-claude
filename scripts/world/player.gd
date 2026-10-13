@@ -25,9 +25,10 @@ const USE_MAX_SPEED: float = 3.0
 const USE_MIN_TIME: float = 0.3
 const EMOTE_MIN_TIME: float = 0.4
 ## The protagonist is the coin of assets/sprites/peseta (tools/pixel/build_peseta.py).
-## Its strips are drawn far finer than the rest of the art: three sprite
-## pixels per world pixel, so they are shown at a third and smoothed.
-const SKIN_SCALE: Vector2 = Vector2(1.0 / 3.0, 1.0 / 3.0)
+## Its strips are drawn far finer than the rest of the art, so they are shown
+## reduced and smoothed. At this scale the coin stands about 54 world pixels
+## tall, a little over half a capsule machine.
+const SKIN_SCALE: Vector2 = Vector2(0.27, 0.27)
 const FRAME_SIZE: Vector2i = Vector2i(77, 74)
 ## What the game asks for -> the strip that plays. The coin has fewer
 ## animations than the gestures the game knows; each borrows the nearest one.
@@ -55,7 +56,7 @@ const RUN_DUST_EVERY: float = 0.3
 ## position. Solid footprints are tested against it.
 const FOOT_HALF_WIDTH: float = 7.0
 const FOOT_DEPTH: float = 3.0
-const SHADOW_RADIUS: Vector2 = Vector2(17.0, 4.0)
+const SHADOW_RADIUS: Vector2 = Vector2(14.0, 3.5)
 const SHADOW_COLOR: Color = Color(0.0, 0.0, 0.05, 0.3)
 const DUST_SIZE: Vector2i = Vector2i(16, 12)
 ## Draw order of things standing on the floor: this plus the floor y.

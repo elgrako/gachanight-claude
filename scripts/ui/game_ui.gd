@@ -27,7 +27,9 @@ const HUD_BOTTOM: float = LEDGE_HEIGHT + 8.0
 const PROMPT_BOTTOM: float = HUD_BOTTOM + 56.0
 const TOAST_BOTTOM: float = PROMPT_BOTTOM + 48.0
 const PLATE_COLOR: Color = Color(0.086, 0.075, 0.125, 0.9)
-const COIN_ICON_SIZE: float = 22.0
+## Height of the coin's face beside the purse, top left.
+const COIN_ICON_SIZE: float = 44.0
+const COIN_ICON_PATH: String = "res://assets/sprites/ui/coin_icon.png"
 
 signal modal_changed(is_open: bool)
 signal rebirth_requested(selection: Dictionary)
@@ -55,6 +57,7 @@ var _prompt: Label
 var _toast: Label
 ## The plates behind the HUD texts, and the key hint on the ledge.
 var _corner_plate: PanelContainer
+var _purse_plate: PanelContainer
 var _objective_plate: PanelContainer
 var _prompt_plate: PanelContainer
 var _toast_plate: PanelContainer
@@ -110,7 +113,7 @@ func setup(core: RefCounted) -> void:
 	core.figure_discovered.connect(func(figure_id: String) -> void: _new_figure_ids[figure_id] = true)
 	core.prestige_unlocked.connect(func() -> void: toast("Prestige unlocked! The staff room sofa looks inviting..."))
 	core.figure_collection_completed.connect(_on_collection_completed)
-	core.store_key_bought.connect(func() -> void: toast("You bought the Store Exit Key. The front door is waiting."))
+	core.store_key_bought.connect(func() -> void: toast("The last figure. It looks just like... Outside, the sky is getting light.", 7.0))
 	_refresh_hud()
 
 
@@ -170,20 +173,20 @@ func set_prompt(text: String) -> void:
 	_prompt_plate.visible = text != "" and not is_modal_open()
 
 
-func toast(text: String) -> void:
+func toast(text: String, seconds: float = TOAST_SECONDS) -> void:
 	if _machine_open:
 		# The HUD is behind the machine scene: say it there.
 		machine_scene.flash(text)
 		return
 	_toast.text = text
 	_toast_plate.visible = true
-	_toast_timer = TOAST_SECONDS
+	_toast_timer = seconds
 
 
 ## Canvas rectangles of every HUD element that is showing, by name.
 func hud_rects() -> Dictionary:
 	var rects: Dictionary = {}
-	var parts: Dictionary = {"corner": _corner_plate, "objective": _objective_plate, "prompt": _prompt_plate, "toast": _toast_plate, "keys": _keys}
+	var parts: Dictionary = {"purse": _purse_plate, "corner": _corner_plate, "objective": _objective_plate, "prompt": _prompt_plate, "toast": _toast_plate, "keys": _keys}
 	for part_name in parts:
 		if parts[part_name].visible:
 			rects[part_name] = parts[part_name].get_global_rect()
@@ -254,7 +257,18 @@ func _build_hud() -> void:
 	hud.set_anchors_preset(Control.PRESET_FULL_RECT)
 	hud.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	add_child(hud)
-	# Bottom left: the purse, with prestige and status as small print above it.
+	# Top left: the purse, the coin's own face beside the amount.
+	_purse_plate = _plate(Style.MUSTARD)
+	_purse_plate.position = Vector2(HUD_MARGIN, HUD_MARGIN)
+	hud.add_child(_purse_plate)
+	var purse: HBoxContainer = HBoxContainer.new()
+	purse.add_theme_constant_override("separation", 8)
+	purse.mouse_filter = Control.MOUSE_FILTER_IGNORE
+	_purse_plate.add_child(purse)
+	purse.add_child(_coin_icon())
+	_coins = Style.label("", 30, Style.MUSTARD)
+	purse.add_child(_coins)
+	# Bottom left: prestige and status, in small print, when there is any.
 	_corner_plate = _plate(Style.MUSTARD)
 	_dock(hud, _corner_plate, Control.SIZE_SHRINK_BEGIN, HUD_BOTTOM)
 	var corner: VBoxContainer = VBoxContainer.new()
@@ -265,13 +279,6 @@ func _build_hud() -> void:
 	corner.add_child(_status)
 	_prestige = Style.label("", 13, Style.MINT)
 	corner.add_child(_prestige)
-	var purse: HBoxContainer = HBoxContainer.new()
-	purse.add_theme_constant_override("separation", 8)
-	purse.mouse_filter = Control.MOUSE_FILTER_IGNORE
-	corner.add_child(purse)
-	purse.add_child(_coin_icon())
-	_coins = Style.label("", 26, Style.MUSTARD)
-	purse.add_child(_coins)
 	# Bottom right: what to do next.
 	_objective_plate = _plate(Style.CREAM)
 	_dock(hud, _objective_plate, Control.SIZE_SHRINK_END, HUD_BOTTOM)
@@ -335,8 +342,18 @@ func _dock(hud: Control, plate: Control, side: int, bottom: float) -> void:
 	dock.add_child(plate)
 
 
-## A flat gold coin with an ink rim, drawn with hard edges.
+## The game's coin: the face cut from the owner's gold picture
+## (`tools/pixel/build_coin_icon.py`), or a flat gold disc if it is missing.
 func _coin_icon() -> Control:
+	if ResourceLoader.exists(COIN_ICON_PATH):
+		var face: TextureRect = TextureRect.new()
+		face.texture = load(COIN_ICON_PATH)
+		face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+		face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+		face.texture_filter = CanvasItem.TEXTURE_FILTER_LINEAR
+		face.custom_minimum_size = Vector2(COIN_ICON_SIZE * face.texture.get_width() / face.texture.get_height(), COIN_ICON_SIZE)
+		face.mouse_filter = Control.MOUSE_FILTER_IGNORE
+		return face
 	var coin: Panel = Panel.new()
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Style.MUSTARD
@@ -425,7 +442,7 @@ func _show_modal(modal_name: String) -> void:
 
 
 func _refresh_hud() -> void:
-	_coins.text = Format.coins(_core.run.coins)
+	_coins.text = Format.number(_core.run.coins)
 	var pending: int = _core.run.pending_prestige
 	_prestige.visible = pending > 0 or _core.perm.banked_prestige > 0
 	_prestige.text = "Prestige: %d pending · %d banked" % [pending, _core.perm.banked_prestige]
@@ -436,23 +453,28 @@ func _refresh_hud() -> void:
 	if robots > 0:
 		notes.append("%d %s at work" % [robots, "robot" if robots == 1 else "robots"])
 	if _core.run.key_owned_this_run:
-		notes.append("Exit key in your pocket")
+		notes.append("The last figure is yours")
 	_status.visible = not notes.is_empty()
+	_corner_plate.visible = _status.visible or _prestige.visible
 	_status.text = " · ".join(notes)
 
 
 func _objective_text() -> String:
 	var run: RefCounted = _core.run
-	if run.floor_coins_collected.has(false) and not run.power_switch_on and run.coins == 0:
-		return "Pick up the coins on the floor"
+	if not _core.perm.intro_seen:
+		return "First night shift: look around, then rest on the staff room sofa"
 	if not run.power_switch_on:
-		return "Find the main power switch"
+		if not _core.perm.note_read:
+			return "The lights are out. Check the reception"
+		return "No power: the fuse box is in the cellar"
+	if run.floor_coins_collected.has(false) and run.coins == 0 and _core.discovered_count() == 0:
+		return "Pick up the coins on the staff room floor"
 	if _core.perm.story_completed:
 		return "Free Play"
 	if run.key_owned_this_run:
-		return "Use the key on the front door"
+		return "It is morning: the front door is open"
 	if _core.perm.total_rebirths > 0:
-		return "Earn enough for the Store Exit Key at reception"
+		return "Earn enough for the last figure at reception"
 	if _core.discovered_count() == 0:
 		return "Try Capsule Machine No. 1"
 	if not _core.is_prestige_unlocked():

@@ -58,21 +58,38 @@ func _run() -> void:
 	var store: Node2D = main.store
 	var ui: CanvasLayer = main.ui
 	check(main.player != null and store != null and ui != null, "scene built")
-	check(main.player.global_position.distance_to(store.SPAWN) < 2.0, "player starts in the bathroom")
-	check(is_equal_approx(main.camera.zoom.x, 2.0), "the camera shows the world at two screen pixels per pixel")
+	# The opening: in through the front door with the lights on, nothing to
+	# do but look around, then a nap on the sofa and waking up in the dark.
+	check(main.player.global_position.distance_to(store.door.use_point()) < 2.0, "the first evening starts at the front door")
+	check(store.machines["machine_001"]["anim"].visible, "the store is lit on the first evening")
+	check(not store.coins[0].visible, "no coins on the floor yet")
+	await shot("00_arrival")
+	store.machines["machine_001"]["body"].interact()
+	store.reception.interact()
+	store.door.interact()
+	check(not ui.is_modal_open() and core.run.coins == 0 and not core.perm.story_completed, "nothing can be used on the first evening")
+	store.sofa.interact()
+	check(not ui.is_modal_open(), "the first nap has no menu")
+	await create_timer(4.2).timeout
+	check(core.perm.intro_seen and main.player.controls_enabled, "the nap ends the opening")
+	check(not store.machines["machine_001"]["anim"].visible and store.coins[0].visible, "the player wakes to a dark store, coins on the floor")
+	check(main.player.global_position.distance_to(store.SPAWN) < 2.0, "the player wakes by the sofa")
+	store.reception.interact()
+	check(core.perm.note_read and not ui.is_modal_open(), "with no power the reception holds the manager's note")
+	check(is_equal_approx(main.camera.zoom.x, 3.0), "the camera shows the world at three screen pixels per pixel")
 	var view_height: float = 720.0 / main.camera.zoom.y
 	check(main.camera.position.y - view_height / 2.0 <= store.VIEW_TOP + 0.5 and main.camera.position.y + view_height / 2.0 >= store.VIEW_BOTTOM - 0.5, "wall top and floor ledge both fit in the view")
 	await frames(20)
-	check(main.player.focused_interactable() == null, "nothing to use at the spawn point")
+	check(main.player.focused_interactable() == store.sofa, "the sofa is at hand on waking")
 	await shot("01_bathroom_dark")
 
-	# Walking right leads out of the bathroom into the corridor; the store ends in a wall.
+	# Walking right: the staff room's wall stops the player.
 	Input.action_press("move_right")
 	await create_timer(3.2).timeout
 	Input.action_release("move_right")
 	await frames(3)
-	check(main.player.global_position.x < store.room_range("corridor").x, "the bathroom is a room of its own: its wall stops the player")
-	check(store.zone == "bath", "the game starts in the bathroom scene")
+	check(main.player.global_position.x < store.ZONES["staff"].y, "the staff room is a room of its own: its wall stops the player")
+	check(store.zone == "staff", "the night starts in the staff room scene")
 	check(absf(main.player.global_position.y - store.SPAWN.y) < 0.01, "walking sideways keeps the player's depth")
 	check(main.player.z_index == store.floor_z(main.player.position.y), "the player is depth-sorted by the floor line")
 	# Doors lead from one scene to another.
@@ -86,6 +103,14 @@ func _run() -> void:
 	await create_timer(0.7).timeout
 	check(store.zone == "staff", "a door in the reception leads to the staff room")
 	check(main.player.walk_area.position.x >= store.ZONES["staff"].x, "the staff room's own walls bound the walk")
+	store.zone_doors[4]["node"].interact()
+	await create_timer(0.7).timeout
+	check(store.zone == "cellar", "stairs in the staff room lead down to the cellar")
+	check(store.zone_at(store.power_switch.global_position.x) == "cellar", "the fuse box is in the cellar")
+	check(store.zone_at(store.gallery_spot(0).x) == "cellar", "the figures are kept in the cellar")
+	store.zone_doors[5]["node"].interact()
+	await create_timer(0.7).timeout
+	check(store.zone == "staff", "and the stairs lead back up")
 	store.zone_doors[3]["node"].interact()
 	await create_timer(0.7).timeout
 	check(store.zone == "store", "and its door leads back to the store")
@@ -153,15 +178,17 @@ func _run() -> void:
 	_go(main, store.SPAWN)
 	await frames(2)
 
-	# The gallery shows every figure; nothing is discovered yet, so no base at all.
-	check(store.gallery.size() == core.data.figure_order.size(), "the gallery holds every figure")
-	check(_gallery_bases(store) == 0, "undiscovered figures stand without a base")
-	check(store.gallery[core.data.figure_order[0]]["figure"].modulate == store.SILHOUETTE, "undiscovered figures are dark silhouettes")
-	check(_silhouettes_still(store, core), "undiscovered figures show their still picture, not a loop")
-	check(_gallery_fits(store, core.data.figure_order.size()) == "", "every gallery spot is whole, and inside the wall: %s" % _gallery_fits(store, core.data.figure_order.size()))
+	# The stock rack: one closed box per figure, and no figure to be seen.
+	check(store.gallery.size() == core.data.figure_order.size(), "the stock rack holds a box for every figure")
+	check(_stickers(store) == 0, "no box is marked before its figure is found")
+	check(store.find_children("*", "AnimatedSprite2D", true, false).all(func(node: Node) -> bool: return not node.animation.begins_with("figure_")), "no figure shows in the cellar")
+	_go(main, store.stock.use_point())
+	check(main.player.focused_interactable() == store.stock, "the stock rack can be used")
+	store.stock.interact()
+	check(ui.open_modal_name() == "catalog", "using the stock rack opens the record of figures")
+	ui.close_modal()
 
-	check(store.STORE_WIDTH <= 1280.0, "the whole store is under three screens wide")
-	_go(main, Vector2(740.0, 60.0))
+	_go(main, Vector2(1500.0, 30.0))
 	await shot("01b_gallery_dark")
 	_go(main, store.SPAWN)
 	# The HUD keeps to the front of the floor: price signs are never under it,
@@ -175,7 +202,8 @@ func _run() -> void:
 	check(_hud_overlaps(hud) == "", "no two HUD elements overlap: %s" % _hud_overlaps(hud))
 	var screen: Rect2 = Rect2(Vector2.ZERO, main.get_viewport().get_visible_rect().size)
 	check(hud.values().all(func(rect: Rect2) -> bool: return screen.encloses(rect)), "the whole HUD is on the screen")
-	check(hud.values().all(func(rect: Rect2) -> bool: return rect.position.y > screen.size.y * 0.6), "the HUD keeps to the front of the floor")
+	check(hud.has("purse") and hud["purse"].end.y < screen.size.y * 0.15 and hud["purse"].end.x < screen.size.x * 0.3, "the purse sits in the top left corner")
+	check(hud.keys().all(func(part: String) -> bool: return part == "purse" or hud[part].position.y > screen.size.y * 0.6), "the rest of the HUD keeps to the front of the floor")
 	await shot("01c_hud_prompt")
 	_go(main, store.SPAWN)
 
@@ -214,15 +242,9 @@ func _run() -> void:
 	ui.machine_scene.finish_now()
 	check(ui.open_modal_name() == "prize", "prize panel opens after the crank")
 	var won_id: String = core.pending_prize_view()["figure_id"]
-	check(store.gallery[won_id]["base"] != null and store.gallery[won_id]["base"].visible, "the discovered figure stands on a base in the gallery")
-	check(store.gallery[won_id]["base"].animation == "base_%s" % core.figure_view(won_id)["rarity_id"], "the base is the one of the figure's rarity")
-	check(store.gallery[won_id]["figure"].modulate == Color.WHITE, "the discovered figure is shown in colour")
-	var won_sprite: AnimatedSprite2D = store.gallery[won_id]["figure"]
-	check(won_sprite.animation == Sprites.FIGURE_IDLE and won_sprite.is_playing(), "the discovered figure plays its idle loop in the gallery")
-	check(Sprites.has_figure_idle(won_id) == (won_sprite.sprite_frames.get_frame_count(Sprites.FIGURE_IDLE) > 1), "the loop is the drawn one when there is one, else the still picture")
-	check(_silhouettes_still(store, core), "figures not discovered yet stay still")
+	check(store.gallery[won_id]["sticker"].visible, "the box of a found figure gets a sticker")
 	check(ui.prize_panel.figure_view.animated == Sprites.has_figure_idle(won_id), "the prize panel plays the idle loop after the reveal")
-	check(_gallery_bases(store) == core.discovered_count(), "only discovered figures have a base")
+	check(_stickers(store) == core.discovered_count(), "only found figures have a sticker")
 	check(ui.prize_panel.figure_view.base != null, "the prize stands on its rarity base")
 	check(not ui.prize_panel.keep_button.disabled, "Keep allowed with 2 coins left")
 	await shot("03_prize_panel")
@@ -300,7 +322,7 @@ func _run() -> void:
 	check(core.perm.upgrade_level("better_appraisal") == 1, "upgrade applied")
 	check(not core.run.power_switch_on, "new run starts with the power off")
 	check(store.coins[0].visible, "floor coins are back")
-	check(main.player.global_position.distance_to(store.SPAWN) < 2.0, "player wakes up in the bathroom")
+	check(main.player.global_position.distance_to(store.SPAWN) < 2.0, "player wakes up by the sofa")
 	check(not ui.is_modal_open() and main.player.controls_enabled, "control returns to the player")
 
 	# Second run: the sales terminal, a robot, the crane, plinko, the key and the door.
@@ -332,7 +354,7 @@ func _run() -> void:
 	_go(main, Vector2(350.0, 60.0))
 	await shot("07_machine_row")
 	# A look at every room with the lights on.
-	var tour: Dictionary = {"11_bathroom": Vector2(70.0, 60.0), "12_corridor": Vector2(200.0, 60.0), "13_hall_right": Vector2(560.0, 50.0), "14_gallery": Vector2(760.0, 60.0), "16_reception": Vector2(900.0, 90.0), "17_staff": Vector2(1055.0, 60.0)}
+	var tour: Dictionary = {"11_bathroom": Vector2(70.0, 60.0), "12_corridor": Vector2(200.0, 60.0), "13_hall_right": Vector2(560.0, 50.0), "14_cellar": Vector2(1470.0, 34.0), "15_cellar_stairs": Vector2(1330.0, 30.0), "16_reception": Vector2(900.0, 90.0), "17_staff": Vector2(1055.0, 60.0)}
 	for shot_name in tour:
 		_go(main, tour[shot_name])
 		await create_timer(0.3).timeout
@@ -415,39 +437,6 @@ func _go(main: Node, at: Vector2) -> void:
 	main.camera.reset_smoothing()
 
 
-## True when every figure not discovered yet shows its still picture, stopped.
-func _silhouettes_still(store: Node2D, core: RefCounted) -> bool:
-	for figure_id in store.gallery:
-		if core.figure_view(figure_id)["discovered"]:
-			continue
-		var sprite: AnimatedSprite2D = store.gallery[figure_id]["figure"]
-		if sprite.animation != Sprites.FIGURE_STILL or sprite.is_playing() or sprite.modulate != store.SILHOUETTE:
-			return false
-	return true
-
-
-## "" when every gallery spot can hold a figure on its base (58 px tall, 56 px
-## wide) under the cornice, inside the room, without touching a neighbour, the
-## other row; else what is wrong.
-func _gallery_fits(store: Node2D, count: int) -> String:
-	var room: Vector2 = store.room_range("gallery")
-	# Miniatures: neighbouring bases may touch, the figures themselves may not.
-	var stack: Vector2 = Vector2(Sprites.FIGURE_SIZE.x, Sprites.FIGURE_SIZE.y + Sprites.BASE_SIZE.y - Sprites.BASE_STAND.y) * store.GALLERY_ART_SCALE
-	var rects: Array = []
-	for index in range(count):
-		var foot: Vector2 = store.gallery_spot(index)
-		var rect: Rect2 = Rect2(foot.x - stack.x / 2.0, foot.y - stack.y, stack.x, stack.y)
-		if rect.position.y < store.WALL_TOP + store.CORNICE_HEIGHT:
-			return "spot %d reaches into the cornice" % index
-		if rect.position.x < room.x + store.PILLAR_WIDTH / 2.0 or rect.end.x > room.y - store.PILLAR_WIDTH / 2.0:
-			return "spot %d leaves the room" % index
-		for other in rects:
-			if rect.intersects(other):
-				return "spot %d overlaps another" % index
-		rects.append(rect)
-	return ""
-
-
 ## "" when every machine has its price with its amount on the floor in front
 ## of it, and never under the HUD with the camera on that machine.
 func _price_signs_ok(main: Node) -> String:
@@ -495,12 +484,11 @@ func _catalog_loops(panel: Node, core: RefCounted) -> String:
 	return ""
 
 
-## How many gallery figures stand on a visible base.
-func _gallery_bases(store: Node2D) -> int:
+## How many boxes on the stock rack carry a sticker.
+func _stickers(store: Node2D) -> int:
 	var count: int = 0
 	for figure_id in store.gallery:
-		var base: Node = store.gallery[figure_id]["base"]
-		if base != null and base.visible:
+		if store.gallery[figure_id]["sticker"].visible:
 			count += 1
 	return count
 

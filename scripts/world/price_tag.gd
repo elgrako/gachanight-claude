@@ -20,9 +20,9 @@ const COIN_CENTRE: Vector2 = Vector2(-10.0, -6.0)
 const COIN_RADIUS: float = 3.0
 ## Where the amount is written, relative to the origin.
 const TEXT_AREA: Rect2 = Rect2(-5.0, -10.0, 18.0, 9.0)
-const FONT_SIZE: int = 14
+const FONT_SIZE: int = 22
 ## Text is drawn at screen resolution and scaled down into the pixel world.
-const TEXT_SCALE: float = 1.0 / 2.0
+const TEXT_SCALE: float = 1.0 / 3.0
 
 ## The amount shown, without the coin ("50", "250K").
 var text: String = "":

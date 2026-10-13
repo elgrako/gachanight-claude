@@ -155,8 +155,8 @@
     {
       "id": "store_exit_key",
       "category": "exit",
-      "display_name_en": "Store Exit Key",
-      "description_en": "The key to the front door. One per customer!",
+      "display_name_en": "The Last Figure",
+      "description_en": "Not in any catalog. Limit: one per store!",
       "max_level": 1,
       "base_cost": 300000000,
       "cost_growth": 1.0,

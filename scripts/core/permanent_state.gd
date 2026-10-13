@@ -8,6 +8,10 @@ var total_rebirths: int = 0
 var tutorial_m2_used: bool = false
 var story_completed: bool = false
 var free_play_unlocked: bool = false
+## The opening was played: the first evening, up to dozing off on the sofa.
+var intro_seen: bool = false
+## The manager's note at the reception was read.
+var note_read: bool = false
 var total_playtime_seconds: float = 0.0
 ## Total playtime when the story was first completed (0 until then).
 var story_playtime_seconds: float = 0.0
@@ -27,6 +31,8 @@ func to_dict() -> Dictionary:
 		"tutorial_m2_used": tutorial_m2_used,
 		"story_completed": story_completed,
 		"free_play_unlocked": free_play_unlocked,
+		"intro_seen": intro_seen,
+		"note_read": note_read,
 		"total_playtime_seconds": total_playtime_seconds,
 		"story_playtime_seconds": story_playtime_seconds,
 		"settings": settings.duplicate(true),
@@ -46,6 +52,8 @@ func from_dict(source: Dictionary) -> void:
 	tutorial_m2_used = bool(source.get("tutorial_m2_used", false))
 	story_completed = bool(source.get("story_completed", false))
 	free_play_unlocked = bool(source.get("free_play_unlocked", false))
+	intro_seen = bool(source.get("intro_seen", false))
+	note_read = bool(source.get("note_read", false))
 	total_playtime_seconds = maxf(0.0, float(source.get("total_playtime_seconds", 0.0)))
 	story_playtime_seconds = maxf(0.0, float(source.get("story_playtime_seconds", 0.0)))
 	settings = source.get("settings", {}).duplicate(true)

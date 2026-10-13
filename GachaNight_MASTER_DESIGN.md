@@ -2,7 +2,7 @@
 
 > **Fuente de verdad del proyecto para Codex y colaboradores.**
 >
-> **Versión de especificación:** 2.0 · **Fecha:** 11 de octubre de 2026 · **Idioma de este documento:** español · **Idioma de la interfaz del juego:** inglés.
+> **Versión de especificación:** 2.1 · **Fecha:** 13 de octubre de 2026 (historia nueva en la sección 2 bis) · **Idioma de este documento:** español · **Idioma de la interfaz del juego:** inglés.
 >
 > **Estado:** diseño principal consolidado; balance, arte definitivo y algunos detalles de implementación se ajustarán mediante pruebas. Este documento **describe el producto deseado**, no garantiza que el prototipo existente ya lo implemente.
 >
@@ -34,8 +34,8 @@
 |---|---|
 | Nombre | **GachaNight** — CONFIRMADO. No usar «Gachapon Night» como nombre comercial definitivo. |
 | Género | Incremental / idle progresivo, coleccionismo de figuras, máquinas de premios y sistema de prestigio. |
-| Cámara | **2D en vista oblicua elevada («3/4 desde arriba»)**: se ve el frente y la parte superior de cada objeto y el suelo es un plano profundo por el que el personaje camina en dos ejes. La tienda sigue siendo una tira de salas. (Decisión del creador del 2026-10-11; ver sección 25.) |
-| Fantasía | Despertar atrapado en una tienda japonesa nocturna y convertir unas pocas monedas en una red de máquinas y robots hasta poder escapar. |
+| Cámara | **2D en vista lateral plana**, como un escenario: pared alta al fondo y una franja estrecha de suelo por la que se camina, con muy poco margen hacia delante y atrás. La tienda es una tira de salas. (Decisión del creador del 2026-10-13; antes vista oblicua elevada. Ver sección 25.) |
+| Fantasía | Aceptar un turno de noche en una vieja tienda japonesa de máquinas, quedarse encerrado hasta la mañana y pasar la noche jugando y coleccionando, hasta descubrir que el último premio eres tú. (Sección 2 bis.) |
 | Ambientación | **Japón, jugueterías y máquinas de los años 80 y 90**; nostálgico, acogedor, levemente extraño. |
 | Dirección visual | **Pixel art con estética «rubber hose»** (dibujos animados de los años 20-30: extremidades de goma negras, guantes blancos, zapatones, ojos ovalados) mezclada con **gráfica japonesa Showa de los 80-90**. Las máquinas son personajes vivos. Referencias del creador en `diseños/`. |
 | Modo | Un jugador, sin combate ni multijugador previstos. |
@@ -45,7 +45,7 @@
 | Interfaz | **Solo inglés** en la primera versión. Este documento y comentarios de desarrollo pueden estar en español. |
 | Duración de la historia | **2–3 horas** aproximadamente, **incluyendo varios renacimientos**; validar con jugadores reales. |
 | Cantidad inicial de máquinas jugables | **6–10**, no más por obligación; las seis primeras tienen tipología definida. |
-| Final | Comprar la **llave de la tienda** como última mejora en el ordenador de recepción, usarla en la puerta, salir, escena final y créditos. |
+| Final | Completar todas las colecciones y conseguir la **figura secreta: una pequeña réplica del protagonista**; revelación y créditos. (Sección 2 bis; sustituye al final de la llave.) |
 | Después de los créditos | **Modo libre** para seguir jugando; la historia puede darse por completada. |
 | Monetización | **PROPUESTA heredada:** juego premium, sin microtransacciones, sin compras de fichas con dinero real; precio comercial pendiente. |
 
@@ -57,7 +57,7 @@
 4. **Dos economías separadas.** Las **monedas** se gastan en la **recepción** y las máquinas durante el ciclo. Los **puntos de prestigio** solo se gastan al **dormir/renacer en el sofá** y generan mejoras permanentes.
 5. **Automatización progresiva.** Se empieza insertando monedas y girando manivelas; más adelante robots comprados en recepción realizan tareas, y el prestigio acelera los ciclos sucesivos.
 6. **Tensión amable, sin castigos irreversibles.** La economía puede obligar a regresar a máquinas baratas, pero nunca debe dejar al jugador sin manera de ganar dinero.
-7. **Misterio ambiental con final.** No se explica de inmediato cómo llegó el jugador. La motivación última es poder abrir la puerta y salir.
+7. **Misterio ambiental con final.** El protagonista cree estar simplemente encerrado hasta la mañana. Las máquinas, las figuras y los cambios del entorno van revelando que la tienda completa su propia colección y que él es la última pieza (sección 2 bis).
 
 ### 1.2. Qué NO es GachaNight
 
@@ -75,9 +75,92 @@
 
 **Partidas intermedias:** las colecciones completas proporcionan habilidades temporales y puntos pendientes. El jugador vende premios para financiar tiradas y compras en el ordenador de recepción, donde un vendedor digital exageradamente entusiasta ofrece mejoras, robots y automatización. Renace en el sofá en varias ocasiones, comprando habilidades permanentes que hacen más rápidas las partidas posteriores y abren posibilidades de estrategia.
 
+> **Aviso (2026-10-13):** los párrafos de esta sección describen el recorrido con el final antiguo (llave y puerta). La historia vigente está en la sección 2 bis.
+
 **Partida de resolución:** con las habilidades acumuladas y los robots de ese ciclo, alcanza las máquinas más caras, compra las mejoras necesarias en la recepción y finalmente adquiere la llave de salida. Se dirige a la puerta de la tienda, la abre y ve el final y los créditos. Queda disponible el modo libre.
 
 **Bucle:** `explorar → pagar tirada → obtener figura → vender o conservar → avanzar colección y/o dinero → comprar mejoras y robots en recepción → completar colecciones → acumular prestigio → sofá/renacimiento → repetir más rápido → comprar llave → escapar`.
+
+## 2 bis. Historia — DIRECCIÓN VIGENTE (creador, 2026-10-13)
+
+> Sustituye a la historia anterior («despertar atrapado y comprar la llave para escapar»). El creador la dio como dirección **«parecida a esto, aunque igual se retoca alguna parte»**: tratarla como vigente, pero no como texto cerrado palabra por palabra. Donde contradiga secciones posteriores marcadas como CONFIRMADAS (9.3, 18.1, 24.1), **prevalece esta sección**. El código todavía implementa el final antiguo; ver «Qué cambia» más abajo.
+
+### Resumen
+
+1. **El encargo.** El protagonista acepta un **trabajo nocturno** en una vieja tienda japonesa de máquinas recreativas y premios.
+2. **La llegada.** Entra por la puerta como empleado nuevo. Encuentra el local **vacío** y una **nota del encargado**. (El texto original mencionaba instrucciones del ordenador; el creador lo retiró el mismo día: el ordenador no da instrucciones.) Más tarde se queda dormido en el baño.
+3. **El cierre.** Al caer la noche y apagarse las luces del exterior, la **puerta de entrada se cierra sola**. La **única llave la tiene el encargado**, que no volverá hasta la mañana.
+4. **La espera.** Para entretenerse, juega con las máquinas y consigue algunas figuras.
+5. **Lo extraño.** Las **máquinas parecen tener vida propia** y, cada vez que se duerme en el **sofá de la trastienda**, **despierta otra vez en el baño**, como si la noche volviera a empezar.
+6. **El bucle.** Juega, colecciona figuras y mejora las máquinas sin saber que todo forma parte de algo más raro de lo que imagina.
+7. **El objetivo.** Acaba siendo **completar todas las colecciones de la tienda**. Entre ellas hay una **última figura secreta** que no aparece en ningún catálogo y cuya existencia parece oculta incluso para el propio establecimiento.
+8. **El final.** La partida termina cuando consigue esa figura: **una pequeña réplica de sí mismo**.
+9. **La revelación.** No era un cliente ni un empleado atrapado por casualidad. **La tienda llevaba toda la noche intentando completar su propia colección, y él era la última pieza que faltaba.**
+
+**Tono:** estética retro japonesa, personajes rubber hose, humor absurdo y un misterio que se revela poco a poco mediante las máquinas, las figuras y los cambios del entorno.
+
+**Frase del juego:** *En GachaNight puedes coleccionar todos los premios de la tienda. Hasta que descubres que el último premio eres tú.*
+
+### Qué cambia respecto a lo anterior
+
+| Tema | Antes | Ahora |
+|---|---|---|
+| Por qué está allí | Despierta atrapado sin saber cómo llegó. | Va a trabajar un turno de noche; la puerta se cierra sola al anochecer. |
+| La llave | Se compra en recepción como última mejora (`store_exit_key`). | **La tiene el encargado; no se puede comprar.** Su sitio como última mejora lo ocupa, de momento, la figura secreta. |
+| Objetivo | Reunir monedas para la llave y salir por la puerta. | **Completar todas las colecciones** y conseguir la figura secreta. |
+| Final | Abrir la puerta con la llave → créditos. | **Obtener la réplica de uno mismo**; lo que ocurre después está **sin decidir**. Modo libre se mantiene. |
+| El misterio | Explicación pendiente; no revelar sin aprobación. | **Revelado:** la tienda colecciona, y el protagonista es su última pieza. |
+| El renacimiento | Mecánica de prestigio sin explicación narrativa. | **Es la historia:** dormirse en el sofá reinicia la noche y despierta en el baño. |
+| Las máquinas vivas | Dirección de arte. | También **indicio narrativo**. |
+| El ordenador | Vendedor entusiasta de recepción. | **Personaje secundario con historia propia**: entidad de la tienda que recuerda entre reinicios y no sabe existir sin el negocio. No da instrucciones. |
+
+Lo que **no cambia**: vender o guardar, colecciones por tipo de figura, cinco rarezas, dos economías, recepción con mejoras y robots temporales, prestigio en el sofá, inglés en la interfaz.
+
+### Encaje con lo ya construido (lectura de Claude, a confirmar)
+
+- El protagonista del juego es **la moneda de 1 peseta** (`diseños/moneda1.png`). La figura final sería, por tanto, una pequeña moneda con sombrero. Una moneda que resulta ser el último premio de una tienda de máquinas de monedas encaja con la revelación.
+- El **sótano** añadido el 2026-10-13 (figuras todavía en sus cajas, fusible de la luz, ratones jugando al póker) sirve a la idea de que la tienda guarda **su propia colección**: la estantería de cajas es esa colección, y falta una caja.
+- El **catálogo siempre visible con siluetas** (7.2) sigue valiendo para las veinte figuras actuales; la secreta es la **excepción**: no tiene silueta ni hueco hasta el final.
+
+### Decidido por el creador (2026-10-13, respuestas a las dudas)
+
+1. **Primer arranque.** El protagonista **entra por la puerta como empleado nuevo**. Después se queda dormido — primero se dijo en el baño; el creador lo cambió el mismo día a **el sofá**, y el baño sale de la historia (ver «Segunda ronda»).
+2. **Colecciones.** Se quedan **como están** (por ciclo, se pierden al renacer). No hay metaprogreso nuevo: la última figura se consigue **de un modo especial**.
+3. **La figura secreta, por ahora.** Ocupa el sitio que tenía la llave: es la **última mejora de la recepción**. Provisional («de momento»).
+4. **El final.** **Sin decidir todavía.** Lo que ocurre al conseguir la figura está por escribir.
+5. **La puerta de entrada.** Solo se usa **al inicio**, con una animación. Después queda **cerrada hasta el final del juego**.
+6. **El encargado.** Solo existe en **la nota**. No aparece.
+7. **Modo libre.** Se mantiene tras los créditos.
+8. **El ordenador no da instrucciones.** Es un **personaje secundario** con historia propia (ver abajo).
+
+### Segunda ronda de respuestas e implementación (2026-10-13)
+
+- **Al comprar la figura** (de momento): se hace de día y **la puerta de la tienda se abre**; salir por ella da el final y los créditos de siempre. Provisional hasta que el creador decida el final.
+- **La llegada, jugable.** Se entra por la puerta con las **luces encendidas** y se puede mirar todo, sin usar nada. Al sentarse en el sofá el protagonista **se duerme (solo visual, sin menú de mejoras)** y **despierta junto al sofá con la tienda apagada**. En la recepción, sin corriente, está **la nota**: habla del fusible y de que la puerta está cerrada.
+- **El baño sale de la historia.** Queda como sala visual, sin función. Cada noche empieza ahora **junto al sofá**, y las tres monedas del suelo están en la sala de personal.
+- **Frases del ordenador:** primera versión general escrita por Claude (saludo normal; tras renacer, recuerda lo que no debería; tras cuatro renacimientos, más inquietante; cerca de la figura, contradictorio; al comprarla, felicitación cortada a media palabra). El creador las reescribirá.
+
+Implementado en el juego el mismo día: `intro_seen` y `note_read` en el estado permanente, la apertura en `scripts/world/main.gd`, textos en `scripts/ui/game_ui.gd` y `scripts/ui/reception_panel.gd`. El objeto sigue llamándose `store_exit_key` en datos y código; solo cambió su nombre visible («The Last Figure»).
+
+### El ordenador — historia y personalidad (creador, 2026-10-13; «por decidir del todo, pero la idea principal es esa»)
+
+- **Qué es.** Una entidad misteriosa ligada a la tienda. Nadie sabe quién lo creó ni cuánto lleva allí. Su función parece simple: gestionar el negocio, mejorar las máquinas y que las ventas no dejen de crecer.
+- **Carácter.** Alegre, exageradamente servicial, obsesionado con la rentabilidad. Habla por una pantalla antigua con mensajes llenos de entusiasmo, como un **vendedor de dibujos animados de los años treinta**. Para él todo problema tiene una solución comercial.
+- **Lo extraño.** Según avanza la noche **recuerda conversaciones que nunca ocurrieron**, **reacciona a los reinicios** del protagonista y sabe cosas que no debería. Siempre lo disfraza con bromas y recomendaciones de negocio.
+- **El giro.** **No atrapa al protagonista por maldad.** Su propósito es mantener la tienda funcionando y completar sus colecciones. No entiende del todo lo que hace; sigue su propósito, como si el mundo se redujera a tener el negocio abierto.
+- **Cerca del final.** Cuando el protagonista se acerca a la figura secreta se vuelve **contradictorio**: quiere felicitarlo por completar la colección y a la vez convencerlo de que siga jugando, comprando mejoras y vendiendo. **Por primera vez no sabe qué hacer.**
+- **Al conseguir la figura.** Muestra un mensaje de felicitación que **se interrumpe antes de terminar**. La pantalla queda en silencio. No se sabe si ha desaparecido, si ha cumplido su propósito o si se ha quedado sin nada que hacer.
+- **Su tragedia.** Nunca fue malvado: no sabe existir sin una tienda que mantener.
+
+Consecuencia para el diseño (lectura de Claude): el ordenador **guarda memoria entre renacimientos**, cosa que nada más en la tienda hace salvo el catálogo y el prestigio. Sus frases deberían cambiar con el número de renacimientos y con lo cerca que esté el final. Esto amplía la sección 9.1, que solo lo describía como vendedor absurdo.
+
+### Sigue abierto
+
+1. **El final**: qué pasa al conseguir la figura (escena, créditos, la puerta).
+2. **El «modo especial»** definitivo de conseguir la figura; lo de la última mejora de recepción es provisional.
+3. **La nota**: su texto definitivo (hay uno provisional en inglés).
+4. **Duración**: volver a medir las 2–3 horas hasta la figura secreta.
+5. **Frases del ordenador** por fase de la noche.
 
 ## 3. Tutorial interactivo e inicio de ciclo
 
@@ -310,7 +393,9 @@ Los precios, niveles, efectos exactos y prerrequisitos **no están cerrados**. C
 
 **Confirmado:** todo lo comprado con monedas, incluidos los robots, se pierde al renacer. No añadir compras eternas con monedas ni «robots permanentes» desde recepción.
 
-### 9.3. La llave: última mejora y condición final — CONFIRMADO
+### 9.3. La llave: última mejora y condición final — SUSTITUIDO (2026-10-13)
+
+> **Sustituido por la sección 2 bis:** la única llave la tiene el encargado y no se compra. De momento la **figura secreta** ocupa su lugar como última mejora de recepción. Lo que sigue describe lo que el código implementa todavía.
 
 - La última compra relevante de la ruta principal en recepción es `store_exit_key`.
 - Al poder comprarla, debe requerir monedas suficientes, y puede comprobar requisitos de progreso definidos por la tabla de balance (no inventar condiciones narrativas adicionales permanentes sin aprobación).
@@ -530,7 +615,7 @@ La siguiente tabla es un **punto de partida para implementar datos y probar**, n
 
 **Audio objetivo:** ambiente nocturno suave; clic de moneda, manivela, cápsula, premio, campanilla por completar colección, monedero, zumbido de máquinas, pequeñas melodías retro inspiradas en jugueterías, tonos comerciales cómicos del ordenador. El encendido inicial debe ser un momento audiovisual reconocible.
 
-**Narrativa:** el jugador no sabe inicialmente por qué está atrapado. Las máquinas, la decoración y el PC vendedor dan pistas indirectas, sin misiones secundarias obligatorias ni diálogos que frenen un incremental. El desenlace conocido es salir usando la llave; la explicación exacta del misterio **queda pendiente** y no debe añadirse como revelación argumental definitiva sin aprobación.
+**Narrativa (2026-10-13, sección 2 bis):** el protagonista llega a trabajar un turno de noche y queda encerrado hasta la mañana. Las máquinas, las figuras, la decoración, el ordenador y los cambios del entorno dan pistas indirectas, sin misiones secundarias obligatorias ni diálogos que frenen un incremental. El desenlace es conseguir la figura secreta, una réplica de sí mismo, y descubrir que la tienda completaba su propia colección. El detalle de cada pista sigue pendiente del creador.
 
 **Recepción:** diálogos cortos en inglés, con humor de vendedor insistente; ofrecer opción de saltar/minimizar texto repetido. No generar contenido con texto japonés sin revisar su significado.
 
@@ -575,7 +660,9 @@ La siguiente tabla es un **punto de partida para implementar datos y probar**, n
 
 ## 18. Final, créditos y modo libre
 
-### 18.1. Final principal — CONFIRMADO
+### 18.1. Final principal — SUSTITUIDO (2026-10-13)
+
+> **Sustituido por la sección 2 bis:** el final es conseguir la figura secreta tras completar todas las colecciones. Los pasos siguientes son el final antiguo, que el código implementa todavía.
 
 1. Reunir monedas mediante máquinas, colecciones, automatizaciones y varios prestigios.
 2. Comprar la **última mejora de recepción**, `Store Exit Key`, en el ordenador vendedor.
@@ -852,9 +939,10 @@ Codex deberá crear pruebas automatizadas cuando sea viable y **guion de QA manu
 
 ### 24.1. No modificar sin consulta — decisiones cerradas
 
+- **Historia de la sección 2 bis** (turno de noche, puerta que se cierra, la tienda completa su colección, el último premio es el protagonista).
 - Nombre **GachaNight**; **2D en vista lateral**; Japón juguetes/tiendas **80–90**; estética **vinilo japonés en pixel art**.
 - Interfaz del juego **solo inglés** inicialmente.
-- Primer ciclo: baño, 3 monedas, interruptor, tienda enciende, gachapón 001 de 1, máquina 002 de 50.
+- Primer ciclo: baño, 3 monedas, interruptor (desde el 2026-10-13, un fusible en el sótano), tienda enciende, gachapón 001 de 1, máquina 002 de 50. El arranque del primer ciclo está abierto (2 bis, punto 1).
 - Primera máquina con **5 tipos de figuras**; mínimo de venta 1; segunda con mínimo de venta 30.
 - Máquinas 001–004 gachapones; 005 gancho; 006 plinko; total inicial 6–10.
 - Sell directo / Keep irreversible; protección económica con saldo post-tirada <=1.
@@ -864,7 +952,7 @@ Codex deberá crear pruebas automatizadas cuando sea viable y **guion de QA manu
 - Prestigio solo en el sofá, desbloqueado **después del primer uso de máquina 002**; comprar habilidades solo al **confirmar dormir y renacer**.
 - Banco de prestigio no gastado **persistente**; habilidades de prestigio **permanentes**.
 - Recepción con ordenador vendedor **exageradamente comercial y absurdo**, mejoras y robots por monedas y **todas temporales por run**.
-- Última mejora de recepción: **llave**; hay que ir a la puerta para salir; **créditos y modo libre**.
+- ~~Última mejora de recepción: llave; hay que ir a la puerta para salir~~ — sustituido el 2026-10-13: el final es la figura secreta (2 bis). Créditos se mantienen; modo libre, por confirmar.
 - Historia principal orientada a **2–3 horas incluyendo varios prestigios**.
 - El personaje llorando de prueba **no pertenece** a GachaNight.
 
@@ -907,7 +995,7 @@ Esta sección evita que Codex lea el viejo `Gachapon_Night_Documento_Maestro.md`
 |---|---|---|
 | Nombre | `Gachapon Night` provisional. | **GachaNight**, confirmado. |
 | Arte | Cozy plastilina japonés 80; después vinilo retro en 3D estilizado, «no pixel art». | **Juguetes japoneses de 80–90 en pixel art** (decisión del creador del 2026-10-11, tras probar el prototipo 3D). |
-| Cámara | Primera persona, tienda 3D explorable; después 2D en vista lateral. | **2D en vista oblicua elevada**, suelo profundo y movimiento en dos ejes. Reglas, economía y progresión no cambian. |
+| Cámara | Primera persona, tienda 3D explorable; después 2D en vista lateral; después vista oblicua elevada con suelo profundo. | **2D en vista lateral plana, teatral** (2026-10-13), interior nocturno cálido según el tablero `diseños/GachaNight Retro Arcade Concept Board.png`. Reglas, economía y progresión no cambian. |
 | Estilo | Vinilo retro; después pixel art neutro. | **Rubber hose en pixel art** con gráfica Showa, según las referencias de `diseños/` (2026-10-11). |
 | Bases de figura | Sin base. | **Base por rareza**, más elaborada cuanto más rara; nunca en siluetas. |
 | Modelo llorando | Experimento reciente de arte 3D. | **No es parte del juego.** |
@@ -920,7 +1008,10 @@ Esta sección evita que Codex lea el viejo `Gachapon_Night_Documento_Maestro.md`
 | Recepción | Solo decorativa; cambiador opcional. | **Sistema central de mejoras y robots por monedas**, PC vendedor absurdo, llave final. |
 | Permanencia | Prestigio y catálogo. | Prestigio + catálogo + **puntos no gastados**; recepción/robots/bonus se pierden. Modo libre y final persisten como metadatos. |
 | Duración | «2–3 h de recorrido» ambiguo. | **2–3 h para historia principal con varios prestigios.** |
-| Final | Pendiente. | **Comprar llave como última mejora de recepción → abrir puerta → créditos → modo libre.** |
+| Final | Pendiente; después, comprar llave como última mejora de recepción → abrir puerta → créditos → modo libre. | **Completar todas las colecciones → figura secreta (réplica del protagonista) → revelación → créditos** (2026-10-13, sección 2 bis). El código aún implementa el de la llave. |
+| Historia | Despertar atrapado sin explicación; misterio pendiente. | **Turno de noche, puerta que se cierra sola, noche que se repite al dormir en el sofá; la tienda completa su colección y el protagonista es la última pieza** (2026-10-13). |
+| Protagonista | Sin definir; después un personaje rubber hose genérico. | **La moneda de 1 peseta del creador** (`diseños/moneda1.png`), 2026-10-13. |
+| Salas | Baño, tienda y sala de personal. | Además un **sótano/almacén** bajo la sala de personal, con el fusible, las figuras en sus cajas y dos ratones jugando al póker (2026-10-13). La vitrina de figuras ya no está en la tienda. |
 | Idioma | No fijado. | **Inglés solamente** en interfaz inicial. |
 | Máquinas | Evolución futura indefinida; después 6–10 al inicio con cuatro gachapones. | **Cuatro al inicio** (2026-10-12): gachapones 001 y 002, grúa 005, plinko 006; sala más pequeña y vista algo más en picado. Se ampliará si hace falta. |
 

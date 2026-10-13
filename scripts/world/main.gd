@@ -8,12 +8,13 @@ const Format = preload("res://scripts/core/format.gd")
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
 const ScreenGrade = preload("res://scripts/ui/screen_grade.gd")
 
-## The camera shows 640 x 360 world pixels on the 1280 x 720 canvas: the whole
-## height of the store, from the top of the wall to the floor's ledge.
-const PIXEL_SCALE: float = 2.0
+## The camera shows about 427 x 240 world pixels on the 1280 x 720 canvas, a
+## flat side view like a stage: the whole height of the store, from the top
+## of the wall to the floor's ledge, and it only ever travels sideways.
+const PIXEL_SCALE: float = 3.0
 const CAMERA_Y: float = (Store.VIEW_TOP + Store.VIEW_BOTTOM) / 2.0
 const CAMERA_FOLLOW: float = 6.0
-## Rebirth: asleep on the sofa for a moment, fade out, wake up in the bathroom.
+## Rebirth: asleep on the sofa for a moment, fade out, wake up there in the dark.
 const REBIRTH_SLEEP_TIME: float = 0.35
 const REBIRTH_FADE_OUT: float = 0.8
 const REBIRTH_FADE_IN: float = 0.9
@@ -22,6 +23,11 @@ const REBIRTH_FADE_IN: float = 0.9
 const WAIT_FIDGET_AFTER: float = 0.95
 ## Going through a door between scenes: fade out, then in.
 const DOOR_FADE: float = 0.2
+## The opening: the front door stays open this long behind the new employee.
+const INTRO_DOOR_TIME: float = 1.2
+const NOTE_SECONDS: float = 9.0
+const NOTE_TEXT: String = "A note on the counter: \"The fuse blows every night. The box is in the cellar.
+The door locks itself at dusk. I have the only key. Back in the morning. - The manager\""
 
 var store: Node2D
 var player: Node2D
@@ -37,6 +43,9 @@ var _cheer_pending: bool = false
 var _party_pending: bool = false
 ## A robot was bought at the terminal: a happy wave once the terminal closes.
 var _wave_pending: bool = false
+## The opening is playing: the first evening, lights on, nothing to do but
+## look around until the sofa.
+var _intro: bool = false
 
 
 func _ready() -> void:
@@ -72,7 +81,9 @@ func _ready() -> void:
 	_core.coins_changed.connect(func(_coins: int) -> void: _refresh_affordable())
 	_core.figure_collection_completed.connect(func(_figure_id: String, _prestige: int) -> void: _queue_party())
 	_core.store_key_bought.connect(func() -> void:
-		store.set_key_on_counter(false)
+		# The last figure: morning comes and the front door opens by itself.
+		store.play_door_open()
+		Audio.play("door")
 		_queue_party())
 	_core.reception_item_bought.connect(_on_reception_item_bought)
 	_core.power_changed.connect(func(is_on: bool) -> void: store.set_power(is_on, is_on))
@@ -80,10 +91,13 @@ func _ready() -> void:
 	_core.modifiers_changed.connect(_refresh_machines)
 	_core.robot_state_changed.connect(func(_machine_id: String) -> void: _refresh_machines())
 	_core.figure_discovered.connect(_on_figure_discovered)
+	_intro = not _core.perm.intro_seen
 	_sync_world_to_run()
 	_refresh_display()
 	_place_player()
 	_cheer_pending = false
+	if _intro:
+		_start_intro()
 	Input.mouse_mode = Input.MOUSE_MODE_VISIBLE
 	# A prize left unresolved when the game closed comes back as the same decision.
 	if _core.run.has_pending_prize():
@@ -98,6 +112,8 @@ func _process(delta: float) -> void:
 		return
 	var focused: Object = player.focused_interactable()
 	ui.set_prompt(focused.get_prompt() if focused != null else "")
+	# The computer is delighted to see a customer at the counter.
+	store.set_computer_happy(focused == store.reception)
 
 
 func _unhandled_input(event: InputEvent) -> void:
@@ -120,24 +136,36 @@ func _unhandled_input(event: InputEvent) -> void:
 func _wire_interactions() -> void:
 	for coin in store.coins:
 		var index: int = coin.get_meta("coin_index")
-		coin.prompt_fn = func() -> String: return "[E] Pick up coin"
-		coin.interact_fn = func() -> void: _core.collect_floor_coin(index)
+		coin.prompt_fn = func() -> String: return "" if _intro else "[E] Pick up coin"
+		coin.interact_fn = func() -> void:
+			if not _intro:
+				_core.collect_floor_coin(index)
 	store.power_switch.prompt_fn = func() -> String:
-		return "" if _core.run.power_switch_on else "[E] Flip the main power switch"
+		return "" if _intro or _core.run.power_switch_on else "[E] Put the fuse in"
 	store.power_switch.interact_fn = func() -> void:
+		if _intro:
+			return
 		player.play_use(store.power_switch.global_position.x)
 		_core.turn_power_on()
 	for machine_id in store.machines:
 		var body: Node2D = store.machines[machine_id]["body"]
 		body.prompt_fn = _machine_prompt.bind(machine_id)
 		body.interact_fn = _use_machine.bind(machine_id)
-	store.sofa.prompt_fn = func() -> String: return "[E] Rest on the sofa"
+	store.stock.prompt_fn = func() -> String: return "" if _intro else "[E] Check the stock"
+	store.stock.interact_fn = func() -> void:
+		if _intro or ui.is_modal_open():
+			return
+		Audio.play("click")
+		ui.toggle_catalog()
+	store.sofa.prompt_fn = func() -> String: return "[E] Sit down for a minute" if _intro else "[E] Rest on the sofa"
 	store.sofa.interact_fn = _use_sofa
 	store.reception.prompt_fn = func() -> String:
-		return "[E] Use the sales terminal" if _core.run.power_switch_on else "The screen is dark"
+		if _intro:
+			return "[E] Look at the computer"
+		return "[E] Use the sales terminal" if _core.run.power_switch_on else "[E] Read the note"
 	store.reception.interact_fn = _use_reception
 	store.door.prompt_fn = func() -> String:
-		return "[E] Use key" if _core.run.key_owned_this_run else "[E] Front door"
+		return "[E] Step outside" if _core.run.key_owned_this_run else "[E] Front door"
 	store.door.interact_fn = _use_door
 	for zone_door in store.zone_doors:
 		var target: String = zone_door["zone"]
@@ -146,6 +174,8 @@ func _wire_interactions() -> void:
 
 
 func _machine_prompt(machine_id: String) -> String:
+	if _intro:
+		return "[E] Look"
 	if _core.run.has_pending_prize():
 		return "[E] Check your prize"
 	if not _core.run.power_switch_on:
@@ -162,6 +192,9 @@ func _machine_prompt(machine_id: String) -> String:
 ## The hall is the lobby: using a machine steps inside it, where it is played
 ## by hand (`machine_scene.gd`). Paying and the prize happen in there.
 func _use_machine(machine_id: String) -> void:
+	if _intro:
+		ui.toast("Was it looking at me? ...No. Machines don't look.")
+		return
 	if _core.run.has_pending_prize():
 		ui.open_prize()
 		return
@@ -189,6 +222,8 @@ func _zone_door_prompt(target: String) -> String:
 			return "[E] Bathroom"
 		"staff":
 			return "[E] Staff room"
+		"cellar":
+			return "[E] Down to the cellar"
 	return "[E] Back to the store"
 
 
@@ -225,6 +260,9 @@ func sync_zone() -> void:
 
 
 func _use_sofa() -> void:
+	if _intro:
+		_doze_off()
+		return
 	if not _core.is_prestige_unlocked():
 		ui.toast("An old sofa. I'm not sleepy yet.")
 		return
@@ -236,8 +274,14 @@ func _use_sofa() -> void:
 
 
 func _use_reception() -> void:
+	if _intro:
+		ui.toast("An old computer. The screen says: WELCOME, VALUED CUSTOMER!")
+		return
 	if not _core.run.power_switch_on:
-		ui.toast("The computer has no power.")
+		# No power, no salesman: only the manager's note on the counter.
+		ui.toast(NOTE_TEXT, NOTE_SECONDS)
+		_core.read_note()
+		player.play_emote("player_shrug")
 		return
 	Audio.play("click")
 	# A wave to the salesman on the screen.
@@ -246,25 +290,25 @@ func _use_reception() -> void:
 
 
 func _use_door() -> void:
+	if _intro:
+		ui.toast("I only just got here.")
+		return
 	var result: Dictionary = _core.use_exit_door()
 	if not result["ok"]:
 		Audio.play("error")
-		ui.toast("Locked. I need a key to get out of here.")
+		ui.toast("Locked. It shut itself at dusk, and the manager has the only key.")
 		player.play_emote("player_shrug")
 		return
 	Audio.play("door")
 	if not result["first_time"]:
 		ui.toast("I could leave any time now. But there are still capsules to open.")
 		return
-	# Buying the key is not the ending: walking out through this door is.
+	# Getting the last figure is not the ending: walking out into the morning is.
 	_busy = true
 	player.controls_enabled = false
 	player.play_use(store.door.global_position.x)
-	# The door opens on daylight while the screen fades; it is shut again
-	# behind the black screen, ready for Free Play.
-	store.play_door_open()
+	# The door stands open on daylight since the last figure was bought.
 	await ui.fade_to(1.0, 1.6).finished
-	store.reset_door()
 	_busy = false
 	Audio.stop_music()
 	Audio.play_music("ending")
@@ -304,11 +348,51 @@ func _on_rebirth_requested(selection: Dictionary) -> void:
 	await ui.fade_to(0.0, REBIRTH_FADE_IN).finished
 	_busy = false
 	if result["ok"]:
-		# A new night: a yawn and a stretch in the bathroom.
+		# The night again: a yawn and a stretch by the sofa.
 		player.play_emote("player_stretch")
 	player.controls_enabled = not ui.is_modal_open()
 	if not result["ok"]:
 		ui.toast("I can't sleep right now.")
+
+
+# --- The opening ---------------------------------------------------------------
+
+## The first evening: the new employee walks in through the front door, which
+## shuts behind them. The lights are on, the coins are not on the floor yet,
+## and there is nothing to do but look around and end up on the sofa.
+func _start_intro() -> void:
+	store.set_power(true, false)
+	for index in range(store.coins.size()):
+		store.set_coin_collected(index, true)
+	player.place(store.door.use_point(), true)
+	sync_zone()
+	store.play_door_open()
+	ui.toast("First night shift. ...Hello? Anybody here?")
+	await get_tree().create_timer(INTRO_DOOR_TIME).timeout
+	store.reset_door()
+	Audio.play("door", -6.0)
+
+
+## Only a nap, with no menu: the lights are out when the player wakes, and
+## the game proper starts.
+func _doze_off() -> void:
+	if _busy:
+		return
+	_busy = true
+	player.controls_enabled = false
+	player.sleep_at(store.sofa.global_position + Store.SOFA_SEAT)
+	await get_tree().create_timer(1.2).timeout
+	await ui.fade_to(1.0, REBIRTH_FADE_OUT).finished
+	_intro = false
+	_core.finish_intro()
+	_sync_world_to_run()
+	_place_player()
+	await get_tree().create_timer(0.6).timeout
+	await ui.fade_to(0.0, REBIRTH_FADE_IN).finished
+	_busy = false
+	player.controls_enabled = not ui.is_modal_open()
+	player.play_emote("player_stretch")
+	ui.toast("...I fell asleep? It's dark. The lights are out.")
 
 
 # --- State sync -------------------------------------------------------------
@@ -324,7 +408,12 @@ func _sync_world_to_run() -> void:
 	store.set_power(_core.run.power_switch_on, false)
 	for index in range(store.coins.size()):
 		store.set_coin_collected(index, _core.run.floor_coins_collected[index])
-	store.set_key_on_counter(not _core.run.key_owned_this_run)
+	# The manager has the only key: none lies on the counter any more.
+	store.set_key_on_counter(false)
+	if _core.run.key_owned_this_run:
+		store.play_door_open()
+	else:
+		store.reset_door()
 	_refresh_machines()
 
 
@@ -364,8 +453,8 @@ func _throw_party() -> void:
 	player.play_cheer()
 
 
-## The gallery: discovery is permanent, so it survives rebirths. The rarity
-## only reaches the store to pick the base a discovered figure stands on.
+## The stock rack: discovery is permanent, so it survives rebirths. A found
+## figure's box gets a sticker; the figures themselves show in the catalog.
 func _refresh_display() -> void:
 	var figures: Array = []
 	for figure_id in _core.data.figure_order:

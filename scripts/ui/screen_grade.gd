@@ -17,8 +17,8 @@ const TONE_STRENGTH: float = 0.16
 const TONE_COLOR: Color = Color(1.1, 0.96, 0.76)
 ## The corners are darkened by this share; the darkening starts this far from
 ## the centre (0) towards a corner (1).
-const VIGNETTE_STRENGTH: float = 0.26
-const VIGNETTE_START: float = 0.45
+const VIGNETTE_STRENGTH: float = 0.5
+const VIGNETTE_START: float = 0.3
 ## Grain: brightness it adds or takes at most, the side of one grain in real
 ## pixels, and how many new patterns a second (a film reel, not video noise).
 const GRAIN_STRENGTH: float = 0.035

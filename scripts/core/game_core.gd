@@ -83,6 +83,18 @@ func add_playtime(seconds: float) -> void:
 
 # --- Start of run -----------------------------------------------------------
 
+## The opening is over: the player dozed off on the sofa.
+func finish_intro() -> void:
+	perm.intro_seen = true
+	_autosave()
+
+
+## The manager's note was read.
+func read_note() -> void:
+	perm.note_read = true
+	_autosave()
+
+
 func turn_power_on() -> Dictionary:
 	if run.power_switch_on:
 		return {"ok": false, "reason": "already_on"}

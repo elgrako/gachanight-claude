@@ -12,7 +12,7 @@ const ALERT: Color = Color("#ff8a7a")
 
 const CATEGORIES: Array = [
 	["income", "INCOME"], ["machines", "MACHINES"], ["automation", "ROBOTS"],
-	["convenience", "COMFORT"], ["exit", "EXIT"],
+	["convenience", "COMFORT"], ["exit", "???"],
 ]
 const LINES: Dictionary = {
 	"greet": [
@@ -28,11 +28,31 @@ const LINES: Dictionary = {
 	"keep_one_coin": ["Keep one coin, valued customer! A broke customer is a sad customer!"],
 	"max_level": ["Sold out! You own ALL of it!"],
 	"missing_prerequisite": ["Not yet, valued customer! Terms and conditions apply!"],
-	"exit": ["The Store Exit Key! Our most exclusive item! But why would you ever leave?"],
-	"key": ["Thank you for shopping! Please do not actually leave!"],
+	# Later in the night it remembers what it should not. (First pass: the
+	# owner will rewrite these.)
+	"greet_again": [
+		"Welcome back! As I was saying last night! Tonight! Whichever!", "You again! For the first time! Wonderful!",
+		"We discussed this already! You were very convinced! You will be!", "Slept well on the sofa? I mean: hello, stranger!",
+		"Same customer, same night, same low prices!",
+	],
+	"greet_late": [
+		"How many nights is it now? Do not answer! Buy something!", "You always wake up. I always sell. What a team!",
+		"I kept your seat warm. All of them. Every time.", "The collection is coming along! Ours! Yours! The store's!",
+	],
+	# Near the last figure it wants two things at once.
+	"greet_near": [
+		"Almost complete! Congratulations! Also, please do not finish!", "One more figure and... and then more upgrades! Surely!",
+		"You should stop. No! You should buy! I am... one moment, please!",
+	],
+	"exit": ["The last one! Not in any catalog! Congratulations in advance! Also: have you seen our other upgrades?"],
+	"key": ["Congratulations, valued customer! You have completed the coll"],
 	"robot": ["Robots: like employees, but they never ask about the locked door!"],
 }
-const FACES: Dictionary = {"greet": "(^o^)/", "buy": "(*^_^*)", "sad": "(;_;)", "exit": "(o_o;)", "robot": "[^_^]"}
+## The salesman is the computer itself: its plain picture, or the delighted
+## one when it sells something.
+const PC_ON: String = "res://assets/sprites/props/pc_on.png"
+const PC_KAWAI: String = "res://assets/sprites/props/pc_kawai.png"
+const FACE_PICTURES: Dictionary = {"greet": PC_ON, "buy": PC_KAWAI, "sad": PC_ON, "exit": PC_ON, "robot": PC_KAWAI}
 
 signal closed
 
@@ -43,7 +63,7 @@ var tab_buttons: Dictionary = {}
 
 var _core: RefCounted
 var _category: String = "income"
-var _face: Label
+var _face: TextureRect
 var _speech: Label
 var _coins: Label
 var _items: VBoxContainer
@@ -78,8 +98,11 @@ func _ready() -> void:
 	var header: HBoxContainer = HBoxContainer.new()
 	header.add_theme_constant_override("separation", 16)
 	column.add_child(header)
-	_face = _text("", 34, AMBER)
-	_face.custom_minimum_size.x = 150
+	_face = TextureRect.new()
+	_face.expand_mode = TextureRect.EXPAND_IGNORE_SIZE
+	_face.stretch_mode = TextureRect.STRETCH_KEEP_ASPECT_CENTERED
+	_face.texture_filter = CanvasItem.TEXTURE_FILTER_NEAREST
+	_face.custom_minimum_size = Vector2(84, 84)
 	header.add_child(_face)
 	var talk: VBoxContainer = VBoxContainer.new()
 	talk.size_flags_horizontal = Control.SIZE_EXPAND_FILL
@@ -119,7 +142,7 @@ func _ready() -> void:
 
 func open(core: RefCounted) -> void:
 	_core = core
-	_say("greet", "greet")
+	_say(_greeting(), "greet")
 	_select_category(_category)
 	close_button.grab_focus()
 
@@ -228,10 +251,24 @@ func _buy(item_id: String) -> void:
 	_rebuild()
 
 
+## Which greeting fits the night: the first one, a repeated one, a long run
+## of them, or the last stretch before the final figure.
+func _greeting() -> String:
+	if _core.data.exit_key_id != "":
+		var last: Dictionary = _core.reception_item_view(_core.data.exit_key_id)
+		if int(last["level"]) == 0 and _core.run.coins * 4 >= int(last["cost"]):
+			return "greet_near"
+	if _core.perm.total_rebirths >= 4:
+		return "greet_late"
+	if _core.perm.total_rebirths >= 1:
+		return "greet_again"
+	return "greet"
+
+
 func _say(topic: String, face: String) -> void:
 	var options: Array = LINES.get(topic, LINES["greet"])
 	_speech.text = options[_rng.randi() % options.size()]
-	_face.text = FACES.get(face, FACES["greet"])
+	_face.texture = load(FACE_PICTURES.get(face, FACE_PICTURES["greet"]))
 
 
 func _text(content: String, size: int, color: Color) -> Label:

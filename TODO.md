@@ -51,6 +51,122 @@ Done, owner's requests in order:
   art left on disk: decor props, machine wake / play / react sheets,
   capsules, claw, ball, `machines/anchors.json`, the old `player_*` sheets.
 
+- Flat theatrical side view (owner, 2026-10-13; its curtain was dropped the
+  same day, see the next entry): zoom 3 (427 x 240 world pixels, so one pixel of the coin's
+  picture is one screen pixel at 720p), wall 188 tall, floor only 44 deep
+  with boards fanning from each scene's middle, a dado and rail on the wall,
+  bathroom and staff room widened to 300 and 270, store 1280 wide, and a
+  proscenium fixed to the screen (`scripts/world/stage_frame.gd`: side
+  curtains and a scalloped valance). A rough pass to try the style.
+
+- Night interior after the owner's concept board (`diseños/GachaNight Retro
+  Arcade Concept Board.png`), 2026-10-13, uncommitted at the time of
+  writing: curtain removed (`stage_frame.gd` deleted); wall and floor are
+  flat dark colours drawn in code (boarded wall with a dado, checkered floor
+  in perspective), hanging lamps with additive halos, cones and floor pools
+  that go out with the power, the GACHA sign and three posters, a black front
+  edge with silhouettes, a stronger vignette (0.5 from 0.3). The coin is
+  drawn at 0.27 of its strips (about 54 world pixels tall, was 67). The wall
+  and floor tile pictures are no longer used. Owner said the board is close
+  to what they want but not identical; machines with legs, one continuous
+  room and the portrait HUD from the board were left out on purpose.
+
+- Cellar (owner, 2026-10-13), uncommitted at the time of writing: a fourth
+  scene at x 1280-1640, reached by stairs in the staff room (`ZONE_DOORS`
+  rows now carry a kind: door, down, up). It holds the fuse box (the old
+  power switch, same picture, moved from the corridor), the figure shelves
+  (moved out of the store; each figure now stands in a cardboard box) and a
+  poker table with two mice and a candle that burns with the power off
+  (`tools/pixel/build_cellar.py` -> `props/poker_table.png`, a rough
+  drawing by Claude, not the owner's). The store's old gallery room is now
+  plain hall wall. Consequence for play: the first run starts in the dark
+  and the player must cross the store and the staff room to reach the fuse.
+  `smoke_boot.gd` is at 140 checks.
+
+- Layout pass (owner, 2026-10-13), uncommitted at the time of writing: the
+  staff-room door now stands right of the plinko (x 714); the counter moved
+  left (x 852) with two shelves behind it and a hanging RECEPTION sign, so
+  the front door (x 974) has nothing in front of it; the sofa moved left
+  (x 1126), clear of the cellar stairs. "The door" was read as the
+  staff-room door; the owner did not say which.
+- The GitHub branch is now `diseños` (renamed from
+  `coin-protagonist-bare-store`, which was deleted on the remote).
+
+- New story (owner, 2026-10-13, "something like this, some part may still be
+  retouched"): night job, the door locks itself, the manager has the only
+  key, sleeping on the sofa restarts the night in the bathroom, the goal is
+  every collection, the last figure is a secret replica of the protagonist,
+  and the store was completing its own collection. Written into section
+  2 bis of `GachaNight_MASTER_DESIGN.md` with a table of what it replaces
+  and nine open questions for the owner; README has a short version.
+  **Documents only: no game code changed.** The game still ends by buying
+  `store_exit_key` and opening the door.
+- Owner's answers the same day (recorded in 2 bis): the first night starts
+  at the entrance as a new employee, who later falls asleep in the bathroom;
+  collections stay per run; for now the secret figure takes the key's place
+  as the last reception upgrade; the ending itself is undecided; the front
+  door is used only in the opening animation and stays shut until the end;
+  the manager exists only in the note; Free Play stays; the computer gives
+  no instructions and is a secondary character with its own arc (remembers
+  across restarts, not evil, falls silent mid-congratulation). The owner
+  said "ask me if you have more doubts": three were asked (see chat) before
+  touching code.
+
+- Opening and last figure implemented (owner's second answers, 2026-10-13),
+  uncommitted at the time of writing. First launch (`perm.intro_seen`
+  false): the player stands at the front door, which shuts behind them, the
+  store is lit, nothing can be used; the sofa gives a nap with no menu and
+  the player wakes by the sofa in the dark. `Store.SPAWN` is now by the
+  sofa for every night, the three floor coins are in the staff room, the
+  bathroom is scenery only. With no power the reception shows the manager's
+  note (`perm.note_read`). The exit key is shown as "The Last Figure" (same
+  id, same rules); buying it opens the front door on daylight, and walking
+  out still plays the old ending, as a placeholder: the owner has not
+  decided the ending. The computer got general lines by phase of the night
+  (`reception_panel.gd`, `greet_again` / `greet_late` / `greet_near`, and a
+  congratulation cut mid-word); the owner will rewrite them.
+  `smoke_boot.gd` 148 checks, `run_tests.gd` 360. An existing save plays the
+  opening once too. One smoke run produced all-black screenshots after the
+  first; the rerun was fine and the checks passed both times (cause not
+  found, likely the window being covered).
+
+- Cellar dressing (owner, 2026-10-13), uncommitted at the time of writing:
+  the figure shelves are an old slotted-steel stock rack (uprights with
+  bolt slots, steel decks, cross brace, rust) with cartons and a wire bin of
+  loose capsules on its lower decks; the cellar wall has brick courses,
+  ceiling pipes, a small barred window with a moon, a cobweb and a
+  "STOCK - DO NOT OPEN" stencil. All drawn in code in `store.gd`
+  (`_build_cabinet`, `_build_cellar_details`).
+
+- Coin icon (owner, 2026-10-13), uncommitted at the time of writing: the
+  game's coin is the face of `diseños/moneda_oro1.png` (the protagonist in
+  gold), cut with its hat and without limbs by
+  `tools/pixel/build_coin_icon.py` into `assets/sprites/ui/`. The purse
+  moved to the top left of the screen: that face and the bare amount. The
+  bottom-left plate now only holds the prestige and status lines and hides
+  when both are empty. The floor coins, the price plates and the panels
+  still use their old coin drawings.
+
+- Stock rack (owner, 2026-10-13: "a display case in the cellar makes no
+  sense"), uncommitted at the time of writing: no figure shows in the cellar
+  any more, only one closed carton per figure; a found figure's carton gets
+  a small sticker (Claude's addition, not asked for). Using the rack
+  (`store.stock`, "[E] Check the stock") opens the catalog, which is the
+  record of figures; Tab still opens it anywhere.
+
+- Reception (owner, 2026-10-13), uncommitted at the time of writing. Art
+  direction stated by the owner: **rubber hose comes first, retro Japan
+  second: "as if old Disney cartoons had been drawn in Japan"**. The
+  computer is the owner's `diseños/ordenador.png`, with
+  `ordenador_kawai.png` as its delighted mood (shown when the player
+  stands at the counter, and in the sales terminal when it sells) and a
+  dark-screen version made from the first for no power
+  (`tools/pixel/build_reception.py` -> `props/pc_on`, `pc_kawai`,
+  `pc_off`). The shelves behind the counter are gone. The counter is old
+  dark wood with panels and a brass coin (`props/counter_wood.png`, drawn
+  by Claude). The old counter's kana were dropped rather than copied: the
+  copy lost a stroke and changed the word.
+
 Next, owner's direction (not started):
 
 - [ ] The protagonist is the owner's own picture, `diseños/moneda1.png`
@@ -60,33 +176,33 @@ Next, owner's direction (not started):
       game. `python tools/pixel/build_peseta.py` takes the picture apart
       (coin with hat, two gloves, two shoes), redraws its face for six
       expressions (normal, parpadeo, feliz, sorpresa, triste, enfado) and
-      reassembles it with rubber-hose limbs into strips in the game's format:
-      `assets/sprites/peseta/` with `anims.json` (`peseta_idle` 8 frames,
-      `peseta_walk` 8, `peseta_use` 6, `peseta_cheer` 6, `peseta_wave` 1 = the
-      picture itself; frames 232 x 222) and loose pieces under `parts/`.
-      Contact sheet: `tools/pixel/previews/peseta_sheet.png`.
-      WIRED IN (2026-10-13): `sprite_lib.gd` reads the `peseta` manifest and
-      `scripts/world/player.gd` plays its strips through the `SKIN` table
-      (game animation name -> strip), at a third of their size with linear
-      filtering: one pixel of the picture is one pixel of a 1080p screen.
-      Every strip also exists as `<name>_left` (mirrored, with the coin's 1
+	  reassembles it with rubber-hose limbs into strips in the game's format:
+	  `assets/sprites/peseta/` with `anims.json` (`peseta_idle` 8 frames,
+	  `peseta_walk` 8, `peseta_use` 6, `peseta_cheer` 6, `peseta_wave` 1 = the
+	  picture itself; frames 232 x 222) and loose pieces under `parts/`.
+	  Contact sheet: `tools/pixel/previews/peseta_sheet.png`.
+	  WIRED IN (2026-10-13): `sprite_lib.gd` reads the `peseta` manifest and
+	  `scripts/world/player.gd` plays its strips through the `SKIN` table
+	  (game animation name -> strip), at a third of their size with linear
+	  filtering: one pixel of the picture is one pixel of a 1080p screen.
+	  Every strip also exists as `<name>_left` (mirrored, with the coin's 1
       struck the right way round); the player never flips the sprite, it
       plays the left strip. Borrowed for now: run = walk, stretch = cheer,
       shrug / watch / wave = the hat-tip picture, sleep = dozing upright.
-      Owner's corrections applied since: limbs nearly straight with one soft
-      curve; fists and shoes turned to how they lie in the picture
-      (`FIST_LEAN`, `SHOE_LEAN`); legs straight down from hips set apart
-      behind the coin; arms close to the body; the word PESETA removed, the 1
-      kept; near leg shorter than the far leg (their call); walk on one shoe
-      drawing rolled heel to toe. Owner's verdict at the last round:
+	  Owner's corrections applied since: limbs nearly straight with one soft
+	  curve; fists and shoes turned to how they lie in the picture
+	  (`FIST_LEAN`, `SHOE_LEAN`); legs straight down from hips set apart
+	  behind the coin; arms close to the body; the word PESETA removed, the 1
+	  kept; near leg shorter than the far leg (their call); walk on one shoe
+	  drawing rolled heel to toe. Owner's verdict at the last round:
       "muchísimo mejor".
       Then the owner asked for an intensive study of rubber hose drawing:
       `docs/art/rubber-hose-notes.md` holds the rules found, the coin checked
       against them and a ranked list of what is missing (twins at rest, hat
       that cannot lag, one fist for both hands, no squash and stretch).
-      Known besides: the walk was judged on stills; the screen's 0.55
-      saturation pass makes the already-desaturated coin greyer than the
-      picture; a small black stump on the coin's left edge; a stray dot by
+	  Known besides: the walk was judged on stills; the screen's 0.55
+	  saturation pass makes the already-desaturated coin greyer than the
+	  picture; a small black stump on the coin's left edge; a stray dot by
       the 1. The old `player_*` sheets are still in `assets/sprites/anim/`.
       Rejected rounds, kept only as history: `proto_hero.py`, `proto_cast.py`,
       `proto_coin.py`, `proto_peseta.py` (the last is imported by
@@ -182,7 +298,7 @@ size (lamps, furniture, tiles, figures and bases look small and too colourful).
 ## Owner's wish list (not started)
 
 - [ ] New machines from `diseños/todolist.txt`: coin pusher, Skee-Ball.
-      `diseños/pachinko.png` and `diseños/ruleta.png` suggest two more.
+	  `diseños/pachinko.png` and `diseños/ruleta.png` suggest two more.
 - [ ] Coins and purse in the HUD after `diseños/moneda*.png` and `cartera1.png`.
 
 ## Working agreements with the owner
