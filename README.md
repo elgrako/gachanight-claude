@@ -55,29 +55,29 @@ All three exit non-zero on failure. Details:
   starts), the store itself (corridor, machine hall, figure cabinet, reception)
   and the staff room with the sofa.
 - Bathroom start with 3 floor coins, main power switch, lit store.
-- Six machines: Capsule Machines No. 1-4, the Crane Catcher and Lucky Plinko, all
+- Four machines: Capsule Machines No. 1-2, the Crane Catcher and Lucky Plinko, all
   ending in the same Sell or Keep decision. The crane always gives a prize.
 - The hall is a lobby: `E` at a machine steps inside it, face to face, where it
   is played by hand (hold `E` to crank, steer and drop the claw, choose where
-  the plinko ball falls). From inside, `Q`/`R` or `1`-`6` jump straight to
+  the plinko ball falls). From inside, `Q`/`R` or `1`-`4` jump straight to
   another machine and `Esc` steps back into the hall. These scenes are drawn
   with plain shapes for now. The prize is decided when the coin goes in; the
   hand play does not change it.
-- Thirty figures over five rarities, in six series. Collections are per figure;
+- Twenty figures over five rarities, in four series. Collections are per figure;
   completing one gives pending prestige and a bonus for the rest of the run.
 - Catalog available from the start: every figure is listed, undiscovered ones as
   the dark silhouette of their own sprite. Discovery is permanent. One display
-  cabinet in the gallery holds all thirty as miniatures, each on the base of
+  cabinet in the gallery holds all twenty as miniatures, each on the base of
   its rarity (plain puck to gold trophy); silhouettes never show a base.
 - The whole screen is shown at 0.55 saturation (`scripts/ui/screen_grade.gd`)
   for a muted, old-cartoon palette.
 - Capsule Machine No. 1 follows the owner's reference sheet (brass body, its
   own big eyes on the globe, lever, stickers): `tools/pixel/gumball_001.py`.
   The other machines still have the earlier design.
-- Machines are living rubber-hose characters: asleep without power, they wake,
-  idle and crank themselves. The store is compact (under three screens wide)
-  and keeps only a handful of ambient loops; the rest of the generated ones
-  stay in `assets/sprites/ambient/`, unused.
+- The store is a bare set for now (stripped on 2026-10-13, to be redone):
+  walls, floor, doors, the machines idling, the figure cabinet, the counter,
+  the front door and the sofa. No decoration, no ambient loops, no power-on
+  sequence, no machine or lamp life.
 - Reception computer (a very keen sales terminal): coin upgrades, robots that
   work the machines, and the Store Exit Key. Everything bought there is lost on
   rebirth.
@@ -107,7 +107,8 @@ are filled with first-pass values, none of them approved design:
   but a first pass rather than final art.
 
 Not built: Steam packaging and store builds, macOS verification, gamepad support,
-key rebinding, machines 007-010, offline earnings, other languages. Before
+key rebinding, more machines (the owner cut the store to four on 2026-10-12, to
+grow again later), offline earnings, other languages. Before
 exporting a build, add `*.json` to the export filter so the data tables ship.
 
 ## Changing things
@@ -118,7 +119,7 @@ exporting a build, add `*.json` to the export filter so the data tables ship.
 - Art generators, each verifying its own output: `python tools/pixel/build_machines.py`
   (machines, their animations and `anchors.json`), `build_figures.py` (figures, idle
   loops, rarity bases), `build_anims.py` (protagonist, robot, effects),
-  `build_environment.py` (tiles, props), `build_ambient.py` (ambient loops).
+  `build_environment.py` (tiles, props).
 - Each asset folder with animations has its own `anims.json` manifest.
 - They write contact sheets to `tools/pixel/previews/` (not shipped).
 - `diseños/` holds the owner's style references.

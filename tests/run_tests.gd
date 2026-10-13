@@ -119,7 +119,7 @@ func test_shipped_data() -> void:
 	check(core.setup(save_path_for("shipped")), "shipped tables load")
 	check_eq(core.data.errors, [], "shipped tables validate")
 	check_eq(core.data.rarities.size(), 5, "exactly five rarities")
-	check_eq(core.data.machine_order.size(), 6, "six machines")
+	check_eq(core.data.machine_order.size(), 4, "four machines")
 	check_eq(core.data.machines[M1]["price_per_attempt"], 1, "machine 001 costs 1")
 	check_eq(core.data.machines[M1]["prize_table"].size(), 5, "machine 001 has exactly 5 figures")
 	check_eq(core.data.machines[M2]["price_per_attempt"], 50, "machine 002 costs 50")

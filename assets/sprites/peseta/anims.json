@@ -1,0 +1,114 @@
+{
+  "peseta_idle": {
+    "file": "peseta_idle.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 8,
+    "fps": 8,
+    "loop": true
+  },
+  "peseta_idle_left": {
+    "file": "peseta_idle_left.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 8,
+    "fps": 8,
+    "loop": true
+  },
+  "peseta_walk": {
+    "file": "peseta_walk.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 8,
+    "fps": 10,
+    "loop": true
+  },
+  "peseta_walk_left": {
+    "file": "peseta_walk_left.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 8,
+    "fps": 10,
+    "loop": true
+  },
+  "peseta_run": {
+    "file": "peseta_run.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 6,
+    "fps": 14,
+    "loop": true
+  },
+  "peseta_run_left": {
+    "file": "peseta_run_left.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 6,
+    "fps": 14,
+    "loop": true
+  },
+  "peseta_use": {
+    "file": "peseta_use.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 7,
+    "fps": 12,
+    "loop": false
+  },
+  "peseta_use_left": {
+    "file": "peseta_use_left.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 7,
+    "fps": 12,
+    "loop": false
+  },
+  "peseta_cheer": {
+    "file": "peseta_cheer.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 7,
+    "fps": 12,
+    "loop": false
+  },
+  "peseta_cheer_left": {
+    "file": "peseta_cheer_left.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 7,
+    "fps": 12,
+    "loop": false
+  },
+  "peseta_wave": {
+    "file": "peseta_wave.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 2,
+    "fps": 2,
+    "loop": false
+  },
+  "peseta_wave_left": {
+    "file": "peseta_wave_left.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 2,
+    "fps": 2,
+    "loop": false
+  },
+  "peseta_sleep": {
+    "file": "peseta_sleep.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 4,
+    "fps": 3,
+    "loop": true
+  },
+  "peseta_sleep_left": {
+    "file": "peseta_sleep_left.png",
+    "frame_w": 232,
+    "frame_h": 222,
+    "frames": 4,
+    "fps": 3,
+    "loop": true
+  }
+}

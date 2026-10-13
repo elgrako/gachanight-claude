@@ -23,7 +23,7 @@ OUT = os.path.join(ROOT, "assets", "sprites", "machines")
 PREV = os.path.join(HERE, "previews")
 
 STATIC_SIZES = {
-    "machine_001": M.GACHA, "machine_002": M.GACHA, "machine_003": M.GACHA, "machine_004": M.GACHA,
+    "machine_001": M.GACHA, "machine_002": M.GACHA,
     "machine_005": M.CAB, "machine_006": M.CAB,
     "capsule_red": (18, 18), "capsule_blue": (18, 18), "capsule_green": (18, 18),
     "capsule_mustard": (18, 18), "capsule_gold": (18, 18),
@@ -31,7 +31,7 @@ STATIC_SIZES = {
 }
 # name -> (frame size, loop, max seconds or None)
 ANIM_SPECS = {}
-for _n in range(1, 7):
+for _n in (1, 2, 5, 6):
     _size = M.GACHA if _n < 5 else M.CAB
     ANIM_SPECS["machine_%03d_wake" % _n] = (_size, False, 0.6)
     ANIM_SPECS["machine_%03d_idle" % _n] = (_size, True, None)
@@ -101,7 +101,7 @@ def build():
 
 
 def previews(stat, anims):
-    keys = ["machine_%03d" % n for n in range(1, 7)]
+    keys = ["machine_%03d" % n for n in (1, 2, 5, 6)]
     loose = [stat[k] for k in ("capsule_red", "capsule_blue", "capsule_green", "capsule_mustard",
                                "capsule_gold", "claw_open", "claw_closed", "plinko_ball")]
     sheet([stat[k] for k in keys] + [anims[k + "_idle"][0][0] for k in keys],
@@ -116,7 +116,7 @@ def previews(stat, anims):
               cols=8 if frames[0].width > 80 else 10, scale=2)
     # Anchor proofs: the loose sprites placed exactly as the game places them.
     proofs = []
-    for n in range(1, 5):
+    for n in (1, 2):
         key = "machine_%03d" % n
         cx, cy = M.ANCHORS[key]["chute"]
         colour = ("red", "blue", "green", "gold")[n - 1]
@@ -206,7 +206,7 @@ def verify(stat, anims):
             problems.append("%s has partial alpha" % name)
         loaded[name] = [im.crop((i * size[0], 0, (i + 1) * size[0], size[1])) for i in range(entry["frames"])]
 
-    for n in range(1, 7):
+    for n in (1, 2, 5, 6):
         key = "machine_%03d" % n
         size = STATIC_SIZES[key]
         need = [key + "_wake", key + "_idle", key + ("_play" if n < 5 else "_react")]

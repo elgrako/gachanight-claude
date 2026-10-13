@@ -1,7 +1,7 @@
 """Entry point: rubber-hose figures and rarity bases (art-contract.md, section B).
 
 Writes
-  assets/sprites/figures/<figure_id>.png   30 figures, 40 x 40
+  assets/sprites/figures/<figure_id>.png   20 figures, 40 x 40
   assets/sprites/figures/<figure_id>_idle.png   idle loop strip, 40 x 40 frames
   assets/sprites/figures/anims.json        manifest of the idle loops (fig_<figure_id>_idle)
   assets/sprites/bases/base_<rarity>.png   five animation strips, 56 x 30 frames
@@ -154,8 +154,8 @@ def main():
     sheet(ladder, os.path.join(PREV, "rh_base_ladder.png"), cols=5, scale=2)
 
     # ------------------------------------------------------------ verification
-    if len(figs) != 30:
-        problems.append("expected 30 figures in data/figures.json, found %d" % len(figs))
+    if len(figs) != 20:
+        problems.append("expected 20 figures in data/figures.json, found %d" % len(figs))
     sil = {}
     for fig in figs:
         path = os.path.join(FIG_DIR, fig["id"] + ".png")

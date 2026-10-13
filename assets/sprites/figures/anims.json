@@ -43,116 +43,36 @@
     "file": "g002_toy_01_idle.png",
     "frame_w": 40,
     "frame_h": 40,
-    "frames": 8,
-    "fps": 6,
+    "frames": 4,
+    "fps": 7,
     "loop": true
   },
   "fig_g002_toy_02_idle": {
     "file": "g002_toy_02_idle.png",
     "frame_w": 40,
     "frame_h": 40,
-    "frames": 6,
-    "fps": 6,
+    "frames": 8,
+    "fps": 4,
     "loop": true
   },
   "fig_g002_toy_03_idle": {
     "file": "g002_toy_03_idle.png",
     "frame_w": 40,
     "frame_h": 40,
-    "frames": 4,
-    "fps": 8,
+    "frames": 6,
+    "fps": 5,
     "loop": true
   },
   "fig_g002_toy_04_idle": {
     "file": "g002_toy_04_idle.png",
     "frame_w": 40,
     "frame_h": 40,
-    "frames": 10,
-    "fps": 5,
-    "loop": true
-  },
-  "fig_g002_toy_05_idle": {
-    "file": "g002_toy_05_idle.png",
-    "frame_w": 40,
-    "frame_h": 40,
-    "frames": 6,
-    "fps": 7,
-    "loop": true
-  },
-  "fig_g003_toy_01_idle": {
-    "file": "g003_toy_01_idle.png",
-    "frame_w": 40,
-    "frame_h": 40,
-    "frames": 8,
-    "fps": 7,
-    "loop": true
-  },
-  "fig_g003_toy_02_idle": {
-    "file": "g003_toy_02_idle.png",
-    "frame_w": 40,
-    "frame_h": 40,
-    "frames": 6,
-    "fps": 4,
-    "loop": true
-  },
-  "fig_g003_toy_03_idle": {
-    "file": "g003_toy_03_idle.png",
-    "frame_w": 40,
-    "frame_h": 40,
-    "frames": 8,
-    "fps": 8,
-    "loop": true
-  },
-  "fig_g003_toy_04_idle": {
-    "file": "g003_toy_04_idle.png",
-    "frame_w": 40,
-    "frame_h": 40,
-    "frames": 10,
-    "fps": 4,
-    "loop": true
-  },
-  "fig_g003_toy_05_idle": {
-    "file": "g003_toy_05_idle.png",
-    "frame_w": 40,
-    "frame_h": 40,
-    "frames": 6,
-    "fps": 8,
-    "loop": true
-  },
-  "fig_g004_toy_01_idle": {
-    "file": "g004_toy_01_idle.png",
-    "frame_w": 40,
-    "frame_h": 40,
-    "frames": 4,
-    "fps": 7,
-    "loop": true
-  },
-  "fig_g004_toy_02_idle": {
-    "file": "g004_toy_02_idle.png",
-    "frame_w": 40,
-    "frame_h": 40,
-    "frames": 8,
-    "fps": 4,
-    "loop": true
-  },
-  "fig_g004_toy_03_idle": {
-    "file": "g004_toy_03_idle.png",
-    "frame_w": 40,
-    "frame_h": 40,
-    "frames": 6,
-    "fps": 5,
-    "loop": true
-  },
-  "fig_g004_toy_04_idle": {
-    "file": "g004_toy_04_idle.png",
-    "frame_w": 40,
-    "frame_h": 40,
     "frames": 8,
     "fps": 6,
     "loop": true
   },
-  "fig_g004_toy_05_idle": {
-    "file": "g004_toy_05_idle.png",
+  "fig_g002_toy_05_idle": {
+    "file": "g002_toy_05_idle.png",
     "frame_w": 40,
     "frame_h": 40,
     "frames": 8,

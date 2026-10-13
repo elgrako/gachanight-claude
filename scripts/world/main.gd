@@ -8,9 +8,9 @@ const Format = preload("res://scripts/core/format.gd")
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
 const ScreenGrade = preload("res://scripts/ui/screen_grade.gd")
 
-## The camera shows about 427 x 240 world pixels on the 1280 x 720 canvas: the
-## whole height of the store, from the top of the wall to the floor's ledge.
-const PIXEL_SCALE: float = 3.0
+## The camera shows 640 x 360 world pixels on the 1280 x 720 canvas: the whole
+## height of the store, from the top of the wall to the floor's ledge.
+const PIXEL_SCALE: float = 2.0
 const CAMERA_Y: float = (Store.VIEW_TOP + Store.VIEW_BOTTOM) / 2.0
 const CAMERA_FOLLOW: float = 6.0
 ## Rebirth: asleep on the sofa for a moment, fade out, wake up in the bathroom.
@@ -37,9 +37,6 @@ var _cheer_pending: bool = false
 var _party_pending: bool = false
 ## A robot was bought at the terminal: a happy wave once the terminal closes.
 var _wave_pending: bool = false
-## The view shakes by whole world pixels while this runs out.
-var _shake_left: float = 0.0
-var _shake_pixels: float = 0.0
 
 
 func _ready() -> void:
@@ -72,9 +69,6 @@ func _ready() -> void:
 	ui.quit_requested.connect(_quit)
 	ui.ending_finished.connect(_on_ending_finished)
 	ui.machine_changed.connect(_stand_at_machine)
-	store.plinko_bounced.connect(func() -> void: Audio.play("plinko", -4.0, 0.2))
-	store.machine_lit.connect(func() -> void: Audio.play("click", -10.0, 0.25))
-	store.shaken.connect(_on_store_shaken)
 	_core.coins_changed.connect(func(_coins: int) -> void: _refresh_affordable())
 	_core.figure_collection_completed.connect(func(_figure_id: String, _prestige: int) -> void: _queue_party())
 	_core.store_key_bought.connect(func() -> void:
@@ -99,10 +93,6 @@ func _ready() -> void:
 func _process(delta: float) -> void:
 	var target: Vector2 = Vector2(player.position.x, CAMERA_Y)
 	camera.position = camera.position.lerp(target, clampf(delta * CAMERA_FOLLOW, 0.0, 1.0))
-	store.view_x = camera.position.x
-	store.player_at = player.position
-	store.player_velocity = player.velocity()
-	_shake(delta)
 	if ui.is_modal_open() or _busy:
 		ui.set_prompt("")
 		return
@@ -370,23 +360,8 @@ func _throw_party() -> void:
 	_party_pending = false
 	_cheer_pending = false
 	_wave_pending = false
-	store.celebrate(player.position)
 	Audio.play("sell", -6.0, 0.3)
 	player.play_cheer()
-
-
-func _on_store_shaken(pixels: float, seconds: float) -> void:
-	_shake_pixels = pixels
-	_shake_left = seconds
-
-
-## Shakes the view by whole world pixels, so the pixel grid stays crisp.
-func _shake(delta: float) -> void:
-	if _shake_left <= 0.0:
-		camera.offset = Vector2.ZERO
-		return
-	_shake_left -= delta
-	camera.offset = Vector2(randi_range(-1, 1), randi_range(-1, 1)) * roundf(_shake_pixels)
 
 
 ## The gallery: discovery is permanent, so it survives rebirths. The rarity

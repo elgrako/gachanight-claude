@@ -1,0 +1,26 @@
+{
+  "glove_hat": [
+    10,
+    42
+  ],
+  "glove_fist": [
+    26,
+    2
+  ],
+  "shoe_kick": [
+    47,
+    15
+  ],
+  "shoe_flat": [
+    20,
+    2
+  ],
+  "glove_open": [
+    27,
+    3
+  ],
+  "glove_point": [
+    19,
+    3
+  ]
+}

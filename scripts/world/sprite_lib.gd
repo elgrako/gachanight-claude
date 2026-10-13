@@ -5,23 +5,30 @@ extends RefCounted
 const SPRITE_DIR: String = "res://assets/sprites/"
 ## Folders (under assets/sprites) that carry an `anims.json`; sheet paths in a
 ## manifest are relative to its own folder. Animation names are global.
-const ANIM_FOLDERS: Array = ["anim", "machines", "bases", "ambient", "figures"]
+const ANIM_FOLDERS: Array = ["anim", "machines", "bases", "figures", "peseta"]
 const MANIFEST_FILE: String = "anims.json"
 
-## Every texture is drawn with this many sprite pixels per world pixel, for
-## finer detail, and shown at 1 / ART_SCALE. World coordinates, layout and
-## collisions therefore never depend on the art's resolution: sizes passed to
-## the helpers below are WORLD sizes unless a name or comment says otherwise.
+## Redrawn textures have this many sprite pixels per world pixel, for finer
+## detail, and are shown at 1 / ART_SCALE; art still waiting to be redrawn is
+## authored at world size and shown as it is (see `density`). World
+## coordinates, layout and collisions therefore never depend on the art's
+## resolution: sizes passed to the helpers below are WORLD sizes unless a name
+## or comment says otherwise.
 const ART_SCALE: float = 1.5
 ## Scale of every node that shows a texture in the world.
 const DRAW_SCALE: Vector2 = Vector2(1.0 / ART_SCALE, 1.0 / ART_SCALE)
 
-## In SPRITE pixels (divide by ART_SCALE for world pixels): a figure is 60 x 60
-## with its feet on the bottom row; it stands with its bottom centre on
-## BASE_STAND of the 84 x 45 base frame of its rarity.
+## In SPRITE pixels of art drawn at ART_SCALE: a figure is 60 x 60 with its
+## feet on the bottom row; it stands with its bottom centre on BASE_STAND of
+## the 84 x 45 base frame of its rarity.
 const FIGURE_SIZE: Vector2i = Vector2i(60, 60)
 const BASE_SIZE: Vector2i = Vector2i(84, 45)
 const BASE_STAND: Vector2i = Vector2i(42, 18)
+## The same in WORLD pixels, which is also the size of the art that has not
+## been redrawn at ART_SCALE yet (see `density`).
+const FIGURE_WORLD: Vector2i = Vector2i(40, 40)
+const BASE_WORLD: Vector2i = Vector2i(56, 30)
+const BASE_STAND_WORLD: Vector2i = Vector2i(28, 12)
 ## Fallback colours of the bases, as in data/rarities.json, used only while
 ## the base art is missing.
 const BASE_COLORS: Dictionary = {
@@ -42,6 +49,20 @@ const Z_EFFECT: int = 900
 static var _manifest: Dictionary = {}
 static var _manifest_loaded: bool = false
 static var _placeholders: Dictionary = {}
+
+
+## Sprite pixels per world pixel of a picture `texture_pixels` wide that covers
+## `world_pixels` of the world: ART_SCALE for the redrawn art, 1 for the older
+## art that is still authored at world size. Both kinds keep their world size.
+static func density(texture_pixels: float, world_pixels: float) -> float:
+	return ART_SCALE if texture_pixels >= world_pixels * (1.0 + ART_SCALE) / 2.0 else 1.0
+
+
+## Scale of a node showing a picture of `texture_size` sprite pixels that
+## covers `world` pixels of the world.
+static func draw_scale(texture_size: Vector2, world: Vector2i) -> Vector2:
+	var pixels: float = density(texture_size.x, world.x)
+	return Vector2(1.0 / pixels, 1.0 / pixels)
 
 
 ## Sprite pixels a picture needs to cover `world` pixels of the world.
@@ -89,8 +110,8 @@ static func has_texture(path: String) -> bool:
 static func standing(path: String, fallback_size: Vector2i, fallback_color: Color = Color("#ef7a6d")) -> Sprite2D:
 	var sprite: Sprite2D = Sprite2D.new()
 	sprite.centered = false
-	sprite.scale = DRAW_SCALE
 	set_standing_texture(sprite, texture(path, fallback_size, fallback_color))
+	sprite.scale = draw_scale(sprite.texture.get_size(), fallback_size)
 	return sprite
 
 
@@ -101,34 +122,16 @@ static func set_standing_texture(sprite: Sprite2D, new_texture: Texture2D) -> vo
 	sprite.offset = Vector2(-floorf(new_texture.get_width() / 2.0), -new_texture.get_height())
 
 
-## A sprite whose origin is the top centre of its picture (things that hang).
-static func hanging(path: String, fallback_size: Vector2i, fallback_color: Color = Color("#ef7a6d")) -> Sprite2D:
-	var sprite: Sprite2D = Sprite2D.new()
-	sprite.texture = texture(path, fallback_size, fallback_color)
-	sprite.centered = false
-	sprite.scale = DRAW_SCALE
-	sprite.offset = Vector2(-floorf(sprite.texture.get_width() / 2.0), 0.0)
-	return sprite
-
-
-## A sprite centred on its origin (capsules, balls), or hanging from its top
-## centre: for the small parts a machine moves by hand.
-static func part(path: String, fallback_size: Vector2i, fallback_color: Color) -> Sprite2D:
-	var sprite: Sprite2D = Sprite2D.new()
-	sprite.texture = texture(path, fallback_size, fallback_color)
-	sprite.scale = DRAW_SCALE
-	return sprite
-
-
 ## A rectangle of the world filled with a repeated tile. The control is made
-## ART_SCALE times larger and scaled back, so the tile keeps its world size.
+## as many times larger as the tile is finer than the world and scaled back,
+## so the tile keeps its world size.
 static func tiled(path: String, area: Rect2, fallback_size: Vector2i, fallback_color: Color) -> TextureRect:
 	var rect: TextureRect = TextureRect.new()
 	rect.texture = texture(path, fallback_size, fallback_color)
 	rect.stretch_mode = TextureRect.STRETCH_TILE
 	rect.position = area.position
-	rect.size = area.size * ART_SCALE
-	rect.scale = DRAW_SCALE
+	rect.scale = draw_scale(rect.texture.get_size(), fallback_size)
+	rect.size = area.size / rect.scale
 	rect.mouse_filter = Control.MOUSE_FILTER_IGNORE
 	return rect
 
@@ -238,8 +241,8 @@ static func animated(anim_names: Array, fallback_size: Vector2i, fallback_color:
 	var sprite: AnimatedSprite2D = AnimatedSprite2D.new()
 	sprite.sprite_frames = frames(anim_names, fallback_size, fallback_color, fallback_texture)
 	sprite.centered = false
-	sprite.scale = DRAW_SCALE
 	var first: Texture2D = sprite.sprite_frames.get_frame_texture(anim_names[0], 0)
+	sprite.scale = draw_scale(first.get_size(), fallback_size)
 	sprite.offset = Vector2(-floorf(first.get_width() / 2.0), -first.get_height())
 	sprite.animation = anim_names[0]
 	return sprite
@@ -253,13 +256,13 @@ static func figure_idle_name(figure_id: String) -> String:
 ## True when the figure's idle loop is drawn, imported and of the figure size.
 static func has_figure_idle(figure_id: String) -> bool:
 	var anim_name: String = figure_idle_name(figure_id)
-	return has_animation(anim_name) and frame_size(anim_name, Vector2i.ZERO) == FIGURE_SIZE
+	return has_animation(anim_name) and frame_size(anim_name, Vector2i.ZERO) in [FIGURE_SIZE, FIGURE_WORLD]
 
 
 ## Frames of a figure: FIGURE_STILL (one frame, the static sprite) and
 ## FIGURE_IDLE (its loop, or the static sprite again when there is none).
 static func figure_frames(figure_id: String, fallback_color: Color = Color("#ef7a6d")) -> SpriteFrames:
-	var figure_world: Vector2i = world_size(FIGURE_SIZE)
+	var figure_world: Vector2i = FIGURE_WORLD
 	var still: Texture2D = texture("figures/%s" % figure_id, figure_world, fallback_color)
 	var anim_name: String = figure_idle_name(figure_id)
 	# An unknown name makes `frames` fall back to the still picture.
@@ -276,21 +279,22 @@ static func figure_sprite(figure_id: String) -> AnimatedSprite2D:
 	var sprite: AnimatedSprite2D = AnimatedSprite2D.new()
 	sprite.sprite_frames = figure_frames(figure_id)
 	sprite.centered = false
-	sprite.scale = DRAW_SCALE
-	sprite.offset = Vector2(-floorf(FIGURE_SIZE.x / 2.0), -FIGURE_SIZE.y)
+	var still: Texture2D = sprite.sprite_frames.get_frame_texture(FIGURE_STILL, 0)
+	sprite.scale = draw_scale(still.get_size(), FIGURE_WORLD)
+	sprite.offset = Vector2(-floorf(still.get_width() / 2.0), -still.get_height())
 	sprite.animation = FIGURE_STILL
 	return sprite
 
 
 ## The looping base of a rarity, origin at the top-left corner of its frame.
-## Without art it is a flat slab of the rarity colour, still BASE_SIZE. Shown
-## at world size; the UI and the gallery set their own scale.
+## Without art it is a flat slab of the rarity colour. Its scale shows it at
+## world size (BASE_WORLD); the UI and the gallery multiply that by their own.
 static func base_sprite(rarity_id: String) -> AnimatedSprite2D:
 	var anim_name: String = "base_%s" % rarity_id
 	var sprite: AnimatedSprite2D = AnimatedSprite2D.new()
-	sprite.sprite_frames = frames([anim_name], world_size(BASE_SIZE), BASE_COLORS.get(rarity_id, Color.GRAY))
+	sprite.sprite_frames = frames([anim_name], BASE_WORLD, BASE_COLORS.get(rarity_id, Color.GRAY))
 	sprite.centered = false
-	sprite.scale = DRAW_SCALE
+	sprite.scale = draw_scale(sprite.sprite_frames.get_frame_texture(anim_name, 0).get_size(), BASE_WORLD)
 	sprite.animation = anim_name
 	sprite.play(anim_name)
 	return sprite
@@ -317,7 +321,7 @@ static func burst(parent: Node, anim_name: String, at: Vector2, fallback_size: V
 	sprite.sprite_frames = frames([anim_name], fallback_size, Color(1, 1, 1, 0.6))
 	sprite.sprite_frames.set_animation_loop(anim_name, false)
 	sprite.position = at
-	sprite.scale = DRAW_SCALE
+	sprite.scale = draw_scale(sprite.sprite_frames.get_frame_texture(anim_name, 0).get_size(), fallback_size)
 	sprite.modulate = tint
 	sprite.z_as_relative = false
 	sprite.z_index = Z_EFFECT

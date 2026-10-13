@@ -7,9 +7,9 @@ extends Control
 
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
 const SILHOUETTE: Color = Color(0.07, 0.08, 0.12)
-## A silhouette stands this many sprite pixels above the bottom of the base
+## A silhouette stands this many world pixels above the bottom of the base
 ## frame it does not show.
-const SILHOUETTE_FOOT: int = 6
+const SILHOUETTE_FOOT: int = 4
 
 var look: Dictionary = {}
 var silhouette: bool = false
@@ -26,6 +26,8 @@ var _idle_fps: float = 8.0
 var _time: float = 0.0
 var _frame: int = 0
 var _rarity_id: String = ""
+## Scale that shows the base at one screen pixel per world pixel.
+var _base_scale: Vector2 = Sprites.DRAW_SCALE
 
 
 func _ready() -> void:
@@ -69,6 +71,7 @@ func show_figure(figure_id: String, p_look: Dictionary, p_silhouette: bool, rari
 			base = null
 		if wanted != "":
 			base = Sprites.base_sprite(wanted)
+			_base_scale = base.scale
 			# The figure, drawn by this control, stands in front of its base.
 			base.show_behind_parent = true
 			add_child(base)
@@ -76,18 +79,23 @@ func show_figure(figure_id: String, p_look: Dictionary, p_silhouette: bool, rari
 	queue_redraw()
 
 
-## Figure plus base, in sprite pixels: the figure's feet stand on BASE_STAND.
+## Figure plus base, in world pixels: the figure's feet stand on the base's
+## stand point.
 func _stack_size() -> Vector2:
-	return Vector2(Sprites.BASE_SIZE.x, Sprites.FIGURE_SIZE.y + Sprites.BASE_SIZE.y - Sprites.BASE_STAND.y)
+	return Vector2(Sprites.BASE_WORLD.x, Sprites.FIGURE_WORLD.y + Sprites.BASE_WORLD.y - Sprites.BASE_STAND_WORLD.y)
 
 
-## Screen pixels per sprite pixel. The stack fills the control by a whole
-## number of pixels per WORLD pixel, as it did before the art grew finer, so
-## it keeps its size on screen; one sprite pixel is then 1 / ART_SCALE of
-## that, which is a whole number of real pixels on a 1080p screen.
+## Screen pixels per WORLD pixel: the stack fills the control by a whole
+## number of them. Each picture is then drawn at this times its own world
+## scale, so art of either resolution keeps the same size on screen.
 func _pixel_size() -> float:
-	var stack: Vector2 = _stack_size() / Sprites.ART_SCALE
-	return maxf(floorf(minf(size.x / stack.x, size.y / stack.y)), 1.0) / Sprites.ART_SCALE
+	var stack: Vector2 = _stack_size()
+	return maxf(floorf(minf(size.x / stack.x, size.y / stack.y)), 1.0)
+
+
+## Screen size of the figure's picture at `pixel` screen pixels per world pixel.
+func _picture_size(pixel: float) -> Vector2:
+	return Vector2(_texture.get_size()) * Sprites.draw_scale(_texture.get_size(), Sprites.FIGURE_WORLD) * pixel
 
 
 ## Top-left corner of the base frame on this control.
@@ -95,7 +103,7 @@ func _base_origin() -> Vector2:
 	var pixel: float = _pixel_size()
 	var stack: Vector2 = _stack_size() * pixel
 	var corner: Vector2 = ((size - stack) / 2.0).floor()
-	return corner + Vector2(0.0, stack.y - Sprites.BASE_SIZE.y * pixel)
+	return corner + Vector2(0.0, stack.y - Sprites.BASE_WORLD.y * pixel)
 
 
 func _layout_base() -> void:
@@ -103,18 +111,18 @@ func _layout_base() -> void:
 		return
 	var pixel: float = _pixel_size()
 	base.position = _base_origin()
-	base.scale = Vector2(pixel, pixel)
+	base.scale = _base_scale * pixel
 
 
 func _draw() -> void:
 	if _texture == null:
 		return
 	var pixel: float = _pixel_size()
-	var picture: Vector2 = Vector2(_texture.get_size()) * pixel
+	var picture: Vector2 = _picture_size(pixel)
 	var origin: Vector2 = _base_origin()
 	# A discovered figure has its feet on the base; a silhouette stands where
 	# the base's own foot would be.
-	var feet: Vector2 = origin + Vector2(Sprites.BASE_STAND.x, Sprites.BASE_STAND.y if base != null else Sprites.BASE_SIZE.y - SILHOUETTE_FOOT) * pixel
+	var feet: Vector2 = origin + Vector2(Sprites.BASE_STAND_WORLD.x, Sprites.BASE_STAND_WORLD.y if base != null else Sprites.BASE_WORLD.y - SILHOUETTE_FOOT) * pixel
 	# Multiplying by a near-black colour keeps the alpha, which is the outline.
 	var shown: Texture2D = _frames.get_frame_texture(Sprites.FIGURE_IDLE, _frame) if animated else _texture
 	draw_texture_rect(shown, Rect2((feet - Vector2(picture.x / 2.0, picture.y)).floor(), picture), false, SILHOUETTE if silhouette else Color.WHITE)

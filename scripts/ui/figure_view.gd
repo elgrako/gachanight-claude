@@ -36,6 +36,10 @@ var _time: float = 0.0
 var _burst: AnimatedSprite2D
 var _capsule: AnimatedSprite2D
 var _capsule_anim: String = ""
+## Scale that shows each picture at one screen pixel per world pixel.
+var _capsule_scale: Vector2 = Sprites.DRAW_SCALE
+var _burst_scale: Vector2 = Sprites.DRAW_SCALE
+var _base_scale: Vector2 = Sprites.DRAW_SCALE
 var _rarity_id: String = ""
 ## True while the capsule is still closed: figure and base are not drawn yet.
 var _hidden: bool = false
@@ -49,6 +53,7 @@ func _ready() -> void:
 		_burst = AnimatedSprite2D.new()
 		_burst.sprite_frames = Sprites.frames(["rarity_burst"], BURST_SIZE)
 		_burst.sprite_frames.set_animation_loop("rarity_burst", false)
+		_burst_scale = Sprites.draw_scale(_burst.sprite_frames.get_frame_texture("rarity_burst", 0).get_size(), BURST_SIZE)
 		_burst.visible = false
 		# The burst opens behind the toy, not across its face.
 		_burst.show_behind_parent = true
@@ -71,18 +76,23 @@ func _process(delta: float) -> void:
 		queue_redraw()
 
 
-## Figure plus base, in sprite pixels: the figure's feet stand on BASE_STAND.
+## Figure plus base, in world pixels: the figure's feet stand on the base's
+## stand point.
 func _stack_size() -> Vector2:
-	return Vector2(Sprites.BASE_SIZE.x, Sprites.FIGURE_SIZE.y + Sprites.BASE_SIZE.y - Sprites.BASE_STAND.y)
+	return Vector2(Sprites.BASE_WORLD.x, Sprites.FIGURE_WORLD.y + Sprites.BASE_WORLD.y - Sprites.BASE_STAND_WORLD.y)
 
 
-## Screen pixels per sprite pixel. The stack fills the control by a whole
-## number of pixels per WORLD pixel, as it did before the art grew finer, so
-## it keeps its size on screen; one sprite pixel is then 1 / ART_SCALE of
-## that, which is a whole number of real pixels on a 1080p screen.
+## Screen pixels per WORLD pixel: the stack fills the control by a whole
+## number of them. Each picture is then drawn at this times its own world
+## scale, so art of either resolution keeps the same size on screen.
 func _pixel_size() -> float:
-	var stack: Vector2 = _stack_size() / Sprites.ART_SCALE
-	return maxf(floorf(minf(size.x / stack.x, size.y / stack.y)), 1.0) / Sprites.ART_SCALE
+	var stack: Vector2 = _stack_size()
+	return maxf(floorf(minf(size.x / stack.x, size.y / stack.y)), 1.0)
+
+
+## Screen size of the figure's picture at `pixel` screen pixels per world pixel.
+func _picture_size(pixel: float) -> Vector2:
+	return Vector2(_texture.get_size()) * Sprites.draw_scale(_texture.get_size(), Sprites.FIGURE_WORLD) * pixel
 
 
 ## Top-left corner of the base frame on this control.
@@ -90,27 +100,26 @@ func _base_origin() -> Vector2:
 	var pixel: float = _pixel_size()
 	var stack: Vector2 = _stack_size() * pixel
 	var corner: Vector2 = ((size - stack) / 2.0).floor()
-	return corner + Vector2(0.0, stack.y - Sprites.BASE_SIZE.y * pixel)
+	return corner + Vector2(0.0, stack.y - Sprites.BASE_WORLD.y * pixel)
 
 
 ## Where the figure's feet touch the base.
 func _feet() -> Vector2:
-	return _base_origin() + Vector2(Sprites.BASE_STAND) * _pixel_size()
+	return _base_origin() + Vector2(Sprites.BASE_STAND_WORLD) * _pixel_size()
 
 
 ## Keeps the effects on the figure and at its pixel size, whatever the layout did.
 func _layout_effects() -> void:
 	var pixel: float = _pixel_size()
-	var centre: Vector2 = _feet() - Vector2(0.0, Sprites.FIGURE_SIZE.y * pixel / 2.0)
+	var centre: Vector2 = _feet() - Vector2(0.0, Sprites.FIGURE_WORLD.y * pixel / 2.0)
 	_capsule.position = centre
-	_capsule.scale = Vector2(pixel, pixel)
+	_capsule.scale = _capsule_scale * pixel
 	if _burst != null:
 		_burst.position = centre
-		var burst_pixel: float = maxf(floorf(pixel * Sprites.ART_SCALE * BURST_SCALE), 1.0) / Sprites.ART_SCALE
-		_burst.scale = Vector2(burst_pixel, burst_pixel)
+		_burst.scale = _burst_scale * maxf(floorf(pixel * BURST_SCALE), 1.0)
 	if base != null:
 		base.position = _base_origin()
-		base.scale = Vector2(pixel, pixel)
+		base.scale = _base_scale * pixel
 		base.visible = not _hidden
 
 
@@ -150,6 +159,7 @@ func _set_base(rarity_id: String) -> void:
 	if rarity_id == "":
 		return
 	base = Sprites.base_sprite(rarity_id)
+	_base_scale = base.scale
 	# Behind the figure this control draws, in front of the burst.
 	base.show_behind_parent = true
 	add_child(base)
@@ -172,6 +182,7 @@ func _start_capsule(anim: String) -> void:
 		_capsule_anim = anim
 		_capsule.sprite_frames = Sprites.frames([anim], CAPSULE_SIZE)
 		_capsule.sprite_frames.set_animation_loop(anim, false)
+		_capsule_scale = Sprites.draw_scale(_capsule.sprite_frames.get_frame_texture(anim, 0).get_size(), CAPSULE_SIZE)
 	_hidden = true
 	_layout_effects()
 	_capsule.visible = true
@@ -210,12 +221,12 @@ func _draw() -> void:
 	if _texture == null or _hidden:
 		return
 	var pixel: float = _pixel_size()
-	var picture: Vector2 = Vector2(_texture.get_size()) * pixel
+	var picture: Vector2 = _picture_size(pixel)
 	var feet: Vector2 = _feet()
 	var step: int = int(_pop_time / POP_STEP)
 	if step < POP_STEPS.size():
 		# Popping out of the capsule: small, a little too big, then settled.
-		var popped: Vector2 = Vector2(_texture.get_size()) * maxf(pixel + POP_STEPS[step] / Sprites.ART_SCALE, 1.0 / Sprites.ART_SCALE)
+		var popped: Vector2 = _picture_size(maxf(pixel + POP_STEPS[step], 1.0))
 		draw_texture_rect(_texture, Rect2((feet - Vector2(popped.x / 2.0, popped.y)).floor(), popped), false)
 		return
 	if animated:
@@ -224,5 +235,5 @@ func _draw() -> void:
 		draw_texture_rect(_frames.get_frame_texture(Sprites.FIGURE_IDLE, frame), Rect2((feet - Vector2(picture.x / 2.0, picture.y)).floor(), picture), false)
 		return
 	# No loop drawn: a springy little hop on the base, by whole world pixels.
-	var lift: float = maxf(roundf(sin(_time * BOB_SPEED) * BOB_PIXELS), 0.0) * pixel * Sprites.ART_SCALE
+	var lift: float = maxf(roundf(sin(_time * BOB_SPEED) * BOB_PIXELS), 0.0) * pixel
 	draw_texture_rect(_texture, Rect2((feet - Vector2(picture.x / 2.0, picture.y + lift)).floor(), picture), false)

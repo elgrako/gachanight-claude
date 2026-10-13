@@ -1,7 +1,7 @@
 """Machines of GachaNight in the old-cartoon sepia look (art contract v3).
 
 Six rubber-hose machine characters after the owner's reference drawings in
-`diseños/`: four gumball-style capsule machines (001-004, 72 x 126), the crane
+`diseños/`: two gumball-style capsule machines (001-002, 72 x 126), the crane
 catcher with its top hat (005, 108 x 156) and the waving plinko (006,
 108 x 156), plus the loose sprites the game moves itself (capsules, claw,
 plinko ball).
@@ -37,8 +37,6 @@ CAB = (108, 156)
 ANCHORS = {
     "machine_001": {"chute": [44, 104]},
     "machine_002": {"chute": [44, 104]},
-    "machine_003": {"chute": [44, 104]},
-    "machine_004": {"chute": [44, 104]},
     "machine_005": {"chute": [29, 137], "claw_rail_y": 57, "claw_min_x": 26, "claw_max_x": 65,
                     "claw_rest_x": 28, "grab_y": 68, "drop_x": 65, "drop_y": 97},
     "machine_006": {"chute": [58, 141], "ball_start": [58, 60], "rows": 6, "row_step": 8,
@@ -263,19 +261,13 @@ def mini_capsule(d, cx, cy, ramp, ang, on=True):
     d.point((hx, hy), fill=PAPER[4] if on else tone(ramp, 3, on))
 
 
-# ------------------------------------------------- capsule machines 001-004
+# ------------------------------------------------- capsule machines 001-002
 
 GUMBALLS = {
     1: {"body": BRASS, "trim": BRASS, "plate": GREY, "cap": "dish", "shape": "flare",
         "edges": (19, 53, 9, 62), "seed": 11,
         "stickers": [("rocket", 18, 75), ("planet", 16, 87), ("mushroom", 14, 98), ("tag", 20, 108)]},
-    2: {"body": COPPER, "trim": COPPER, "plate": BRASS, "cap": "dome", "shape": "bell",
-        "edges": (20, 52, 8, 63), "seed": 23, "patina": True,
-        "stickers": [("fish", 17, 78), ("moon", 16, 88), ("heart", 14, 101)]},
-    3: {"body": IRON, "trim": GOLD, "plate": BRASS, "cap": "flat", "shape": "barrel",
-        "edges": (18, 54, 10, 61), "seed": 37, "pinstripe": True,
-        "stickers": [("star", 17, 78), ("eye", 17, 91), ("bolt", 15, 99)]},
-    4: {"body": BLUE, "trim": CHROME, "plate": GREY, "cap": "cone", "shape": "step",
+    2: {"body": BLUE, "trim": CHROME, "plate": GREY, "cap": "cone", "shape": "step",
         "edges": (20, 52, 9, 62), "seed": 51, "enamel": True,
         "stickers": [("heart", 19, 77), ("planet", 16, 88), ("star", 14, 100)]},
 }
@@ -1429,7 +1421,7 @@ def _frames(draw, poses):
 def stills():
     """name -> image, powered off (and the loose sprites)."""
     out = {}
-    for n in range(1, 5):
+    for n in sorted(GUMBALLS):
         out["machine_%03d" % n] = gumball(n, G_OFF)
     out["machine_005"] = crane(C_OFF)
     out["machine_006"] = plinko(P_OFF)
@@ -1444,7 +1436,7 @@ def stills():
 def animations():
     """name -> (frames, fps, loop)."""
     out = {}
-    for n in range(1, 5):
+    for n in sorted(GUMBALLS):
         def draw(pose, n=n):
             return gumball(n, pose)
         key = "machine_%03d_" % n

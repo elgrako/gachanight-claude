@@ -36,11 +36,9 @@ BONUSES = [
 # id, type, display name, series name, price, unlocks prestige, sale factor or explicit sales
 MACHINES = [
     ("machine_001", "gacha", "Capsule Machine No. 1", "Pocket Pals", 1, False, [1, 2, 4, 8, 16]),
-    ("machine_002", "gacha", "Capsule Machine No. 2", "Festival Friends", 50, True, 1.0),
-    ("machine_003", "gacha", "Capsule Machine No. 3", "Snack Squad", 3000, False, 0.76),
-    ("machine_004", "gacha", "Capsule Machine No. 4", "Space Patrol", 250000, False, 0.42),
-    ("machine_005", "claw", "Crane Catcher", "Plush Parade", 25000000, False, 0.25),
-    ("machine_006", "plinko", "Lucky Plinko", "Fortune Parade", 3000000000, False, 0.15),
+    ("machine_002", "gacha", "Capsule Machine No. 2", "Space Patrol", 50, True, 1.0),
+    ("machine_005", "claw", "Crane Catcher", "Plush Parade", 3000, False, 0.76),
+    ("machine_006", "plinko", "Lucky Plinko", "Fortune Parade", 250000, False, 0.42),
 ]
 
 # name, body, ears, extra, color, accent  (one row per rarity, common first)
@@ -53,20 +51,6 @@ FIGURES = {
         ("Golden Daruma", "wide", "none", "crown", "#e3b44c", "#c9412f"),
     ],
     "machine_002": [
-        ("Ramune Bear", "tall", "round", "belly", "#6fb1d6", "#f4ecd8"),
-        ("Kite Fox", "tall", "pointy", "tail", "#ef7a6d", "#f4ecd8"),
-        ("Drum Tanuki", "wide", "pointy", "drum", "#b98a5e", "#f4ecd8"),
-        ("Comet Owl", "square", "pointy", "wings", "#8a7fd1", "#f2b84b"),
-        ("Star Kaiju", "tall", "antenna", "spikes", "#4f9ea3", "#e3b44c"),
-    ],
-    "machine_003": [
-        ("Mochi Seal", "wide", "none", "tail", "#f4ecd8", "#f1a7b5"),
-        ("Dango Chick", "round", "none", "beak", "#f6d86b", "#ef7a6d"),
-        ("Taiyaki Fish", "wide", "none", "wings", "#d9a05b", "#8a5a34"),
-        ("Melon Turtle", "round", "round", "shell", "#b7d77a", "#e7efb0"),
-        ("Royal Pudding", "pear", "none", "crown", "#f2c96a", "#8a5a34"),
-    ],
-    "machine_004": [
         ("Rocket Pup", "tall", "round", "wings", "#e9e4d8", "#ef7a6d"),
         ("Saturn Snail", "wide", "antenna", "shell", "#c9b6e6", "#f2b84b"),
         ("Astro Monkey", "round", "round", "tail", "#b98a5e", "#6fb1d6"),
@@ -93,8 +77,6 @@ FIGURES = {
 LOOK_EXTRAS = {
     "Nap Frog": {"eyes": "sleepy"},
     "Golden Daruma": {"extras": ["mask"], "limbs": "none"},
-    "Comet Owl": {"extras": ["beak"]},
-    "Dango Chick": {"body": "pear"},
     "Rocket Pup": {"wing_style": "jet"},
     "Sleepy Panda": {"eyes": "sleepy"},
     "Cloud Sheep": {"pattern": "fluff"},

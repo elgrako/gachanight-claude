@@ -24,8 +24,8 @@ const GLASS: Color = Color("#b9c2b4")
 const STEEL: Color = Color("#8b8676")
 const DARK_STEEL: Color = Color("#4a4338")
 const BODY_COLORS: Dictionary = {
-	"machine_001": Color("#b08a3e"), "machine_002": Color("#6f7d4f"), "machine_003": Color("#5e554a"),
-	"machine_004": Color("#5f7384"), "machine_005": Color("#6e2f2a"), "machine_006": Color("#7d8f8c"),
+	"machine_001": Color("#b08a3e"), "machine_002": Color("#5f7384"),
+	"machine_005": Color("#6e2f2a"), "machine_006": Color("#7d8f8c"),
 }
 const BALL_COLORS: Array = [Color("#9c3b2e"), Color("#5f7384"), Color("#c9a24a"), Color("#6f7d4f"), Color("#efe3c4"), Color("#b9807a")]
 const CAPSULE_COLORS: Dictionary = {

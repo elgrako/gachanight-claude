@@ -7,8 +7,8 @@ extends SceneTree
 const SAVE_PATH: String = "user://test_smoke.json"
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
 const FigureIcon = preload("res://scripts/ui/figure_icon.gd")
-## Ambient animations that code moves about instead of the placement table.
-const AMBIENT_MOVERS: Array = ["amb_moth", "amb_mouse_run", "amb_windup_toy", "amb_capsule_roll", "amb_toy_train", "amb_dust_motes"]
+
+
 
 var _checks: int = 0
 var _failures: Array = []
@@ -59,7 +59,7 @@ func _run() -> void:
 	var ui: CanvasLayer = main.ui
 	check(main.player != null and store != null and ui != null, "scene built")
 	check(main.player.global_position.distance_to(store.SPAWN) < 2.0, "player starts in the bathroom")
-	check(is_equal_approx(main.camera.zoom.x, 3.0), "the camera shows the world at three screen pixels per pixel")
+	check(is_equal_approx(main.camera.zoom.x, 2.0), "the camera shows the world at two screen pixels per pixel")
 	var view_height: float = 720.0 / main.camera.zoom.y
 	check(main.camera.position.y - view_height / 2.0 <= store.VIEW_TOP + 0.5 and main.camera.position.y + view_height / 2.0 >= store.VIEW_BOTTOM - 0.5, "wall top and floor ledge both fit in the view")
 	await frames(20)
@@ -106,7 +106,7 @@ func _run() -> void:
 	Input.action_release("move_forward")
 	await frames(3)
 	check(absf(main.player.global_position.y - area.position.y) < 0.01, "W walks away until the back wall stops the player")
-	_go(main, Vector2(area.end.x - 4.0, 60.0))
+	_go(main, Vector2(area.end.x - 4.0, area.end.y - 60.0))
 	Input.action_press("move_right")
 	Input.action_press("move_back")
 	await create_timer(3.4).timeout
@@ -121,8 +121,6 @@ func _run() -> void:
 		var built: Dictionary = store.machines[machine_id]
 		var picture: Vector2 = Vector2(built["off"].texture.get_size())
 		check((picture * built["off"].scale).is_equal_approx(picture / Sprites.ART_SCALE) and built["anim"].scale.is_equal_approx(built["off"].scale), "%s is shown at its texture size divided by the art scale" % machine_id)
-		var canvas: Vector2 = Vector2(built["canvas"])
-		check(Rect2(-canvas.x / 2.0, -canvas.y, canvas.x, canvas.y).has_point(built["chute"]), "%s: the capsule rests inside the machine's world rectangle" % machine_id)
 	var grade: CanvasLayer = main.get_node_or_null("ScreenGrade")
 	check(grade != null and grade.get_child_count() > 0, "the film grade layer exists")
 	var grade_passes_mouse: bool = grade != null
@@ -160,8 +158,8 @@ func _run() -> void:
 	check(_gallery_bases(store) == 0, "undiscovered figures stand without a base")
 	check(store.gallery[core.data.figure_order[0]]["figure"].modulate == store.SILHOUETTE, "undiscovered figures are dark silhouettes")
 	check(_silhouettes_still(store, core), "undiscovered figures show their still picture, not a loop")
-	check(_gallery_fits(store, core.data.figure_order.size()) == "", "every gallery spot is whole, inside the wall and clear of the lamps: %s" % _gallery_fits(store, core.data.figure_order.size()))
-	check(store.ambient.placed.size() >= 5 and store.ambient.placed.size() <= 14, "the compact store keeps only a handful of ambient animations")
+	check(_gallery_fits(store, core.data.figure_order.size()) == "", "every gallery spot is whole, and inside the wall: %s" % _gallery_fits(store, core.data.figure_order.size()))
+
 	check(store.STORE_WIDTH <= 1280.0, "the whole store is under three screens wide")
 	_go(main, Vector2(740.0, 60.0))
 	await shot("01b_gallery_dark")
@@ -316,7 +314,7 @@ func _run() -> void:
 	ui.prize_panel.sell_button.pressed.emit()
 	ui.close_machine()
 	check(store.machines["machine_001"]["affordable"] and store.machines["machine_001"]["price"].affordable, "a machine the player can pay for lights its price sign")
-	check(not store.machines["machine_004"]["affordable"] and not store.machines["machine_004"]["price"].affordable, "a machine that costs too much keeps its sign dull")
+	check(not store.machines["machine_006"]["affordable"] and not store.machines["machine_006"]["price"].affordable, "a machine that costs too much keeps its sign dull")
 	store.reception.interact()
 	check(ui.open_modal_name() == "reception", "the sales terminal opens")
 	ui.reception_panel.buy_buttons["price_tag_gun"].pressed.emit()
@@ -351,7 +349,6 @@ func _run() -> void:
 	check(main.player.is_sleeping(), "the player can lie down on the sofa")
 	await shot("19_sofa_sleep")
 	_go(main, Vector2(390.0, 60.0))
-	store.celebrate(main.player.position)
 	await create_timer(0.5).timeout
 	await shot("20_celebration")
 	await create_timer(1.6).timeout
@@ -375,7 +372,7 @@ func _run() -> void:
 	check(ui.open_modal_name() == "prize", "plinko hands over a prize")
 	ui.prize_panel.sell_button.pressed.emit()
 	ui.close_machine()
-	for machine_id in ["machine_002", "machine_003", "machine_004"]:
+	for machine_id in ["machine_002"]:
 		core.run.coins = core.machine_price(machine_id) * 3
 		var played: Dictionary = core.play_machine(machine_id)
 		core.resolve_prize(played["prize"]["transaction_id"], "sell")
@@ -431,7 +428,7 @@ func _silhouettes_still(store: Node2D, core: RefCounted) -> bool:
 
 ## "" when every gallery spot can hold a figure on its base (58 px tall, 56 px
 ## wide) under the cornice, inside the room, without touching a neighbour, the
-## other row or a lamp; else what is wrong.
+## other row; else what is wrong.
 func _gallery_fits(store: Node2D, count: int) -> String:
 	var room: Vector2 = store.room_range("gallery")
 	# Miniatures: neighbouring bases may touch, the figures themselves may not.
@@ -447,27 +444,12 @@ func _gallery_fits(store: Node2D, count: int) -> String:
 		for other in rects:
 			if rect.intersects(other):
 				return "spot %d overlaps another" % index
-		for lamp in store.lamp_points():
-			if absf(lamp.x - foot.x) < (stack.x + store.LAMP_SIZE.x) / 2.0:
-				return "spot %d is under a lamp" % index
 		rects.append(rect)
 	return ""
 
 
-## Ambient animations of the manifest that are nowhere in the store.
-func _unplaced_ambient(store: Node2D) -> Array:
-	var shown: Dictionary = {}
-	for item in store.ambient.placed:
-		shown[item["anim"]] = true
-	var missing: Array = []
-	for anim_name in Sprites.manifest():
-		if str(anim_name).begins_with("amb_") and Sprites.has_animation(anim_name) and not shown.has(anim_name) and not AMBIENT_MOVERS.has(anim_name):
-			missing.append(anim_name)
-	return missing
-
-
-## "" when every machine has a price sign with its amount on the wall, under
-## the cornice, and never under the HUD with the camera on that machine.
+## "" when every machine has its price with its amount on the floor in front
+## of it, and never under the HUD with the camera on that machine.
 func _price_signs_ok(main: Node) -> String:
 	var store: Node2D = main.store
 	for machine_id in store.machines:
@@ -475,8 +457,8 @@ func _price_signs_ok(main: Node) -> String:
 		if not price.visible or price.text == "":
 			return "%s has no price" % machine_id
 		var board: Rect2 = price.board_rect()
-		if board.position.y < store.WALL_TOP + store.CORNICE_HEIGHT or board.end.y > 0.0:
-			return "%s: the sign is off the wall" % machine_id
+		if board.position.y < 0.0 or board.end.y > store.FLOOR_DEPTH:
+			return "%s: the price is off the floor" % machine_id
 		_go(main, store.machines[machine_id]["at"] + Vector2(0.0, 40.0))
 		var on_canvas: Rect2 = main.get_viewport().get_canvas_transform() * board
 		var hud: Dictionary = main.ui.hud_rects()

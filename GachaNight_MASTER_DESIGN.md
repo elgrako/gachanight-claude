@@ -136,11 +136,11 @@ La tienda debe sentirse **grande, recargada en cantidad de máquinas y sorprende
 |---|---|---:|---|
 | `machine_001` | Gachapón clásico | **1 moneda** | **Exactamente cinco tipos de figuras.** El premio más barato se vende por **1 moneda** como mínimo. |
 | `machine_002` | Gachapón | **50 monedas** | Su premio menos valioso se vende por **30 monedas**. La primera utilización desbloquea prestigio. |
-| `machine_003` | Gachapón | EJEMPLO DE BALANCE | Coste, premios y probabilidades editables. |
-| `machine_004` | Gachapón | EJEMPLO DE BALANCE | Último gachapón de la secuencia inicial. |
 | `machine_005` | Máquina de gancho/grúa | EJEMPLO DE BALANCE | Interacción propia, pero decisión común **Sell / Keep**. |
 | `machine_006` | Plinko | EJEMPLO DE BALANCE | Bola/ficha y resultado legible, con **Sell / Keep**. |
-| `machine_007` a `machine_010` | **PENDIENTE** | EJEMPLO DE BALANCE | Se añadirán **solo si aportan valor**. Objetivo total 6–10. |
+| Más máquinas | **PENDIENTE** | EJEMPLO DE BALANCE | Se añadirán **solo si aportan valor**; la tienda se ampliará cuando haga falta. |
+
+**Decisión del creador (2026-10-12):** la tienda empieza con **cuatro máquinas** (gachapones 001 y 002, grúa 005 y plinko 006) y una sala más pequeña. Los gachapones 003 y 004 del plan inicial se retiraron; el segundo gachapón conserva las reglas confirmadas (50 monedas, venta mínima 30, desbloquea el prestigio).
 
 Los costes a partir de la tercera máquina **no están confirmados**. Codex creará tablas de ejemplo y permitirá editarlas como datos, no lógica rígida.
 
@@ -161,7 +161,7 @@ Los costes a partir de la tercera máquina **no están confirmados**. Codex crea
 
 - La sala de máquinas es el **lobby**: el jugador camina entre máquinas y con `E` **entra** en una. No sale la figura directamente.
 - Dentro, la máquina se ve de frente, como en primera persona, y se **juega a mano**: gachapón (mantener `E` para girar la manivela), grúa (`A`/`D` mueve la garra, `E` la suelta), plinko (`A`/`D` elige columna, `E` suelta la bola).
-- Desde dentro se puede **saltar directamente a otra máquina** (`Q`/`R`, `1`–`6` o las pestañas) o **salir al pasillo** (`Esc`). Al salir, el personaje queda delante de la última máquina usada.
+- Desde dentro se puede **saltar directamente a otra máquina** (`Q`/`R`, `1`–`4` o las pestañas) o **salir al pasillo** (`Esc`). Al salir, el personaje queda delante de la última máquina usada.
 - El flujo de premio de 5.2 no cambia: se paga al meter la moneda, el premio queda decidido y guardado en ese momento, y termina en Sell/Keep. **Pendiente de decisión:** si la habilidad del jugador debe influir en el premio; hoy no influye.
 - Primera versión con formas simples; el arte de estas escenas es provisional.
 
@@ -922,7 +922,7 @@ Esta sección evita que Codex lea el viejo `Gachapon_Night_Documento_Maestro.md`
 | Duración | «2–3 h de recorrido» ambiguo. | **2–3 h para historia principal con varios prestigios.** |
 | Final | Pendiente. | **Comprar llave como última mejora de recepción → abrir puerta → créditos → modo libre.** |
 | Idioma | No fijado. | **Inglés solamente** en interfaz inicial. |
-| Máquinas | Evolución futura indefinida. | **6–10 al inicio**, primeras cuatro gachapón, quinta gancho, sexta plinko. |
+| Máquinas | Evolución futura indefinida; después 6–10 al inicio con cuatro gachapones. | **Cuatro al inicio** (2026-10-12): gachapones 001 y 002, grúa 005, plinko 006; sala más pequeña y vista algo más en picado. Se ampliará si hace falta. |
 
 ### Primera tarea recomendada a Codex, lista para copiar
 

@@ -103,204 +103,11 @@
     },
     {
       "id": "g002_toy_01",
-      "name_en": "Ramune Bear",
+      "name_en": "Rocket Pup",
       "rarity_id": "common",
       "base_sell_value": 30,
       "copies_required": 5,
       "prestige_reward": 2,
-      "collection_bonus_id": "sell_value_pct",
-      "collection_bonus_params": {
-        "value": 3
-      },
-      "look": {
-        "body": "tall",
-        "ears": "round",
-        "extra": "belly",
-        "color": "#6fb1d6",
-        "accent": "#f4ecd8"
-      }
-    },
-    {
-      "id": "g002_toy_02",
-      "name_en": "Kite Fox",
-      "rarity_id": "uncommon",
-      "base_sell_value": 55,
-      "copies_required": 4,
-      "prestige_reward": 4,
-      "collection_bonus_id": "price_discount_pct",
-      "collection_bonus_params": {
-        "value": 5
-      },
-      "look": {
-        "body": "tall",
-        "ears": "pointy",
-        "extra": "tail",
-        "color": "#ef7a6d",
-        "accent": "#f4ecd8"
-      }
-    },
-    {
-      "id": "g002_toy_03",
-      "name_en": "Drum Tanuki",
-      "rarity_id": "rare",
-      "base_sell_value": 100,
-      "copies_required": 3,
-      "prestige_reward": 8,
-      "collection_bonus_id": "robot_speed_pct",
-      "collection_bonus_params": {
-        "value": 10
-      },
-      "look": {
-        "body": "wide",
-        "ears": "pointy",
-        "extra": "drum",
-        "color": "#b98a5e",
-        "accent": "#f4ecd8"
-      }
-    },
-    {
-      "id": "g002_toy_04",
-      "name_en": "Comet Owl",
-      "rarity_id": "epic",
-      "base_sell_value": 200,
-      "copies_required": 2,
-      "prestige_reward": 16,
-      "collection_bonus_id": "luck_pct",
-      "collection_bonus_params": {
-        "value": 3
-      },
-      "look": {
-        "body": "square",
-        "ears": "pointy",
-        "extra": "wings",
-        "color": "#8a7fd1",
-        "accent": "#f2b84b",
-        "extras": [
-          "beak"
-        ]
-      }
-    },
-    {
-      "id": "g002_toy_05",
-      "name_en": "Star Kaiju",
-      "rarity_id": "legendary",
-      "base_sell_value": 500,
-      "copies_required": 1,
-      "prestige_reward": 32,
-      "collection_bonus_id": "sell_value_pct",
-      "collection_bonus_params": {
-        "value": 6
-      },
-      "look": {
-        "body": "tall",
-        "ears": "antenna",
-        "extra": "spikes",
-        "color": "#4f9ea3",
-        "accent": "#e3b44c"
-      }
-    },
-    {
-      "id": "g003_toy_01",
-      "name_en": "Mochi Seal",
-      "rarity_id": "common",
-      "base_sell_value": 1368,
-      "copies_required": 5,
-      "prestige_reward": 3,
-      "collection_bonus_id": "sell_value_pct",
-      "collection_bonus_params": {
-        "value": 3
-      },
-      "look": {
-        "body": "wide",
-        "ears": "none",
-        "extra": "tail",
-        "color": "#f4ecd8",
-        "accent": "#f1a7b5"
-      }
-    },
-    {
-      "id": "g003_toy_02",
-      "name_en": "Dango Chick",
-      "rarity_id": "uncommon",
-      "base_sell_value": 2508,
-      "copies_required": 4,
-      "prestige_reward": 6,
-      "collection_bonus_id": "price_discount_pct",
-      "collection_bonus_params": {
-        "value": 5
-      },
-      "look": {
-        "body": "pear",
-        "ears": "none",
-        "extra": "beak",
-        "color": "#f6d86b",
-        "accent": "#ef7a6d"
-      }
-    },
-    {
-      "id": "g003_toy_03",
-      "name_en": "Taiyaki Fish",
-      "rarity_id": "rare",
-      "base_sell_value": 4560,
-      "copies_required": 3,
-      "prestige_reward": 12,
-      "collection_bonus_id": "robot_speed_pct",
-      "collection_bonus_params": {
-        "value": 10
-      },
-      "look": {
-        "body": "wide",
-        "ears": "none",
-        "extra": "wings",
-        "color": "#d9a05b",
-        "accent": "#8a5a34"
-      }
-    },
-    {
-      "id": "g003_toy_04",
-      "name_en": "Melon Turtle",
-      "rarity_id": "epic",
-      "base_sell_value": 9120,
-      "copies_required": 2,
-      "prestige_reward": 24,
-      "collection_bonus_id": "luck_pct",
-      "collection_bonus_params": {
-        "value": 3
-      },
-      "look": {
-        "body": "round",
-        "ears": "round",
-        "extra": "shell",
-        "color": "#b7d77a",
-        "accent": "#e7efb0"
-      }
-    },
-    {
-      "id": "g003_toy_05",
-      "name_en": "Royal Pudding",
-      "rarity_id": "legendary",
-      "base_sell_value": 22800,
-      "copies_required": 1,
-      "prestige_reward": 48,
-      "collection_bonus_id": "sell_value_pct",
-      "collection_bonus_params": {
-        "value": 6
-      },
-      "look": {
-        "body": "pear",
-        "ears": "none",
-        "extra": "crown",
-        "color": "#f2c96a",
-        "accent": "#8a5a34"
-      }
-    },
-    {
-      "id": "g004_toy_01",
-      "name_en": "Rocket Pup",
-      "rarity_id": "common",
-      "base_sell_value": 63000,
-      "copies_required": 5,
-      "prestige_reward": 4,
       "collection_bonus_id": "sell_value_pct",
       "collection_bonus_params": {
         "value": 3
@@ -315,12 +122,12 @@
       }
     },
     {
-      "id": "g004_toy_02",
+      "id": "g002_toy_02",
       "name_en": "Saturn Snail",
       "rarity_id": "uncommon",
-      "base_sell_value": 115500,
+      "base_sell_value": 55,
       "copies_required": 4,
-      "prestige_reward": 8,
+      "prestige_reward": 4,
       "collection_bonus_id": "price_discount_pct",
       "collection_bonus_params": {
         "value": 5
@@ -334,12 +141,12 @@
       }
     },
     {
-      "id": "g004_toy_03",
+      "id": "g002_toy_03",
       "name_en": "Astro Monkey",
       "rarity_id": "rare",
-      "base_sell_value": 210000,
+      "base_sell_value": 100,
       "copies_required": 3,
-      "prestige_reward": 16,
+      "prestige_reward": 8,
       "collection_bonus_id": "robot_speed_pct",
       "collection_bonus_params": {
         "value": 10
@@ -353,12 +160,12 @@
       }
     },
     {
-      "id": "g004_toy_04",
+      "id": "g002_toy_04",
       "name_en": "Nebula Jelly",
       "rarity_id": "epic",
-      "base_sell_value": 420000,
+      "base_sell_value": 200,
       "copies_required": 2,
-      "prestige_reward": 32,
+      "prestige_reward": 16,
       "collection_bonus_id": "luck_pct",
       "collection_bonus_params": {
         "value": 3
@@ -372,12 +179,12 @@
       }
     },
     {
-      "id": "g004_toy_05",
+      "id": "g002_toy_05",
       "name_en": "Galaxy Dragon",
       "rarity_id": "legendary",
-      "base_sell_value": 1050000,
+      "base_sell_value": 500,
       "copies_required": 1,
-      "prestige_reward": 64,
+      "prestige_reward": 32,
       "collection_bonus_id": "sell_value_pct",
       "collection_bonus_params": {
         "value": 6
@@ -394,9 +201,9 @@
       "id": "g005_toy_01",
       "name_en": "Sleepy Panda",
       "rarity_id": "common",
-      "base_sell_value": 3750000,
+      "base_sell_value": 1368,
       "copies_required": 5,
-      "prestige_reward": 5,
+      "prestige_reward": 3,
       "collection_bonus_id": "sell_value_pct",
       "collection_bonus_params": {
         "value": 3
@@ -414,9 +221,9 @@
       "id": "g005_toy_02",
       "name_en": "Cloud Sheep",
       "rarity_id": "uncommon",
-      "base_sell_value": 6875000,
+      "base_sell_value": 2508,
       "copies_required": 4,
-      "prestige_reward": 10,
+      "prestige_reward": 6,
       "collection_bonus_id": "price_discount_pct",
       "collection_bonus_params": {
         "value": 5
@@ -434,9 +241,9 @@
       "id": "g005_toy_03",
       "name_en": "Tiger Cub",
       "rarity_id": "rare",
-      "base_sell_value": 12500000,
+      "base_sell_value": 4560,
       "copies_required": 3,
-      "prestige_reward": 20,
+      "prestige_reward": 12,
       "collection_bonus_id": "robot_speed_pct",
       "collection_bonus_params": {
         "value": 10
@@ -453,9 +260,9 @@
       "id": "g005_toy_04",
       "name_en": "Thunder Oni",
       "rarity_id": "epic",
-      "base_sell_value": 25000000,
+      "base_sell_value": 9120,
       "copies_required": 2,
-      "prestige_reward": 40,
+      "prestige_reward": 24,
       "collection_bonus_id": "luck_pct",
       "collection_bonus_params": {
         "value": 3
@@ -472,9 +279,9 @@
       "id": "g005_toy_05",
       "name_en": "Lucky Whale",
       "rarity_id": "legendary",
-      "base_sell_value": 62500000,
+      "base_sell_value": 22800,
       "copies_required": 1,
-      "prestige_reward": 80,
+      "prestige_reward": 48,
       "collection_bonus_id": "sell_value_pct",
       "collection_bonus_params": {
         "value": 6
@@ -495,9 +302,9 @@
       "id": "g006_toy_01",
       "name_en": "Bell Mouse",
       "rarity_id": "common",
-      "base_sell_value": 270000000,
+      "base_sell_value": 63000,
       "copies_required": 5,
-      "prestige_reward": 6,
+      "prestige_reward": 4,
       "collection_bonus_id": "sell_value_pct",
       "collection_bonus_params": {
         "value": 3
@@ -514,9 +321,9 @@
       "id": "g006_toy_02",
       "name_en": "Coin Toad",
       "rarity_id": "uncommon",
-      "base_sell_value": 495000000,
+      "base_sell_value": 115500,
       "copies_required": 4,
-      "prestige_reward": 12,
+      "prestige_reward": 8,
       "collection_bonus_id": "price_discount_pct",
       "collection_bonus_params": {
         "value": 5
@@ -533,9 +340,9 @@
       "id": "g006_toy_03",
       "name_en": "Koi Kite",
       "rarity_id": "rare",
-      "base_sell_value": 900000000,
+      "base_sell_value": 210000,
       "copies_required": 3,
-      "prestige_reward": 24,
+      "prestige_reward": 16,
       "collection_bonus_id": "robot_speed_pct",
       "collection_bonus_params": {
         "value": 10
@@ -552,9 +359,9 @@
       "id": "g006_toy_04",
       "name_en": "Lantern Ghost",
       "rarity_id": "epic",
-      "base_sell_value": 1800000000,
+      "base_sell_value": 420000,
       "copies_required": 2,
-      "prestige_reward": 48,
+      "prestige_reward": 32,
       "collection_bonus_id": "luck_pct",
       "collection_bonus_params": {
         "value": 3
@@ -572,9 +379,9 @@
       "id": "g006_toy_05",
       "name_en": "Treasure Kappa",
       "rarity_id": "legendary",
-      "base_sell_value": 4500000000,
+      "base_sell_value": 1050000,
       "copies_required": 1,
-      "prestige_reward": 96,
+      "prestige_reward": 64,
       "collection_bonus_id": "sell_value_pct",
       "collection_bonus_params": {
         "value": 6

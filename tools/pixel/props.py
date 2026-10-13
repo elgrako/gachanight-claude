@@ -9,7 +9,6 @@ import os
 from pixlib import FONT, TINY, hx, mix, ell, box, poly, path, clip, shift, sheet
 from tiles import (Cv, rim, INK, WHITE, RED, ORANGE, MUSTARD, CREAM, NAVY, BLUE, SKY, GREEN, STEEL, DSTEEL,
                    PINK, PORC, WOOD, CARD, LOCK)
-from ambient_lib import plant_pixels
 
 SIZES = {
     "toilet": (30, 40), "sink": (30, 50),
@@ -21,7 +20,7 @@ SIZES = {
     "shelf_a": (58, 84), "shelf_b": (58, 84),
     "locker": (30, 74), "table": (46, 32),
     "poster_a": (28, 36), "poster_b": (28, 36), "poster_c": (28, 36), "poster_d": (28, 36),
-    "sign_gacha": (110, 28), "key": (14, 10), "plant": (24, 40),
+    "sign_gacha": (110, 28), "key": (14, 10),
     "gallery_shelf": (34, 12), "rug": (96, 34), "crate": (28, 30),
 }
 
@@ -31,7 +30,7 @@ COMPUTER_LED = (23, 20)                 # power led pixel, the only other on/off
 DOOR_OPENING =(5, 14, 48, 71)          # x, y, w, h of the glass / doorway inside the frame
 DOOR_PASSAGE = (14, 14, 30, 71)         # clear walk-through part when open (leaves slid aside)
 LAMP_LIGHT = (15, 28)                   # centre of the bulb
-FOOTPRINT_DEPTH = {"table": 12, "crate": 8, "rug": 34, "plant": 6, "sofa": 20, "counter": 12,
+FOOTPRINT_DEPTH = {"table": 12, "crate": 8, "rug": 34, "sofa": 20, "counter": 12,
                    "toilet": 18, "sink": 10, "locker": 5, "shelf_a": 6, "shelf_b": 6}
 
 KANA = {
@@ -1074,12 +1073,7 @@ def key():
     return s
 
 
-def plant():
-    """Rubber plant with big pointed leaves; same drawing as amb_plant_sway at rest."""
-    s = Cv(24, 40)
-    for (x, y), c in plant_pixels().items():
-        s.put(x, y, c)
-    return s
+
 
 
 def rug():
@@ -1150,14 +1144,14 @@ def build_all():
         "shelf_a": shelf(SHELF_A), "shelf_b": shelf(SHELF_B),
         "locker": locker(), "table": table(),
         "poster_a": poster_a(), "poster_b": poster_b(), "poster_c": poster_c(), "poster_d": poster_d(),
-        "sign_gacha": sign_gacha(), "key": key(), "plant": plant(),
+        "sign_gacha": sign_gacha(), "key": key(),
         "gallery_shelf": gallery_shelf(), "rug": rug(), "crate": crate(),
     }
 
 
 def previews(out, prev):
     order = ["door_closed", "door_open", "shelf_a", "shelf_b", "locker", "counter",
-             "sofa", "table", "rug", "crate", "plant", "toilet", "sink",
+             "sofa", "table", "rug", "crate", "toilet", "sink",
              "computer_off", "computer_on", "power_switch_off", "power_switch_on", "lamp_off", "lamp_on",
              "poster_a", "poster_b", "poster_c", "poster_d", "key", "gallery_shelf", "sign_gacha"]
     sheet([out[n] for n in order[:6]], os.path.join(prev, "rh_props_1.png"), cols=6, scale=4)
