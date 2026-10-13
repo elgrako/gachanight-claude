@@ -26,7 +26,7 @@ func _ready() -> void:
 	_load_text()
 	_sky = ColorRect.new()
 	_sky.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
-	_sky.color = Color("#0b1020")
+	_sky.color = Color("#0e0d0c")
 	add_child(_sky)
 	var center: CenterContainer = CenterContainer.new()
 	center.set_anchors_and_offsets_preset(Control.PRESET_FULL_RECT)
@@ -87,10 +87,10 @@ func play(stats: Dictionary) -> void:
 	_text.visible = true
 	_text.text = ""
 	_text.modulate.a = 0.0
-	_sky.color = Color("#0b1020")
+	_sky.color = Color("#0e0d0c")
 	# The sky brightens on its own tween so the text does not wait for it.
 	_sky_tween = create_tween()
-	_sky_tween.tween_property(_sky, "color", Color("#e58f7a"), 14.0)
+	_sky_tween.tween_property(_sky, "color", Color("#b98d5c"), 14.0)
 	_sequence = create_tween()
 	_sequence.tween_interval(0.6)
 	for line in _ending_lines:
@@ -106,7 +106,7 @@ func skip() -> void:
 		_sequence.kill()
 	if _sky_tween != null and _sky_tween.is_valid():
 		_sky_tween.kill()
-	_sky.color = Color("#e58f7a")
+	_sky.color = Color("#b98d5c")
 	_show_credits()
 
 

@@ -127,8 +127,10 @@ func can_play_machine(machine_id: String) -> Dictionary:
 	return Machine.can_play(data, perm, run, machine_id)
 
 
-func play_machine(machine_id: String) -> Dictionary:
-	var result: Dictionary = Machine.play(data, perm, run, machine_id, _roll())
+## One play by the player. `extra_luck_pct` is what their timing earned on
+## this play (capsule machines); robots and the simulated player pass nothing.
+func play_machine(machine_id: String, extra_luck_pct: float = 0.0) -> Dictionary:
+	var result: Dictionary = Machine.play(data, perm, run, machine_id, _roll(), extra_luck_pct)
 	if not result["ok"]:
 		return result
 	result["slot"] = Machine.prize_slot(data, machine_id, result["figure_id"])
@@ -212,6 +214,12 @@ static func effect_text(effect_type: String, value: float) -> String:
 			return "+%d%% prize speed" % int(value)
 		"prestige_gain_pct":
 			return "+%d%% prestige" % int(value)
+		"machine_luck_pct":
+			return "+%d%% luck here" % int(value)
+		"qte_zone_pct":
+			return "+%d%% sweet spot" % int(value)
+		"qte_slow_pct":
+			return "-%d%% wheel speed" % int(value)
 	return ""
 
 
@@ -259,8 +267,30 @@ func reception_item_view(item_id: String) -> Dictionary:
 		"reason": check["reason"],
 		"missing_en": Reception.missing_prerequisites(data, run, item_id),
 		"robot_machine_id": item["robot_machine_id"],
+		"machine_id": item["machine_id"],
 		"is_store_exit_key": item["is_store_exit_key"],
 	}
+
+
+## The upgrades sold at one machine, each as its terminal view plus what one
+## level gives ("effect_en") and what the levels owned give ("total_en").
+func machine_upgrade_views(machine_id: String) -> Array:
+	var views: Array = []
+	for item_id in data.reception_order:
+		var item: Dictionary = data.reception_upgrades[item_id]
+		if item["machine_id"] != machine_id:
+			continue
+		var view: Dictionary = reception_item_view(item_id)
+		var effect: Dictionary = item["effects"][0] if not item["effects"].is_empty() else {}
+		view["effect_en"] = effect_text(effect["type"], effect["per_level"]) if not effect.is_empty() else ""
+		view["total_en"] = effect_text(effect["type"], GameData.effect_value(effect, view["level"])) if not effect.is_empty() and view["level"] > 0 else ""
+		views.append(view)
+	return views
+
+
+## What the upgrades bought for a machine add up to, for one effect.
+func machine_effect(machine_id: String, effect_type: String) -> float:
+	return Economy.machine_effect(data, run, machine_id, effect_type)
 
 
 func buy_reception_item(item_id: String) -> Dictionary:

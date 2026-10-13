@@ -1,7 +1,7 @@
 # GachaNight — where things stand and what is next
 
 Hand-off notes for continuing on another machine or in another session.
-Last updated 2026-10-12.
+Last updated 2026-10-13.
 
 ## Set-up on a new machine
 
@@ -11,17 +11,31 @@ Last updated 2026-10-12.
 3. Only to regenerate art: Python 3.13 with Pillow (`pip install pillow`).
 4. Tests (all must pass before and after any change):
    - `godot --headless --path . -s tests/run_tests.gd` — 360 rule checks
-   - `godot --headless --path . -s tests/smoke_boot.gd` — 140 scene checks
+   - `godot --headless --path . -s tests/smoke_boot.gd` — 147 scene checks
    - `godot --headless --path . -s tests/sim_balance.gd -- --seed=1987 --quiet`
 5. Agent rules: `AGENTS.md` and `.codex/`. The `.orchestrator/` workspaces are
    not in git; the art contracts that matter were copied to `docs/art/`.
 6. The save file is per machine (`user://gachanight_save.json`); a new machine
    starts a new game.
 
-## Where the last session stopped (2026-10-12, uncommitted)
+## Where the last session stopped (2026-10-13)
 
-Nothing of this is committed: 100+ changed files in the working tree. Ask the
-owner before committing.
+Everything below is committed and pushed to `main` (and the earlier part to
+the `diseños` branch, which is now behind `main`). The entries that say
+"uncommitted at the time of writing" were written as the work went; they are
+all in git now. The owner still wants to be asked before every commit and push.
+
+Open with the owner when the session ended:
+
+- **Palette**: the third trial (25 muted sepia colours) stays "for now"; the
+  owner may come back to it. See `docs/art/palette.md`.
+- **Screen filter**: five looks on F3, none chosen yet.
+- **Capsule machine view**: the pixel-art first-person view was just built
+  and has not had the owner's reaction. Its art is by script; the owner said
+  they will retouch the background themselves.
+- **Story**: the ending is undecided; the last figure stands in for the key.
+- Not looked at since the mechanics changed: the balance (`sim_balance.gd`
+  was failing by a minute before today and was not rerun).
 
 Done, owner's requests in order:
 
@@ -167,6 +181,81 @@ Done, owner's requests in order:
   by Claude). The old counter's kana were dropped rather than copied: the
   copy lost a stroke and changed the word.
 
+- Palette trials and the owner's first machine (2026-10-13), uncommitted at
+  the time of writing. See `docs/art/palette.md`. First trial: 22 colours
+  from the coin and the machine picture. The owner then asked for more
+  sepia and brown, a smaller palette, on absolutely everything: second
+  trial, 16 colours (7 neutrals from the coin, 4 browns, 5 muted accents),
+  applied to every generated sprite (`tools/pixel/apply_palette.py`, run on
+  the originals restored from git), to the owner's machine, computer and
+  coin icon by their builders, and to every colour written in `scripts/`
+  (set, HUD, panels). Still a trial: `git checkout -- assets/sprites
+  scripts` undoes it.
+  Third trial the same day, on the owner's word ("a wider range but tones
+  turned down, no blues or reds, more sepia, saturation 0.55 like my
+  pictures"): 25 colours, sources desaturated to 0.55 before mapping. This
+  is what is on disk now. The owner asked for no testing on this round
+  (nothing mechanical changed); a smoke run was made only for screenshots
+  and passed.
+  Capsule Machine No. 1 is now the owner's `maquina1.png`, pixel for pixel
+  in drawing, its colours moved to the palette
+  (`tools/pixel/build_maquina1.py`): eyes shut with no power, a 36-frame
+  idle that breathes and blinks. No. 2 is the same picture with the body
+  turned plum and teal, a stand-in until the owner draws it. Both are
+  54 x 85 world pixels now. The crane and the plinko are still the old
+  generated art and look out of place next to them. The owner removed eight
+  reference pictures from `diseños/` (their own doing, not committed yet).
+
+- Screen filters to try (owner, 2026-10-13: "not too strong, but giving the
+  retro touch"), uncommitted at the time of writing. The palette of the
+  third trial stays for now ("we may touch it later"). `screen_grade.gd`
+  keeps five looks side by side and **F3 steps through them in the running
+  game**, showing the name: No filter, Old reel (what the game had, and the
+  one shown first), Projector (flicker, a hair of gate weave, glow, rounded
+  corners), Picture tube (faint scan lines, glow, rounded glass), Printed
+  page (still grain, blotchy paper). The choice is not saved between
+  launches. The owner has not picked one yet; when they do, make it
+  `START_LOOK` and decide whether the others and the F3 key stay.
+
+- Capsule machine mechanics, first prototype (owner, 2026-10-13),
+  uncommitted at the time of writing. Reference for the view:
+  `diseños/maquinapov1.gif` (another artist's animation, a reference only,
+  never to be shipped). In `machine_scene.gd` a capsule machine is now seen
+  in first person: its own picture at 4x in the middle (breathing, shaking
+  while the crank turns, hopping on a perfect stop, a coin flying to the
+  slot, the capsule popping out), a panel on the left with the upgrades
+  sold at that machine (mouse or Z X C), and a timing wheel on the right.
+  **Rule change:** E starts the wheel (nothing paid yet), E again stops it,
+  pays and rolls; the stop is graded PERFECT / GREAT / GOOD / MISS and adds
+  60 / 30 / 12 / 0 % luck to that one play (`Machine.effective_weights`,
+  `play_machine(machine_id, extra_luck_pct)`, capped at 60). New reception
+  category `machine` with a `machine_id`: three items each for machines 001
+  and 002 (wider sweet spot, slower wheel, luck at that machine), bought at
+  the machine, hidden from the terminal, lost on rebirth like everything
+  bought with coins. All numbers are first guesses. Not done: the crane and
+  the plinko keep their old scenes; robots and the simulated player earn no
+  timing luck; `sim_balance.gd` was not rerun and the balance was not
+  looked at; the background is left plain for the owner to redo.
+  `run_tests.gd` 360, `smoke_boot.gd` 147.
+
+- Capsule machine view, second pass (owner, 2026-10-13: closer, almost
+  first person, the dome as the background, the crank in view, the prize
+  mouth at the bottom and the coin slot a little above; everything pixel
+  art, the skill check included; the menu elegant, in a darkish green, with
+  old-detective details), uncommitted at the time of writing. New
+  `scripts/ui/gacha_pov.gd` draws it in a 320 x 180 viewport shown at 4x, so
+  every shape lands on one pixel grid, with its own 5 x 7 pixel alphabet
+  (upper case only). Pictures by `tools/pixel/build_pov.py` into
+  `assets/sprites/pov/`: drawn by script on the palette, **not the owner's
+  art** (the owner's machine picture is no longer shown in this view). Left:
+  the upgrades as a case file (magnifying glass, paper clip, typed rows with
+  level pips, a "LOST ON SLEEP" rubber stamp). Right: the timing wheel as a
+  pocket watch. `machine_scene.gd` keeps the state and the rules of the
+  first pass; its own labels and tab bar are hidden on capsule machines
+  (Q / R, the number keys and Esc still work). Upgrade "Wider Sweet Spot"
+  renamed "Wider Mark" to fit a line. Seen in two stills (idle, wheel
+  turning); crank, coin, capsule and the perfect hop were not seen moving.
+
 Next, owner's direction (not started):
 
 - [ ] The protagonist is the owner's own picture, `diseños/moneda1.png`
@@ -215,9 +304,8 @@ Next, owner's direction (not started):
       screen and the floor is large and empty.
 - [ ] `GACHA` sign, lamps and ambient positions were only nudged by eye.
 
-Tests at stop (2026-10-13, bare store): `run_tests.gd` 360 checks pass,
-`smoke_boot.gd` 135 pass (five checks of removed scenery dropped);
-`sim_balance.gd` not rerun.
+Tests at stop (2026-10-13, end of session): `run_tests.gd` 360 checks pass,
+`smoke_boot.gd` 147 pass; `sim_balance.gd` not rerun.
 
 ## State of the game
 

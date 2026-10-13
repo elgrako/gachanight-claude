@@ -15,6 +15,8 @@ import os
 
 from PIL import Image, ImageChops, ImageDraw
 
+from palette import remap
+
 OUT_DIR = os.path.join("assets", "sprites", "ui")
 # The coin's disc in the picture: centre and radii.
 DISC = (93.0, 83.5, 58.5, 59.5)
@@ -49,6 +51,8 @@ def build():
                     break
     for x, y in closing:
         pixels[x, y] = INK
+    # The gold picture has thousands of colours: onto the palette's golds.
+    face = remap(face, ["#0e0d0c", "#2a2722", "#3d2a1e", "#5a3d28", "#7a5534", "#8a7038", "#b09448", "#d0b870", "#c9bb9f", "#e3d9c6"])
     face = face.crop(face.getbbox())
     os.makedirs(OUT_DIR, exist_ok=True)
     face.save(os.path.join(OUT_DIR, "coin_face.png"))

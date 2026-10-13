@@ -5,9 +5,17 @@ const Economy = preload("res://scripts/services/economy_service.gd")
 const Collection = preload("res://scripts/services/collection_service.gd")
 
 
-## Prize table with luck applied. Luck favours higher rarities but never removes any entry.
-static func effective_weights(data: RefCounted, perm: RefCounted, run: RefCounted, machine_id: String) -> Array:
-	var luck: float = Economy.luck_pct(data, perm, run) / 100.0
+## The most luck a well-timed play can add, in percent.
+const MAX_TIMING_LUCK_PCT: float = 60.0
+
+
+## Prize table with luck applied. Luck favours higher rarities but never
+## removes any entry. It adds up from three places: the general luck, what was
+## bought for this machine, and `extra_luck_pct`, earned by the player's
+## timing on this one play.
+static func effective_weights(data: RefCounted, perm: RefCounted, run: RefCounted, machine_id: String, extra_luck_pct: float = 0.0) -> Array:
+	var luck: float = clampf(Economy.luck_pct(data, perm, run) + Economy.machine_effect(data, run, machine_id, "machine_luck_pct")
+		+ clampf(extra_luck_pct, 0.0, MAX_TIMING_LUCK_PCT), 0.0, Economy.MAX_LUCK_PCT) / 100.0
 	var result: Array = []
 	for entry in data.machines[machine_id]["prize_table"]:
 		var order: int = data.rarity_order(data.figures[entry["figure_id"]]["rarity_id"])
@@ -53,11 +61,11 @@ static func can_play(data: RefCounted, perm: RefCounted, run: RefCounted, machin
 
 ## A spin by the player. Leaves a pending prize, unless Express Lane sells a
 ## duplicate of a completed collection on the spot ("auto_sold").
-static func play(data: RefCounted, perm: RefCounted, run: RefCounted, machine_id: String, roll: float) -> Dictionary:
+static func play(data: RefCounted, perm: RefCounted, run: RefCounted, machine_id: String, roll: float, extra_luck_pct: float = 0.0) -> Dictionary:
 	var check: Dictionary = can_play(data, perm, run, machine_id)
 	if not check["ok"]:
 		return check
-	var result: Dictionary = _pay_and_roll(data, perm, run, machine_id, check["price"], roll)
+	var result: Dictionary = _pay_and_roll(data, perm, run, machine_id, check["price"], roll, extra_luck_pct)
 	var figure_id: String = result["figure_id"]
 	var value: int = Economy.sell_value(data, perm, run, figure_id)
 	if Economy.auto_sells_duplicates(data, run) and Collection.is_completed(data, run, figure_id):
@@ -125,11 +133,11 @@ static func resolve(data: RefCounted, perm: RefCounted, run: RefCounted, transac
 	return {"ok": false, "reason": "unknown_choice"}
 
 
-static func _pay_and_roll(data: RefCounted, perm: RefCounted, run: RefCounted, machine_id: String, price: int, roll: float) -> Dictionary:
+static func _pay_and_roll(data: RefCounted, perm: RefCounted, run: RefCounted, machine_id: String, price: int, roll: float, extra_luck_pct: float = 0.0) -> Dictionary:
 	run.coins -= price
 	run.total_spins += 1
 	run.machines_used[machine_id] = true
-	var figure_id: String = pick_figure(effective_weights(data, perm, run, machine_id), roll)
+	var figure_id: String = pick_figure(effective_weights(data, perm, run, machine_id, extra_luck_pct), roll)
 	var newly_discovered: bool = not perm.discoveries.has(figure_id)
 	perm.discoveries[figure_id] = true
 	var prestige_unlocked_now: bool = false

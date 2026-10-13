@@ -34,6 +34,19 @@ static func reception_effect(data: RefCounted, run: RefCounted, effect_type: Str
 	return total
 
 
+## Sum of an effect over the items bought for one machine.
+static func machine_effect(data: RefCounted, run: RefCounted, machine_id: String, effect_type: String) -> float:
+	var total: float = 0.0
+	for item_id in run.reception_levels:
+		if not data.reception_upgrades.has(item_id) or data.reception_upgrades[item_id]["machine_id"] != machine_id:
+			continue
+		var level: int = run.reception_level(item_id)
+		for effect in data.reception_upgrades[item_id]["effects"]:
+			if effect["type"] == effect_type:
+				total += GameData.effect_value(effect, level)
+	return total
+
+
 static func collection_effect(data: RefCounted, run: RefCounted, effect_type: String) -> float:
 	var total: float = 0.0
 	for figure_id in run.active_collection_bonuses:

@@ -1,13 +1,13 @@
 extends RefCounted
 ## Shared look for the UI: hard-edged pixel panels in the store palette.
 
-const INK: Color = Color("#1d2a44")
-const CREAM: Color = Color("#f4ecd8")
-const CORAL: Color = Color("#ef7a6d")
-const MINT: Color = Color("#7ec8a4")
-const MUSTARD: Color = Color("#e3b44c")
-const TEAL: Color = Color("#4f9ea3")
-const MUTED: Color = Color("#6f6a5c")
+const INK: Color = Color("#2a2722")
+const CREAM: Color = Color("#e3d9c6")
+const CORAL: Color = Color("#b98d5c")
+const MINT: Color = Color("#c9bb9f")
+const MUSTARD: Color = Color("#d0b870")
+const TEAL: Color = Color("#74806c")
+const MUTED: Color = Color("#6e6e48")
 
 
 ## `radius` is kept for callers but ignored: pixel panels have square corners
@@ -49,5 +49,5 @@ static func button(text: String, background: Color = MINT) -> Button:
 	node.add_theme_stylebox_override("hover", box(background.lightened(0.2), INK, 3, 8, 10))
 	node.add_theme_stylebox_override("pressed", box(background.darkened(0.15), INK, 3, 8, 10))
 	node.add_theme_stylebox_override("focus", box(background.lightened(0.2), INK, 4, 8, 10))
-	node.add_theme_stylebox_override("disabled", box(Color("#d6cfbd"), MUTED, 3, 8, 10))
+	node.add_theme_stylebox_override("disabled", box(Color("#e3d9c6"), MUTED, 3, 8, 10))
 	return node

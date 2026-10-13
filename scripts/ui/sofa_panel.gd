@@ -46,7 +46,7 @@ func _ready() -> void:
 	buttons.alignment = BoxContainer.ALIGNMENT_END
 	buttons.add_theme_constant_override("separation", 16)
 	column.add_child(buttons)
-	cancel_button = Style.button("Cancel", Color("#e6dcc4"))
+	cancel_button = Style.button("Cancel", Color("#e3d9c6"))
 	cancel_button.pressed.connect(func() -> void: cancelled.emit())
 	buttons.add_child(cancel_button)
 	confirm_button = Style.button("Sleep & Rebirth", Style.CORAL)
@@ -85,7 +85,7 @@ func _build_rows() -> void:
 		level.custom_minimum_size.x = 150
 		level.horizontal_alignment = HORIZONTAL_ALIGNMENT_RIGHT
 		row.add_child(level)
-		var minus: Button = Style.button("-", Color("#e6dcc4"))
+		var minus: Button = Style.button("-", Color("#e3d9c6"))
 		minus.custom_minimum_size = Vector2(44, 44)
 		minus.size_flags_vertical = Control.SIZE_SHRINK_CENTER
 		minus.pressed.connect(_change.bind(upgrade_id, -1))

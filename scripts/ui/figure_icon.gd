@@ -55,7 +55,7 @@ func _notification(what: int) -> void:
 func show_figure(figure_id: String, p_look: Dictionary, p_silhouette: bool, rarity_id: String = "") -> void:
 	look = p_look
 	silhouette = p_silhouette
-	var fallback: Color = Color.from_string(str(look.get("color", "#cccccc")), Color.GRAY)
+	var fallback: Color = Color.from_string(str(look.get("color", "#e3d9c6")), Color.GRAY)
 	_frames = Sprites.figure_frames(figure_id, fallback)
 	_texture = _frames.get_frame_texture(Sprites.FIGURE_STILL, 0)
 	animated = not silhouette and Sprites.has_figure_idle(figure_id)

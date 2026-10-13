@@ -8,7 +8,11 @@ const UPGRADE_EFFECT_TYPES: Array = [
 	"crank_speed_pct", "robot_speed_pct", "prestige_gain_pct", "auto_sell_duplicates",
 ]
 const MACHINE_TYPES: Array = ["gacha", "claw", "plinko"]
-const RECEPTION_CATEGORIES: Array = ["income", "machines", "automation", "convenience", "exit"]
+## "machine" items belong to one machine (`machine_id`) and are sold at that
+## machine, not at the reception terminal.
+const RECEPTION_CATEGORIES: Array = ["income", "machines", "automation", "convenience", "exit", "machine"]
+## Effects that only act on the machine an item belongs to.
+const MACHINE_EFFECT_TYPES: Array = ["machine_luck_pct", "qte_zone_pct", "qte_slow_pct"]
 
 var rarities: Dictionary = {}
 var figures: Dictionary = {}
@@ -101,7 +105,7 @@ func _load_rarities(rows: Array) -> void:
 			"id": id,
 			"name_en": str(row.get("name_en", id)),
 			"order": int(row.get("order", RARITY_IDS.find(id))),
-			"color": Color.from_string(str(row.get("color", "#ffffff")), Color.WHITE),
+			"color": Color.from_string(str(row.get("color", "#e3d9c6")), Color.WHITE),
 		}
 	for id in RARITY_IDS:
 		if not rarities.has(id):
@@ -225,7 +229,7 @@ func _parse_effects(owner_id: String, rows: Array) -> Array:
 	var effects: Array = []
 	for effect in rows:
 		var effect_type: String = str(effect.get("type", ""))
-		if not UPGRADE_EFFECT_TYPES.has(effect_type):
+		if not UPGRADE_EFFECT_TYPES.has(effect_type) and not MACHINE_EFFECT_TYPES.has(effect_type):
 			errors.append("upgrade %s has unknown effect '%s'" % [owner_id, effect_type])
 			continue
 		var values: Array = []
@@ -264,6 +268,7 @@ func _load_reception(rows: Array) -> void:
 			"cost_growth": float(row.get("cost_growth", 1.0)),
 			"effects": _parse_effects(id, row.get("effects", [])),
 			"robot_machine_id": str(row.get("robot_machine_id", "")),
+			"machine_id": str(row.get("machine_id", "")),
 			"is_store_exit_key": bool(row.get("is_store_exit_key", false)),
 			"prerequisites": {"upgrades": required_upgrades, "machines_used": required_machines},
 		}
@@ -271,6 +276,11 @@ func _load_reception(rows: Array) -> void:
 			errors.append("reception item %s has unknown category '%s'" % [id, item["category"]])
 		if item["max_level"] < 1 or item["base_cost"] < 1 or item["cost_growth"] < 1.0:
 			errors.append("reception item %s needs max_level >= 1, base_cost >= 1 and cost_growth >= 1" % id)
+		if (item["category"] == "machine") != (item["machine_id"] != "") or (item["machine_id"] != "" and not machines.has(item["machine_id"])):
+			errors.append("reception item %s: a machine item needs a known machine_id, and only a machine item has one" % id)
+		for effect in item["effects"]:
+			if MACHINE_EFFECT_TYPES.has(effect["type"]) and item["machine_id"] == "":
+				errors.append("reception item %s has a machine effect but no machine" % id)
 		if item["robot_machine_id"] != "" and not machines.has(item["robot_machine_id"]):
 			errors.append("reception item %s works unknown machine '%s'" % [id, item["robot_machine_id"]])
 		if item["is_store_exit_key"]:

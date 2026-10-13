@@ -3,16 +3,16 @@ extends Node2D
 ## small dark plate with a gold coin and the amount. The node's origin is the
 ## bottom centre of the plate. How prices are finally shown is undecided.
 
-const C_INK: Color = Color("#161320")
-const C_BOARD: Color = Color("#1f3a8a")
-const C_BOARD_LIGHT: Color = Color("#2f7de1")
-const C_BOARD_DULL: Color = Color("#3b4152")
-const C_BOARD_DULL_LIGHT: Color = Color("#4a5160")
-const C_TEXT: Color = Color("#fff8e3")
-const C_TEXT_DULL: Color = Color("#a9a59a")
-const C_COIN: Color = Color("#f2b632")
-const C_COIN_DARK: Color = Color("#c98a1c")
-const C_COIN_DULL: Color = Color("#8d8676")
+const C_INK: Color = Color("#0e0d0c")
+const C_BOARD: Color = Color("#453a38")
+const C_BOARD_LIGHT: Color = Color("#74806c")
+const C_BOARD_DULL: Color = Color("#453a38")
+const C_BOARD_DULL_LIGHT: Color = Color("#4a5546")
+const C_TEXT: Color = Color("#e3d9c6")
+const C_TEXT_DULL: Color = Color("#979a72")
+const C_COIN: Color = Color("#d0b870")
+const C_COIN_DARK: Color = Color("#b09448")
+const C_COIN_DULL: Color = Color("#9a8766")
 
 const BOARD_SIZE: Vector2 = Vector2(30.0, 11.0)
 ## Centre of the painted coin, relative to the origin.

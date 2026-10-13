@@ -65,7 +65,7 @@ func refresh(core: RefCounted) -> void:
 func _cell(figure: Dictionary, order: int) -> Control:
 	var cell: PanelContainer = PanelContainer.new()
 	cell.custom_minimum_size = Vector2(156, 202)
-	cell.add_theme_stylebox_override("panel", Style.box(Color("#fffaf0"), Style.INK, 2, 8, 8))
+	cell.add_theme_stylebox_override("panel", Style.box(Color("#e3d9c6"), Style.INK, 2, 8, 8))
 	var column: VBoxContainer = VBoxContainer.new()
 	column.add_theme_constant_override("separation", 2)
 	cell.add_child(column)

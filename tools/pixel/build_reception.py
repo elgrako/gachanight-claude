@@ -23,6 +23,8 @@ import os
 
 from PIL import Image, ImageDraw
 
+from palette import NEUTRAL, remap
+
 OUT = os.path.join("assets", "sprites", "props")
 INK = (20, 12, 10, 255)
 TOP = (150, 100, 58, 255)
@@ -75,6 +77,10 @@ def computer():
             if enclosed and len(patch) < 600:
                 for cx, cy in patch:
                     out[cx, cy] = glass
+    # Onto the game's palette: the coin's warm greys for the case, the brown
+    # plum for the glass, and a few accents for the stickers.
+    allowed = NEUTRAL + ["#453a38", "#3d2a1e", "#8a4e30", "#b09448"]
+    awake, kawai, off = remap(awake, allowed), remap(kawai, allowed), remap(off, allowed)
     box = awake.getbbox()
     for name, picture in (("pc_on", awake), ("pc_kawai", kawai), ("pc_off", off)):
         # The same crop for all three, so they swap without moving.
@@ -126,6 +132,8 @@ def counter():
     draw.point((86, 4), fill=BRASS_LIGHT)
     draw.rectangle([86, 1, 88, 2], fill=INK)
     draw.rectangle([81, 10, 93, 11], fill=INK)
+    # Wood stays wood on the palette: the warm greys, tan and ochre, no red.
+    image = remap(image, ["#0e0d0c", "#2a2722", "#3d2a1e", "#5a3d28", "#7a5534", "#9a7046", "#b09448", "#d0b870"])
     image.save(os.path.join(OUT, "counter_wood.png"))
     print("wrote counter_wood", COUNTER_SIZE)
 

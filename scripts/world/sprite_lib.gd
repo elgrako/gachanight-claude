@@ -32,11 +32,11 @@ const BASE_STAND_WORLD: Vector2i = Vector2i(28, 12)
 ## Fallback colours of the bases, as in data/rarities.json, used only while
 ## the base art is missing.
 const BASE_COLORS: Dictionary = {
-	"common": Color("#c9c2b0"),
-	"uncommon": Color("#7ec8a4"),
-	"rare": Color("#5fb3c9"),
-	"epic": Color("#c48ad6"),
-	"legendary": Color("#e3b44c"),
+	"common": Color("#c9bb9f"),
+	"uncommon": Color("#c9bb9f"),
+	"rare": Color("#979a72"),
+	"epic": Color("#979a72"),
+	"legendary": Color("#d0b870"),
 }
 ## Animations of the SpriteFrames a figure is shown with: `still` is its static
 ## picture (used for dark silhouettes), `idle` its little loop, or the same
@@ -83,7 +83,7 @@ static func to_world(sprite_pixels: float) -> float:
 ## `path` is relative to assets/sprites, without extension: "props/sofa".
 ## `fallback_size` is the WORLD size the picture covers; the placeholder is
 ## made ART_SCALE times larger, like the real art.
-static func texture(path: String, fallback_size: Vector2i = Vector2i(16, 16), fallback_color: Color = Color("#ef7a6d")) -> Texture2D:
+static func texture(path: String, fallback_size: Vector2i = Vector2i(16, 16), fallback_color: Color = Color("#b98d5c")) -> Texture2D:
 	var full: String = "%s%s.png" % [SPRITE_DIR, path]
 	if ResourceLoader.exists(full):
 		var loaded: Resource = load(full)
@@ -107,7 +107,7 @@ static func has_texture(path: String) -> bool:
 
 
 ## A sprite whose origin is the bottom centre of its picture.
-static func standing(path: String, fallback_size: Vector2i, fallback_color: Color = Color("#ef7a6d")) -> Sprite2D:
+static func standing(path: String, fallback_size: Vector2i, fallback_color: Color = Color("#b98d5c")) -> Sprite2D:
 	var sprite: Sprite2D = Sprite2D.new()
 	sprite.centered = false
 	set_standing_texture(sprite, texture(path, fallback_size, fallback_color))
@@ -203,7 +203,7 @@ static func frame_size(anim_name: String, fallback_size: Vector2i) -> Vector2i:
 ## SpriteFrames holding the named animations from the manifests. A missing
 ## animation becomes one frame: `fallback_texture` when given, else a flat
 ## placeholder covering `fallback_size` world pixels.
-static func frames(anim_names: Array, fallback_size: Vector2i, fallback_color: Color = Color("#4f9ea3"), fallback_texture: Texture2D = null) -> SpriteFrames:
+static func frames(anim_names: Array, fallback_size: Vector2i, fallback_color: Color = Color("#74806c"), fallback_texture: Texture2D = null) -> SpriteFrames:
 	var result: SpriteFrames = SpriteFrames.new()
 	if result.has_animation("default"):
 		result.remove_animation("default")
@@ -237,7 +237,7 @@ static func frames(anim_names: Array, fallback_size: Vector2i, fallback_color: C
 
 
 ## An animated sprite whose origin is the bottom centre of its frame.
-static func animated(anim_names: Array, fallback_size: Vector2i, fallback_color: Color = Color("#4f9ea3"), fallback_texture: Texture2D = null) -> AnimatedSprite2D:
+static func animated(anim_names: Array, fallback_size: Vector2i, fallback_color: Color = Color("#74806c"), fallback_texture: Texture2D = null) -> AnimatedSprite2D:
 	var sprite: AnimatedSprite2D = AnimatedSprite2D.new()
 	sprite.sprite_frames = frames(anim_names, fallback_size, fallback_color, fallback_texture)
 	sprite.centered = false
@@ -261,7 +261,7 @@ static func has_figure_idle(figure_id: String) -> bool:
 
 ## Frames of a figure: FIGURE_STILL (one frame, the static sprite) and
 ## FIGURE_IDLE (its loop, or the static sprite again when there is none).
-static func figure_frames(figure_id: String, fallback_color: Color = Color("#ef7a6d")) -> SpriteFrames:
+static func figure_frames(figure_id: String, fallback_color: Color = Color("#b98d5c")) -> SpriteFrames:
 	var figure_world: Vector2i = FIGURE_WORLD
 	var still: Texture2D = texture("figures/%s" % figure_id, figure_world, fallback_color)
 	var anim_name: String = figure_idle_name(figure_id)

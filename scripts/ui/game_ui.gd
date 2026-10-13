@@ -357,7 +357,7 @@ func _coin_icon() -> Control:
 	var coin: Panel = Panel.new()
 	var style: StyleBoxFlat = StyleBoxFlat.new()
 	style.bg_color = Style.MUSTARD
-	style.border_color = Color("#161320")
+	style.border_color = Color("#0e0d0c")
 	style.set_border_width_all(3)
 	style.set_corner_radius_all(int(COIN_ICON_SIZE / 2.0))
 	style.anti_aliasing = false

@@ -4,11 +4,11 @@ extends PanelContainer
 
 const Format = preload("res://scripts/core/format.gd")
 
-const SCREEN: Color = Color("#0f2419")
-const PHOSPHOR: Color = Color("#8dffb5")
-const DIM: Color = Color("#4f9f74")
-const AMBER: Color = Color("#ffd166")
-const ALERT: Color = Color("#ff8a7a")
+const SCREEN: Color = Color("#2a2722")
+const PHOSPHOR: Color = Color("#e3d9c6")
+const DIM: Color = Color("#74806c")
+const AMBER: Color = Color("#e3d9c6")
+const ALERT: Color = Color("#b98d5c")
 
 const CATEGORIES: Array = [
 	["income", "INCOME"], ["machines", "MACHINES"], ["automation", "ROBOTS"],
@@ -76,8 +76,8 @@ func _ready() -> void:
 	_font = SystemFont.new()
 	_font.font_names = PackedStringArray(["Consolas", "Menlo", "DejaVu Sans Mono", "Courier New", "monospace"])
 	var bezel: StyleBoxFlat = StyleBoxFlat.new()
-	bezel.bg_color = Color("#d8d2bf")
-	bezel.border_color = Color("#8d8674")
+	bezel.bg_color = Color("#e3d9c6")
+	bezel.border_color = Color("#9a8766")
 	bezel.set_border_width_all(4)
 	bezel.set_corner_radius_all(18)
 	bezel.set_content_margin_all(22)
@@ -86,7 +86,7 @@ func _ready() -> void:
 	var screen: PanelContainer = PanelContainer.new()
 	var glass: StyleBoxFlat = StyleBoxFlat.new()
 	glass.bg_color = SCREEN
-	glass.border_color = Color("#2b2b33")
+	glass.border_color = Color("#2a2722")
 	glass.set_border_width_all(6)
 	glass.set_corner_radius_all(14)
 	glass.set_content_margin_all(18)
@@ -179,7 +179,7 @@ func _rebuild() -> void:
 func _item_row(view: Dictionary) -> Control:
 	var box: PanelContainer = PanelContainer.new()
 	var frame: StyleBoxFlat = StyleBoxFlat.new()
-	frame.bg_color = Color("#143122")
+	frame.bg_color = Color("#2a2722")
 	frame.border_color = DIM
 	frame.set_border_width_all(2)
 	frame.set_corner_radius_all(6)
@@ -288,11 +288,11 @@ func _button(content: String, color: Color) -> Button:
 	button.add_theme_font_size_override("font_size", 17)
 	for state in ["font_color", "font_hover_color", "font_pressed_color", "font_focus_color"]:
 		button.add_theme_color_override(state, color)
-	button.add_theme_color_override("font_disabled_color", Color("#3d6b52"))
+	button.add_theme_color_override("font_disabled_color", Color("#4a5546"))
 	for state in ["normal", "hover", "pressed", "focus", "disabled"]:
 		var style: StyleBoxFlat = StyleBoxFlat.new()
-		style.bg_color = Color("#1f4a33") if state == "hover" or state == "focus" else Color("#183a28")
-		style.border_color = color if state != "disabled" else Color("#3d6b52")
+		style.bg_color = Color("#453a38") if state == "hover" or state == "focus" else Color("#2a2722")
+		style.border_color = color if state != "disabled" else Color("#4a5546")
 		style.set_border_width_all(3 if state == "focus" else 2)
 		style.set_corner_radius_all(4)
 		style.set_content_margin_all(8)

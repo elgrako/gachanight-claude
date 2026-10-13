@@ -20,12 +20,12 @@ const Interactable = preload("res://scripts/world/interactable.gd")
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
 const PriceSign = preload("res://scripts/world/price_tag.gd")
 
-const C_INK: Color = Color("#140c0a")
-const C_NIGHT: Color = Color("#0b0706")
+const C_INK: Color = Color("#0e0d0c")
+const C_NIGHT: Color = Color("#0e0d0c")
 ## Everything is dimmed by this and lit back up by the lamps: with the power
-## on, a warm dusk; with it off, a cold dark still light enough to find the way.
+## on, a warm dusk; with it off, a brown dark still light enough to find the way.
 const LIT: Color = Color(0.74, 0.62, 0.52)
-const DARK: Color = Color(0.3, 0.33, 0.5)
+const DARK: Color = Color(0.36, 0.33, 0.34)
 const LAMP_LIGHT: Color = Color(1.0, 0.72, 0.38)
 const SHADOW_COLOR: Color = Color(0.0, 0.0, 0.05, 0.28)
 
@@ -48,14 +48,15 @@ const FLOOR_TILE: float = 22.0
 const FLOOR_ROWS: Array = [0.0, 6.0, 14.0, 26.0, 44.0]
 const FLOOR_FAN: float = 1.14
 ## Rooms from left to right: name, first x, wall colour, the floor's dark and
-## light tile.
+## light tile. Colours are the game's palette (`tools/pixel/palette.py`): the
+## set is in colour so that the protagonist, all warm greys, stands out.
 const ROOMS: Array = [
-	["bath", 0.0, "#22403d", "#182b2a", "#7fa39a"],
-	["corridor", 300.0, "#3b2318", "#2a1a13", "#a2703c"],
-	["hall", 400.0, "#3b2318", "#2a1a13", "#a2703c"],
-	["reception", 840.0, "#3b2318", "#2a1a13", "#a2703c"],
-	["staff", 1010.0, "#33261a", "#2a1a13", "#8a6a3a"],
-	["cellar", 1280.0, "#24262c", "#15161a", "#565a63"],
+	["bath", 0.0, "#74806c", "#2a2722", "#c9bb9f"],
+	["corridor", 300.0, "#7a5534", "#3d2a1e", "#b98d5c"],
+	["hall", 400.0, "#7a5534", "#3d2a1e", "#b98d5c"],
+	["reception", 840.0, "#7a5534", "#3d2a1e", "#b98d5c"],
+	["staff", 1010.0, "#5e3424", "#3d2a1e", "#9a7046"],
+	["cellar", 1280.0, "#453a38", "#2a2722", "#716049"],
 ]
 const STORE_WIDTH: float = 1640.0
 ## Four scenes share this strip; only one shows at a time. Name -> first and last x.
@@ -108,13 +109,13 @@ const WALL_USE_OFFSET: Vector2 = Vector2(0.0, 10.0)
 const WALL_USE_REACH: float = 22.0
 ## Bottom centre of each machine: the front edge of its footprint.
 const MACHINE_SPOTS: Dictionary = {
-	"machine_001": Vector2(430.0, 14.0),
+	"machine_001": Vector2(424.0, 14.0),
 	"machine_002": Vector2(494.0, 14.0),
 	"machine_005": Vector2(566.0, 16.0),
 	"machine_006": Vector2(648.0, 16.0),
 }
 ## World size of a capsule machine's picture, and of the crane's and the plinko's.
-const GACHA_SIZE: Vector2i = Vector2i(48, 84)
+const GACHA_SIZE: Vector2i = Vector2i(54, 85)
 const BIG_SIZE: Vector2i = Vector2i(72, 104)
 const BIG_MACHINES: Array = ["machine_005", "machine_006"]
 ## A footprint is this much narrower than the picture.
@@ -174,12 +175,12 @@ const POKER_DEPTH: float = 10.0
 const FLAME_OFFSET: Vector2 = Vector2(0.0, -34.0)
 const CANDLE_LIGHT: Color = Color(1.0, 0.66, 0.3)
 ## The stock rack: old slotted steel, the kind every stockroom has.
-const C_STEEL: Color = Color("#6f7c80")
-const C_STEEL_LIGHT: Color = Color("#9aa7a8")
-const C_STEEL_DARK: Color = Color("#3b4548")
-const C_RUST: Color = Color("#8a4a2a")
-const C_CARDBOARD: Color = Color("#b08a55")
-const CAPSULE_COLORS: Array = ["#c8402e", "#e0a030", "#3d8a8f", "#e8d8b0", "#7a4a8a"]
+const C_STEEL: Color = Color("#74806c")
+const C_STEEL_LIGHT: Color = Color("#c9bb9f")
+const C_STEEL_DARK: Color = Color("#4c4337")
+const C_RUST: Color = Color("#7a5534")
+const C_CARDBOARD: Color = Color("#b98d5c")
+const CAPSULE_COLORS: Array = ["#7a5534", "#c9bb9f", "#74806c", "#e3d9c6", "#716049"]
 ## Its lower shelves (y of each deck) hold stock, not figures.
 const RACK_STOCK_YS: Array = [-46.0, -12.0]
 
@@ -309,9 +310,9 @@ func set_power(is_on: bool, _animate: bool) -> void:
 	_modulate.color = LIT if is_on else DARK
 	var state: String = "on" if is_on else "off"
 	for lamp in _lamps:
-		lamp["sprite"].texture = Sprites.texture("props/lamp_%s" % state, LAMP_SIZE, Color("#4a5160"))
+		lamp["sprite"].texture = Sprites.texture("props/lamp_%s" % state, LAMP_SIZE, Color("#4c4337"))
 		lamp["light"].visible = is_on
-	Sprites.set_standing_texture(_switch_sprite, Sprites.texture("props/power_switch_%s" % state, Vector2i(20, 28), Color("#4a5160")))
+	Sprites.set_standing_texture(_switch_sprite, Sprites.texture("props/power_switch_%s" % state, Vector2i(20, 28), Color("#4c4337")))
 	_powered = is_on
 	_show_computer()
 	for machine_id in machines:
@@ -379,20 +380,20 @@ func set_display(figures: Array) -> void:
 			var foot: Vector2 = gallery_spot(index)
 			_rect(Rect2(foot + BOX.position - Vector2(1.0, 1.0), BOX.size + Vector2(2.0, 1.0)), C_INK, Z_WALL + 1)
 			var box: ColorRect = _rect(Rect2(foot + BOX.position, BOX.size), C_CARDBOARD, Z_WALL + 1)
-			_rect(Rect2(foot + BOX.position, Vector2(BOX.size.x, 2.0)), Color("#d3ae74"), Z_WALL + 1)
-			_rect(Rect2(foot.x - 1.0, foot.y + BOX.position.y, 2.0, 4.0), Color("#8a6a40"), Z_WALL + 1)          # tape
-			var sticker: ColorRect = _rect(Rect2(foot + BOX_STICKER.position, BOX_STICKER.size), Color("#e8d8b0"), Z_WALL + 1)
-			sticker.add_child(_plain(Rect2(1.0, 2.0, BOX_STICKER.size.x - 2.0, 1.0), Color("#c8402e")))
+			_rect(Rect2(foot + BOX.position, Vector2(BOX.size.x, 2.0)), Color("#c9bb9f"), Z_WALL + 1)
+			_rect(Rect2(foot.x - 1.0, foot.y + BOX.position.y, 2.0, 4.0), Color("#716049"), Z_WALL + 1)          # tape
+			var sticker: ColorRect = _rect(Rect2(foot + BOX_STICKER.position, BOX_STICKER.size), Color("#e3d9c6"), Z_WALL + 1)
+			sticker.add_child(_plain(Rect2(1.0, 2.0, BOX_STICKER.size.x - 2.0, 1.0), Color("#7a5534")))
 			gallery[figure_id] = {"box": box, "sticker": sticker}
 		gallery[figure_id]["sticker"].visible = bool(figures[index]["discovered"])
 
 
 func play_door_open() -> void:
-	Sprites.set_standing_texture(_door_sprite, Sprites.texture("props/door_open", DOOR_SIZE, Color("#f6e7c1")))
+	Sprites.set_standing_texture(_door_sprite, Sprites.texture("props/door_open", DOOR_SIZE, Color("#e3d9c6")))
 
 
 func reset_door() -> void:
-	Sprites.set_standing_texture(_door_sprite, Sprites.texture("props/door_closed", DOOR_SIZE, Color("#1f3a8a")))
+	Sprites.set_standing_texture(_door_sprite, Sprites.texture("props/door_closed", DOOR_SIZE, Color("#3d2a1e")))
 
 
 # --- Building --------------------------------------------------------------------
@@ -409,13 +410,13 @@ func _build_shell() -> void:
 		_rect(Rect2(x, WALL_TOP, 1.0, WALL_HEIGHT), Color(0.0, 0.0, 0.0, 0.2), 1)
 		x += WALL_BOARD
 	_rect(Rect2(0.0, -DADO_HEIGHT, STORE_WIDTH, DADO_HEIGHT), Color(0.0, 0.0, 0.0, 0.3), 1)
-	_rect(Rect2(0.0, -DADO_HEIGHT - 3.0, STORE_WIDTH, 3.0), Color("#6b4226"), 2)
+	_rect(Rect2(0.0, -DADO_HEIGHT - 3.0, STORE_WIDTH, 3.0), Color("#716049"), 2)
 	_rect(Rect2(0.0, WALL_TOP, STORE_WIDTH, CORNICE_HEIGHT), C_INK, 2)
 	_rect(Rect2(0.0, -TRIM_HEIGHT, STORE_WIDTH, TRIM_HEIGHT), C_INK, 2)
 	for index in range(ROOMS.size() + 1):                                               # a post where two rooms meet
 		var post_x: float = clampf((ROOMS[index][1] if index < ROOMS.size() else STORE_WIDTH) - PILLAR_WIDTH / 2.0, 0.0, STORE_WIDTH - PILLAR_WIDTH)
-		_rect(Rect2(post_x, WALL_TOP, PILLAR_WIDTH, WALL_HEIGHT), Color("#1f120d"), 2)
-		_rect(Rect2(post_x, WALL_TOP, 2.0, WALL_HEIGHT), Color("#5a3a26"), 2)
+		_rect(Rect2(post_x, WALL_TOP, PILLAR_WIDTH, WALL_HEIGHT), Color("#0e0d0c"), 2)
+		_rect(Rect2(post_x, WALL_TOP, 2.0, WALL_HEIGHT), Color("#4c4337"), 2)
 	_build_checker()
 	_rect(Rect2(0.0, 0.0, STORE_WIDTH, 3.0), Color(0.0, 0.0, 0.0, 0.35), 2)                      # the wall's shadow on the floor
 	_rect(Rect2(0.0, FLOOR_DEPTH, STORE_WIDTH, LEDGE_HEIGHT + 40.0), C_NIGHT, Z_FRONT)
@@ -463,7 +464,7 @@ func _build_dressing() -> void:
 	additive.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
 	for x in LAMP_XS:
 		_rect(Rect2(x - 0.5, WALL_TOP, 1.0, LAMP_CORD), C_INK, Z_WALL + 4)
-		var sprite: Sprite2D = Sprites.standing("props/lamp_off", LAMP_SIZE, Color("#4a5160"))
+		var sprite: Sprite2D = Sprites.standing("props/lamp_off", LAMP_SIZE, Color("#4c4337"))
 		sprite.position = Vector2(x, WALL_TOP + LAMP_CORD + LAMP_SIZE.y)
 		sprite.z_index = Z_WALL + 4
 		add_child(sprite)
@@ -515,7 +516,7 @@ func _build_coins() -> void:
 		var coin: Node2D = _interactable("Coin%d" % index, COIN_SPOTS[index], COIN_REACH)
 		coin.z_index = floor_z(COIN_SPOTS[index].y)
 		coin.set_meta("coin_index", index)
-		var spin: AnimatedSprite2D = Sprites.animated(["coin_spin"], COIN_SIZE, Color("#f2b632"))
+		var spin: AnimatedSprite2D = Sprites.animated(["coin_spin"], COIN_SIZE, Color("#c9bb9f"))
 		spin.play("coin_spin")
 		coin.add_child(spin)
 		coins.append(coin)
@@ -525,7 +526,7 @@ func _build_switch() -> void:
 	power_switch = _interactable("PowerSwitch", Vector2(SWITCH_AT.x, 0.0), WALL_USE_REACH)
 	power_switch.use_offset = WALL_USE_OFFSET
 	power_switch.z_index = Z_WALL
-	_switch_sprite = Sprites.standing("props/power_switch_off", Vector2i(20, 28), Color("#4a5160"))
+	_switch_sprite = Sprites.standing("props/power_switch_off", Vector2i(20, 28), Color("#4c4337"))
 	_switch_sprite.position = Vector2(0.0, SWITCH_AT.y)
 	power_switch.add_child(_switch_sprite)
 
@@ -540,9 +541,9 @@ func _build_machine(machine_id: String) -> void:
 	root.position = at
 	root.z_index = floor_z(at.y)
 	add_child(root)
-	var off: Sprite2D = Sprites.standing("machines/%s" % machine_id, canvas, Color("#7a2a22"))
+	var off: Sprite2D = Sprites.standing("machines/%s" % machine_id, canvas, Color("#7a5534"))
 	root.add_child(off)
-	var anim: AnimatedSprite2D = Sprites.animated(["%s_idle" % machine_id], canvas, Color("#e2231a"), off.texture)
+	var anim: AnimatedSprite2D = Sprites.animated(["%s_idle" % machine_id], canvas, Color("#7a5534"), off.texture)
 	root.add_child(anim)
 	var price: Node2D = PriceSign.new()
 	price.name = "Price_%s" % machine_id
@@ -621,11 +622,11 @@ func _build_cabinet() -> void:
 func _carton(area: Rect2, layer: int) -> void:
 	_rect(area.grow(1.0), C_INK, layer)
 	_rect(area, C_CARDBOARD, layer)
-	_rect(Rect2(area.position, Vector2(area.size.x, 2.0)), Color("#d3ae74"), layer)
-	_rect(Rect2(area.position.x + area.size.x / 2.0 - 1.0, area.position.y, 3.0, area.size.y), Color("#8a6a40"), layer)
+	_rect(Rect2(area.position, Vector2(area.size.x, 2.0)), Color("#c9bb9f"), layer)
+	_rect(Rect2(area.position.x + area.size.x / 2.0 - 1.0, area.position.y, 3.0, area.size.y), Color("#716049"), layer)
 	if area.size.x >= 20.0:
-		_rect(Rect2(area.position.x + 3.0, area.position.y + 5.0, 6.0, 5.0), Color("#e8d8b0"), layer)       # a label
-		_rect(Rect2(area.position.x + 4.0, area.position.y + 7.0, 4.0, 1.0), Color("#c8402e"), layer)
+		_rect(Rect2(area.position.x + 3.0, area.position.y + 5.0, 6.0, 5.0), Color("#e3d9c6"), layer)       # a label
+		_rect(Rect2(area.position.x + 4.0, area.position.y + 7.0, 4.0, 1.0), Color("#7a5534"), layer)
 
 
 ## What makes it a cellar: courses of brick, pipes under the ceiling, a small
@@ -645,23 +646,23 @@ func _build_cellar_details() -> void:
 		course += 1
 	# Pipes: a thick one and a thin one along the ceiling, with collars, and a
 	# drop down the wall by the stairs.
-	for pipe in [[WALL_TOP + 14.0, 5.0, "#5b4a3a", "#8a7256"], [WALL_TOP + 22.0, 2.0, "#3b4548", "#6f7c80"]]:
+	for pipe in [[WALL_TOP + 14.0, 5.0, "#4c4337", "#9a8766"], [WALL_TOP + 22.0, 2.0, "#4c4337", "#74806c"]]:
 		_rect(Rect2(span.x, pipe[0], span.y - span.x, pipe[1]), Color(pipe[2]), Z_WALL)
 		_rect(Rect2(span.x, pipe[0], span.y - span.x, 1.0), Color(pipe[3]), Z_WALL)
 	var collar_x: float = span.x + 40.0
 	while collar_x < span.y:
-		_rect(Rect2(collar_x, WALL_TOP + 13.0, 3.0, 7.0), Color("#3a2c22"), Z_WALL)
+		_rect(Rect2(collar_x, WALL_TOP + 13.0, 3.0, 7.0), Color("#2a2722"), Z_WALL)
 		collar_x += 78.0
-	_rect(Rect2(span.x + 62.0, WALL_TOP + 19.0, 4.0, WALL_HEIGHT - DADO_HEIGHT - 19.0), Color("#5b4a3a"), Z_WALL)
-	_rect(Rect2(span.x + 62.0, WALL_TOP + 19.0, 1.0, WALL_HEIGHT - DADO_HEIGHT - 19.0), Color("#8a7256"), Z_WALL)
+	_rect(Rect2(span.x + 62.0, WALL_TOP + 19.0, 4.0, WALL_HEIGHT - DADO_HEIGHT - 19.0), Color("#4c4337"), Z_WALL)
+	_rect(Rect2(span.x + 62.0, WALL_TOP + 19.0, 1.0, WALL_HEIGHT - DADO_HEIGHT - 19.0), Color("#9a8766"), Z_WALL)
 	# The window: high on the wall, barred, a little night sky behind it.
 	var window: Rect2 = Rect2(span.x + 120.0, WALL_TOP + 36.0, 34.0, 18.0)
 	_rect(window.grow(2.0), C_INK, Z_WALL)
-	_rect(window, Color("#16233f"), Z_WALL)
-	_rect(Rect2(window.position + Vector2(22.0, 4.0), Vector2(5.0, 5.0)), Color("#e8e0b8"), Z_WALL)        # the moon
+	_rect(window, Color("#2a2722"), Z_WALL)
+	_rect(Rect2(window.position + Vector2(22.0, 4.0), Vector2(5.0, 5.0)), Color("#e3d9c6"), Z_WALL)        # the moon
 	for bar in range(1, 5):
-		_rect(Rect2(window.position.x + bar * 7.0 - 1.0, window.position.y, 2.0, window.size.y), Color("#2a2f33"), Z_WALL)
-	_rect(Rect2(window.position.x - 3.0, window.end.y + 2.0, window.size.x + 6.0, 2.0), Color("#4a4d52"), Z_WALL)
+		_rect(Rect2(window.position.x + bar * 7.0 - 1.0, window.position.y, 2.0, window.size.y), Color("#2a2722"), Z_WALL)
+	_rect(Rect2(window.position.x - 3.0, window.end.y + 2.0, window.size.x + 6.0, 2.0), Color("#4c4337"), Z_WALL)
 	# A cobweb in the far top corner.
 	var corner: Vector2 = Vector2(span.y - PILLAR_WIDTH, WALL_TOP + CORNICE_HEIGHT)
 	for end in [Vector2(-26.0, 0.0), Vector2(-20.0, 12.0), Vector2(-10.0, 20.0), Vector2(0.0, 24.0)]:
@@ -687,7 +688,7 @@ func _build_cellar_details() -> void:
 func _build_poker() -> void:
 	_shadow(POKER_AT, POKER_SIZE.x / 2.0 - 8.0)
 	_solid(POKER_AT, POKER_SIZE.x - 30.0, POKER_DEPTH)
-	var table: Sprite2D = Sprites.standing("props/poker_table", POKER_SIZE, Color("#8a5a34"))
+	var table: Sprite2D = Sprites.standing("props/poker_table", POKER_SIZE, Color("#716049"))
 	table.position = POKER_AT
 	table.z_index = floor_z(POKER_AT.y)
 	add_child(table)
@@ -701,7 +702,7 @@ func _build_poker() -> void:
 		var halo: Polygon2D = Sprites.ellipse(ring[0], Color(CANDLE_LIGHT, ring[1]), 24)
 		halo.material = additive
 		glow.add_child(halo)
-	var flame: Polygon2D = Sprites.ellipse(Vector2(1.5, 3.0), Color("#ffd27a"), 8)
+	var flame: Polygon2D = Sprites.ellipse(Vector2(1.5, 3.0), Color("#e3d9c6"), 8)
 	flame.position = Vector2(0.0, -2.0)
 	glow.add_child(flame)
 	var flicker: Tween = create_tween().set_loops()
@@ -714,18 +715,18 @@ func _build_reception() -> void:
 	door = _interactable("FrontDoor", Vector2(DOOR_X, 0.0), WALL_USE_REACH)
 	door.use_offset = WALL_USE_OFFSET
 	door.z_index = Z_WALL
-	_door_sprite = Sprites.standing("props/door_closed", DOOR_SIZE, Color("#1f3a8a"))
+	_door_sprite = Sprites.standing("props/door_closed", DOOR_SIZE, Color("#3d2a1e"))
 	door.add_child(_door_sprite)
 	var board: Rect2 = Rect2(COUNTER_AT + RECEPTION_SIGN.position, RECEPTION_SIGN.size)
 	for chain_x in [board.position.x + 8.0, board.end.x - 9.0]:
 		_rect(Rect2(chain_x, WALL_TOP, 1.0, board.position.y - WALL_TOP), C_INK, Z_WALL + 4)
 	_rect(board.grow(2.0), C_INK, Z_WALL + 4)
-	_rect(board, Color("#7a1f1a"), Z_WALL + 4)
-	_rect(Rect2(board.position, Vector2(board.size.x, 2.0)), Color("#b0382a"), Z_WALL + 4)
+	_rect(board, Color("#3d2a1e"), Z_WALL + 4)
+	_rect(Rect2(board.position, Vector2(board.size.x, 2.0)), Color("#7a5534"), Z_WALL + 4)
 	var title: Label = Label.new()
 	title.text = "RECEPTION"
 	title.add_theme_font_size_override("font_size", 30)
-	title.add_theme_color_override("font_color", Color("#f1dca8"))
+	title.add_theme_color_override("font_color", Color("#e3d9c6"))
 	title.horizontal_alignment = HORIZONTAL_ALIGNMENT_CENTER
 	title.vertical_alignment = VERTICAL_ALIGNMENT_CENTER
 	title.size = board.size / SIGN_TEXT_SCALE
@@ -739,7 +740,7 @@ func _build_reception() -> void:
 	reception.z_index = floor_z(COUNTER_AT.y)
 	_shadow(COUNTER_AT, COUNTER_SIZE.x / 2.0)
 	_solid(COUNTER_AT, COUNTER_SIZE.x - FOOTPRINT_INSET, COUNTER_DEPTH)
-	reception.add_child(Sprites.standing("props/counter_wood", COUNTER_SIZE, Color("#68402a")))
+	reception.add_child(Sprites.standing("props/counter_wood", COUNTER_SIZE, Color("#4c4337")))
 	_computer = Sprite2D.new()
 	_computer.centered = false
 	_computer.scale = Vector2(COMPUTER_SCALE, COMPUTER_SCALE)
@@ -747,7 +748,7 @@ func _build_reception() -> void:
 	_computer.position = COMPUTER_OFFSET
 	_show_computer()
 	reception.add_child(_computer)
-	_key = Sprites.standing("props/key", Vector2i(14, 10), Color("#f2b632"))
+	_key = Sprites.standing("props/key", Vector2i(14, 10), Color("#c9bb9f"))
 	_key.position = KEY_OFFSET
 	reception.add_child(_key)
 
@@ -758,7 +759,7 @@ func _build_sofa() -> void:
 	sofa.z_index = floor_z(SOFA_AT.y)
 	_shadow(SOFA_AT, SOFA_SIZE.x / 2.0)
 	_solid(SOFA_AT, SOFA_SIZE.x - FOOTPRINT_INSET, SOFA_DEPTH)
-	sofa.add_child(Sprites.standing("props/sofa", SOFA_SIZE, Color("#9c1420")))
+	sofa.add_child(Sprites.standing("props/sofa", SOFA_SIZE, Color("#7a5534")))
 
 
 ## Plain wooden doors and stair openings on the back wall, and the two masks
@@ -772,19 +773,20 @@ func _build_zone_doors() -> void:
 		var tall: float = ZONE_DOOR_SIZE.y
 		var parts: Array = [[Rect2(-half - 2.0, -tall - 2.0, ZONE_DOOR_SIZE.x + 4.0, tall + 2.0), C_INK]]
 		if row[4] == "door":
-			parts.append([Rect2(-half, -tall, ZONE_DOOR_SIZE.x, tall), Color("#9c5a2e")])
-			parts.append([Rect2(half - 7.0, -32.0, 3.0, 4.0), Color("#f2b632")])
+			parts.append([Rect2(-half, -tall, ZONE_DOOR_SIZE.x, tall), Color("#b98d5c")])
+			parts.append([Rect2(-half, -tall, 3.0, tall), Color("#9a8766")])
+			parts.append([Rect2(half - 7.0, -32.0, 3.0, 4.0), Color("#c9bb9f")])
 		else:
 			# An open doorway on a flight of steps, seen from the side: it
 			# sinks away to the right going down, climbs to the right going up.
-			parts.append([Rect2(-half, -tall, ZONE_DOOR_SIZE.x, tall), Color("#060404")])
+			parts.append([Rect2(-half, -tall, ZONE_DOOR_SIZE.x, tall), Color("#0e0d0c")])
 			var steps: int = 6
 			var tread: float = ZONE_DOOR_SIZE.x / steps
 			for step in range(steps):
 				var height: float = 6.0 * (steps - step if row[4] == "down" else step + 1)
-				parts.append([Rect2(-half + step * tread, -height, tread, height), Color("#3a2a20")])
-				parts.append([Rect2(-half + step * tread, -height, tread, 1.0), Color("#8a6a48")])
-			parts.append([Rect2(-half, -tall + 22.0, ZONE_DOOR_SIZE.x, 1.0), Color("#6b4226")])          # the handrail
+				parts.append([Rect2(-half + step * tread, -height, tread, height), Color("#2a2722")])
+				parts.append([Rect2(-half + step * tread, -height, tread, 1.0), Color("#716049")])
+			parts.append([Rect2(-half, -tall + 22.0, ZONE_DOOR_SIZE.x, 1.0), Color("#716049")])          # the handrail
 		for part in parts:
 			node.add_child(_plain(part[0], part[1]))
 		zone_doors.append({"node": node, "zone": row[2], "to": Vector2(row[3], 0.0) + WALL_USE_OFFSET})
