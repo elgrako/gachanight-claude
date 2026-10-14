@@ -1,7 +1,7 @@
 # GachaNight — where things stand and what is next
 
 Hand-off notes for continuing on another machine or in another session.
-Last updated 2026-10-13.
+Last updated 2026-10-14.
 
 ## Set-up on a new machine
 
@@ -18,12 +18,14 @@ Last updated 2026-10-13.
 6. The save file is per machine (`user://gachanight_save.json`); a new machine
    starts a new game.
 
-## Where the last session stopped (2026-10-13)
+## Where the last session stopped (2026-10-14)
 
-Everything below is committed and pushed to `main` (and the earlier part to
-the `diseños` branch, which is now behind `main`). The entries that say
-"uncommitted at the time of writing" were written as the work went; they are
-all in git now. The owner still wants to be asked before every commit and push.
+Everything is committed and pushed to `main`. The `diseños` branch is
+behind `main`.
+
+**Saving the session (owner, 2026-10-14):** when the owner says "guardar
+sesión", update this section, commit everything and push to `main`, unless
+they name another branch. Any other commit or push still needs asking.
 
 Open with the owner when the session ended:
 
@@ -34,6 +36,10 @@ Open with the owner when the session ended:
   and has not had the owner's reaction. Its art is by script; the owner said
   they will retouch the background themselves.
 - **Story**: the ending is undecided; the last figure stands in for the key.
+- **Pixel density**: decided 2026-10-14 (`docs/art/pixel-density.md`), not
+  applied to the game yet. Next art steps follow from it: computer redrawn at
+  about 130 px or shown larger, close-up view moved to 640 x 360 when the
+  owner reworks it, crane and plinko brought to about 140 tall.
 - Not looked at since the mechanics changed: the balance (`sim_balance.gd`
   was failing by a minute before today and was not rerun).
 
@@ -255,6 +261,14 @@ Done, owner's requests in order:
   (Q / R, the number keys and Esc still work). Upgrade "Wider Sweet Spot"
   renamed "Wider Mark" to fit a line. Seen in two stills (idle, wheel
   turning); crank, coin, capsule and the perfect hop were not seen moving.
+
+- **Pixel density rule (owner, 2026-10-14): see `docs/art/pixel-density.md`.**
+  Standard grid 640 x 360 (3 screen pixels per art pixel at 1080p) for
+  everything; high density, three times finer (1:1 at 1080p), only for the
+  protagonist, the computer and later characters with a face. The coin is
+  used as drawn. Same outline weight on screen, same palette, few
+  exceptions. Written down only: the game does not follow it yet (computer,
+  close-up view, crane and plinko are out of line).
 
 Next, owner's direction (not started):
 
