@@ -56,8 +56,8 @@ High density, in its own pixels (three per standard pixel):
 
 ## Not yet applied
 
-The rule is written down; the game has not been changed to follow it. Out of
-line today: the computer (88 px shown at 1x), the close-up view (320 x 180),
+The protagonist follows it since 2026-10-15 (`player.gd`, `SKIN_SCALE` 1/4.5).
+Still out of line: the computer (88 px shown at 1x), the close-up view (320 x 180),
 the crane and the plinko (156 tall), and the camera, which shows 427 x 240
 world pixels with art at 1.5 pixels per world pixel (the same density as the
 standard grid, under another name).

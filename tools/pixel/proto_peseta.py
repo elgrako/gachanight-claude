@@ -594,7 +594,7 @@ def hat(s, cx, cy, turn, style="canotier"):
 # The gloves (with their cuffs) and the shoes (with their socks) of the owner's
 # picture, as outlines in its own pixel coordinates. They are lifted from it
 # pixel for pixel and set into the figure, which is drawn to the same measure.
-REFERENCE = os.path.join(os.path.dirname(os.path.dirname(HERE)), "dise*", "moneda1.png")
+REFERENCE = os.path.join(os.path.dirname(os.path.dirname(HERE)), "dise*", "moneda", "moneda personaje.png")
 REFERENCE_PARTS = [
     [(1, 52), (8, 40), (18, 33), (32, 33), (41, 38), (42, 46), (34, 52), (32, 62), (26, 72), (16, 78), (4, 74), (1, 64)],                       # glove on the hat
     [(145, 124), (150, 116), (162, 111), (176, 112), (184, 118), (184, 134), (180, 146), (166, 149), (150, 144), (145, 134)],                   # fist

@@ -5,6 +5,7 @@ extends Node2D
 ## by x, serves every direction.
 
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
+const Squash = preload("res://scripts/world/squash.gd")
 
 const WALK_SPEED: float = 80.0
 const RUN_SPEED: float = 150.0
@@ -12,9 +13,10 @@ const RUN_SPEED: float = 150.0
 ## screen pixels than a step sideways.
 const DEPTH_SPEED_FACTOR: float = 0.7
 ## Pixels per second each cycle was drawn for; the animation speeds up with the
-## real ground speed so the feet do not slide.
-const WALK_ANIM_SPEED: float = 37.0
-const RUN_ANIM_SPEED: float = 105.0
+## real ground speed so the feet do not slide. They follow the coin's scale:
+## 37 and 105 at the old 0.27, times 0.2222 / 0.27 now.
+const WALK_ANIM_SPEED: float = 30.5
+const RUN_ANIM_SPEED: float = 86.0
 const MIN_WALK_ANIM_SCALE: float = 0.6
 ## Above this speed the run cycle is shown, and below IDLE_SPEED the idle one.
 const RUN_THRESHOLD: float = WALK_SPEED + 8.0
@@ -24,11 +26,20 @@ const USE_REACH_FRAME: int = 2
 const USE_MAX_SPEED: float = 3.0
 const USE_MIN_TIME: float = 0.3
 const EMOTE_MIN_TIME: float = 0.4
-## The protagonist is the coin of assets/sprites/peseta (tools/pixel/build_peseta.py).
-## Its strips are drawn far finer than the rest of the art, so they are shown
-## reduced and smoothed. At this scale the coin stands about 54 world pixels
-## tall, a little over half a capsule machine.
-const SKIN_SCALE: Vector2 = Vector2(0.27, 0.27)
+## The protagonist is the coin of assets/sprites/peseta (tools/pixel/build_peseta.py). It is high-density art
+## (docs/art/pixel-density.md): one of its pixels is one screen pixel at 1080p,
+## where a world pixel is 4.5 screen pixels. The coin stands about 44 world
+## pixels tall, about a third of a capsule machine.
+const SKIN_SCALE: Vector2 = Vector2(1.0 / 4.5, 1.0 / 4.5)
+## Squash and stretch at constant volume (scripts/world/squash.gd): a lean up
+## when it sets off, a squash when it stops short, a squash on pressing
+## something and a stretch on a cheer. Amount and seconds.
+const SQUASH_START: Array = [-0.07, 0.22]
+const SQUASH_STOP: Array = [0.09, 0.26]
+const SQUASH_USE: Array = [0.08, 0.24]
+const SQUASH_CHEER: Array = [-0.12, 0.34]
+## Below this speed the coin counts as standing still.
+const MOVING_SPEED: float = 12.0
 const FRAME_SIZE: Vector2i = Vector2i(77, 74)
 ## What the game asks for -> the strip that plays. The coin has fewer
 ## animations than the gestures the game knows; each borrows the nearest one.
@@ -56,7 +67,7 @@ const RUN_DUST_EVERY: float = 0.3
 ## position. Solid footprints are tested against it.
 const FOOT_HALF_WIDTH: float = 7.0
 const FOOT_DEPTH: float = 3.0
-const SHADOW_RADIUS: Vector2 = Vector2(14.0, 3.5)
+const SHADOW_RADIUS: Vector2 = Vector2(12.0, 3.0)
 const SHADOW_COLOR: Color = Color(0.0, 0.0, 0.05, 0.3)
 const DUST_SIZE: Vector2i = Vector2i(16, 12)
 ## Draw order of things standing on the floor: this plus the floor y.
@@ -71,6 +82,7 @@ var interactables: Array = []
 var sprite: AnimatedSprite2D
 
 var _velocity: Vector2 = Vector2.ZERO
+var _was_moving: bool = false
 var _left: bool = false
 var _using: bool = false
 var _use_serial: int = 0
@@ -156,6 +168,11 @@ func _process(delta: float) -> void:
 	var wanted: Vector2 = Vector2(direction.x, direction.y * DEPTH_SPEED_FACTOR) * top_speed
 	_velocity = _velocity.move_toward(wanted, ACCELERATION * delta)
 	_step(delta)
+	var moving: bool = _velocity.length() > MOVING_SPEED
+	if moving != _was_moving and not _using:
+		var squash: Array = SQUASH_START if moving else SQUASH_STOP
+		Squash.bounce(sprite, SKIN_SCALE, squash[0], squash[1])
+	_was_moving = moving
 	if direction.x != 0.0:
 		_face(direction.x < 0.0)
 	_sort()
@@ -275,11 +292,13 @@ func focused_interactable() -> Object:
 func play_use(target_x: float, speed: float = 1.0) -> void:
 	if absf(target_x - global_position.x) > 1.0:
 		_face(target_x < global_position.x)
+	Squash.bounce(sprite, SKIN_SCALE, SQUASH_USE[0], SQUASH_USE[1])
 	_play_once("player_use", clampf(speed, 1.0, USE_MAX_SPEED), USE_MIN_TIME)
 
 
 ## Jumps for joy once (a new figure).
 func play_cheer() -> void:
+	Squash.bounce(sprite, SKIN_SCALE, SQUASH_CHEER[0], SQUASH_CHEER[1])
 	play_emote("player_cheer")
 
 

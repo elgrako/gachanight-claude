@@ -7,8 +7,8 @@ const Format = preload("res://scripts/core/format.gd")
 const SCREEN: Color = Color("#2a2722")
 const PHOSPHOR: Color = Color("#e3d9c6")
 const DIM: Color = Color("#74806c")
-const AMBER: Color = Color("#e3d9c6")
-const ALERT: Color = Color("#b98d5c")
+const AMBER: Color = Color("#d0b870")
+const ALERT: Color = Color("#bf6d55")
 
 const CATEGORIES: Array = [
 	["income", "INCOME"], ["machines", "MACHINES"], ["automation", "ROBOTS"],

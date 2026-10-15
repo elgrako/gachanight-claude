@@ -43,8 +43,8 @@ COUNTER_SIZE = (100, 50)
 
 
 def computer():
-    awake = Image.open(glob.glob(os.path.join("dise*", "ordenador.png"))[0]).convert("RGBA")
-    kawai = Image.open(glob.glob(os.path.join("dise*", "ordenador_kawai.png"))[0]).convert("RGBA")
+    awake = Image.open(glob.glob(os.path.join("dise*", "ordenador", "ordenador.png"))[0]).convert("RGBA")
+    kawai = Image.open(glob.glob(os.path.join("dise*", "ordenador", "ordenador_kawai.png"))[0]).convert("RGBA")
     # Dark screen: the eyes are the light shapes wholly inside the glass.
     pixels = awake.load()
     counts = {}
@@ -79,7 +79,7 @@ def computer():
                     out[cx, cy] = glass
     # Onto the game's palette: the coin's warm greys for the case, the brown
     # plum for the glass, and a few accents for the stickers.
-    allowed = NEUTRAL + ["#453a38", "#3d2a1e", "#8a4e30", "#b09448"]
+    allowed = NEUTRAL + ["#453a38", "#3d2a1e", "#80382f", "#bf6d55", "#b09448", "#d4a07a"]
     awake, kawai, off = remap(awake, allowed), remap(kawai, allowed), remap(off, allowed)
     box = awake.getbbox()
     for name, picture in (("pc_on", awake), ("pc_kawai", kawai), ("pc_off", off)):

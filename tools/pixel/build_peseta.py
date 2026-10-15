@@ -1,4 +1,6 @@
-"""The protagonist, built from the owner's own picture `diseños/moneda1.png`.
+"""The protagonist, built from the owner's own picture `diseños/moneda/moneda personaje.png`
+(formerly `diseños/moneda1.png`). The walk and the run are built here (the
+owner turned down the generator walk of build_peseta_walk.py on 2026-10-15).
 
 The picture is taken apart into the pieces a cartoon cut-out needs (the coin
 with its hat, the two gloves, the two shoes), its face is given a few more
@@ -304,7 +306,7 @@ SHOE_LEAN = 11.0
 
 class Kit:
     def __init__(self):
-        ref = Image.open(glob.glob(os.path.join(ROOT, "dise*", "moneda1.png"))[0]).convert("RGBA")
+        ref = Image.open(glob.glob(os.path.join(ROOT, "dise*", "moneda", "moneda personaje.png"))[0]).convert("RGBA")
         ref = without_legend(ref)
         self.ref = ref
         data = ref.load()

@@ -212,6 +212,8 @@ func _run() -> void:
 	for coin in store.coins:
 		coin.interact()
 	check(core.run.coins == 3, "three floor coins picked up")
+	check(store.coins[0].visible, "a picked-up coin squashes for a moment first")
+	await create_timer(0.3).timeout
 	check(not store.coins[0].visible, "collected coin disappears")
 	store.machines["machine_001"]["body"].interact()
 	check(not core.run.has_pending_prize(), "machine does nothing without power")

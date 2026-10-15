@@ -3,7 +3,7 @@ extends RefCounted
 
 const INK: Color = Color("#2a2722")
 const CREAM: Color = Color("#e3d9c6")
-const CORAL: Color = Color("#b98d5c")
+const CORAL: Color = Color("#bf6d55")
 const MINT: Color = Color("#c9bb9f")
 const MUSTARD: Color = Color("#d0b870")
 const TEAL: Color = Color("#74806c")

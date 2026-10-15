@@ -9,8 +9,8 @@ extends CanvasLayer
 ## None of them is strong; they differ in which medium they recall.
 
 const SWITCH_KEY: Key = KEY_F3
-## Shown first.
-const START_LOOK: int = 1
+## Shown first: the old analogue picture (owner, 2026-10-15).
+const START_LOOK: int = 5
 ## How long the name of a look stays on screen.
 const NAME_SECONDS: float = 2.0
 ## Above every other layer, the fade to black included.
@@ -30,10 +30,15 @@ const LAYER: int = 100
 ##   glow            light that bleeds out of the bright parts
 ##   paper           unevenness of the paper under a print
 ##   corner          radius of the rounded corners of the picture, in pixels
+##   curve           how much the picture bulges, as on a rounded tube
+##   roll            how dark the slow band is that rolls down the picture
+##   bleed           screen pixels the red and the blue drift apart, as on old
+##                   analogue colour
 const BASE: Dictionary = {
 	"saturation": 1.0, "tone": 0.1, "vignette": 0.0, "vignette_start": 0.3,
 	"grain": 0.0, "grain_fps": 14.0, "scratch": 0.0, "dust": 0.0,
 	"flicker": 0.0, "weave": 0.0, "scanline": 0.0, "glow": 0.0, "paper": 0.0, "corner": 0.0,
+	"curve": 0.0, "roll": 0.0, "bleed": 0.0,
 }
 const LOOKS: Array = [
 	["No filter", {"tone": 0.0}],
@@ -45,6 +50,12 @@ const LOOKS: Array = [
 	["Picture tube", {"vignette": 0.3, "vignette_start": 0.5, "grain": 0.012, "scanline": 0.1, "glow": 0.14, "corner": 34.0}],
 	# A printed page: still grain and blotchy paper, nothing moves.
 	["Printed page", {"tone": 0.16, "vignette": 0.25, "vignette_start": 0.45, "grain": 0.03, "grain_fps": 0.0, "paper": 0.07}],
+	# An old analogue picture, as Cuphead or MOUSE: P.I. For Hire do it: the
+	# colours stay, the picture stays flat (no bulging tube, owner 2026-10-15),
+	# and the age is in the grain, a little colour bleeding at the edges,
+	# flicker, a hair of drift, dark corners, faint lines and the odd speck.
+	["Old analogue", {"saturation": 1.1, "tone": 0.06, "vignette": 0.4, "vignette_start": 0.4, "grain": 0.045,
+		"scratch": 0.05, "dust": 0.12, "flicker": 0.025, "weave": 0.4, "scanline": 0.035, "glow": 0.08, "bleed": 1.0}],
 ]
 
 const TONE_COLOR: Color = Color(1.1, 0.96, 0.76)
@@ -66,6 +77,9 @@ uniform float scanline = 0.0;
 uniform float glow = 0.0;
 uniform float paper = 0.0;
 uniform float corner = 0.0;
+uniform float curve = 0.0;
+uniform float roll = 0.0;
+uniform float bleed = 0.0;
 
 float hash(vec2 p) {
 	p = fract(p * vec2(123.34, 456.21));
@@ -78,8 +92,16 @@ void fragment() {
 	vec2 size = 1.0 / SCREEN_PIXEL_SIZE;
 	// Small tick numbers keep the hash well spread on every GPU.
 	float reel_tick = mod(floor(TIME * 12.0), 251.0);
-	vec2 uv = SCREEN_UV + vec2(0.0, (hash(vec2(reel_tick, 4.2)) - 0.5) * weave * SCREEN_PIXEL_SIZE.y);
+	// The tube bulges: the picture is pulled in towards the edges.
+	vec2 bent = SCREEN_UV - 0.5;
+	bent *= 1.0 + curve * dot(bent, bent) * 4.0;
+	vec2 glass = bent / (1.0 + curve) + 0.5;
+	vec2 uv = glass + vec2(0.0, (hash(vec2(reel_tick, 4.2)) - 0.5) * weave * SCREEN_PIXEL_SIZE.y);
 	vec3 colour = texture(screen, uv).rgb;
+	// Old analogue colour: red and blue do not quite sit on the picture.
+	vec2 drift = vec2(bleed * SCREEN_PIXEL_SIZE.x, 0.0);
+	colour.r = mix(colour.r, texture(screen, uv + drift).r, step(0.01, bleed));
+	colour.b = mix(colour.b, texture(screen, uv - drift).b, step(0.01, bleed));
 
 	// Light bleeding out of the bright parts; the picture itself stays sharp.
 	vec3 spill = vec3(0.0);
@@ -106,6 +128,9 @@ void fragment() {
 
 	colour *= 1.0 - scanline * (0.5 + 0.5 * sin(pixel.y * 3.14159 * 2.0 / 3.0));
 
+	// A slow dark band rolling down the picture.
+	float band = fract(glass.y - TIME * 0.06);
+	colour *= 1.0 - roll * smoothstep(0.0, 0.08, band) * (1.0 - smoothstep(0.08, 0.2, band));
 	float from_centre = length(SCREEN_UV - 0.5) * 1.41421;
 	colour *= 1.0 - vignette * smoothstep(vignette_start, 1.0, from_centre);
 
@@ -123,7 +148,9 @@ void fragment() {
 	colour -= dust * speck_here * step(length(pixel - centre), 2.4);
 
 	// Rounded corners: black outside the glass or the frame.
-	vec2 inset = max(vec2(corner) - min(pixel, size - pixel), 0.0);
+	vec2 on_glass = glass * size;
+	vec2 inset = max(vec2(corner) - min(on_glass, size - on_glass), 0.0);
+	colour *= step(0.0, glass.x) * step(glass.x, 1.0) * step(0.0, glass.y) * step(glass.y, 1.0);
 	colour *= 1.0 - smoothstep(corner - 1.5, corner, length(inset)) * step(0.5, corner);
 
 	COLOR = vec4(clamp(colour, 0.0, 1.0), 1.0);

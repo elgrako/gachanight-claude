@@ -19,6 +19,7 @@ extends Node2D
 const Interactable = preload("res://scripts/world/interactable.gd")
 const Sprites = preload("res://scripts/world/sprite_lib.gd")
 const PriceSign = preload("res://scripts/world/price_tag.gd")
+const Squash = preload("res://scripts/world/squash.gd")
 
 const C_INK: Color = Color("#0e0d0c")
 const C_NIGHT: Color = Color("#0e0d0c")
@@ -55,7 +56,7 @@ const ROOMS: Array = [
 	["corridor", 300.0, "#7a5534", "#3d2a1e", "#b98d5c"],
 	["hall", 400.0, "#7a5534", "#3d2a1e", "#b98d5c"],
 	["reception", 840.0, "#7a5534", "#3d2a1e", "#b98d5c"],
-	["staff", 1010.0, "#5e3424", "#3d2a1e", "#9a7046"],
+	["staff", 1010.0, "#5e2a26", "#3d2a1e", "#9a7046"],
 	["cellar", 1280.0, "#453a38", "#2a2722", "#716049"],
 ]
 const STORE_WIDTH: float = 1640.0
@@ -133,7 +134,11 @@ const COUNTER_SIZE: Vector2i = Vector2i(100, 50)
 const COUNTER_DEPTH: float = 12.0
 const COUNTER_REACH: float = 36.0
 ## Bottom centres of the computer and the key, relative to the counter's.
-const COMPUTER_OFFSET: Vector2 = Vector2(-30.0, -37.0)
+const COMPUTER_OFFSET: Vector2 = Vector2(-30.0, -45.0)
+## Things standing on the counter top, beside the computer: picture, x from the
+## counter's middle, world size. They stand on the computer's line.
+const COUNTER_THINGS: Array = [["set/ledger_stack", -8.0, Vector2i(14, 9)], ["set/banker_lamp", 8.0, Vector2i(16, 16)],
+	["set/lucky_cat", 22.0, Vector2i(10, 13)], ["set/cash_register", 38.0, Vector2i(20, 18)]]
 ## The computer is the owner's picture, drawn far finer than the rest: three
 ## sprite pixels per world pixel, so one of them is one screen pixel.
 const COMPUTER_SCALE: float = 1.0 / 3.0
@@ -197,6 +202,43 @@ const WALL_THINGS: Array = [
 	["props/poster_b", Vector2(1104.0, -84.0), Vector2i(28, 36)],
 	["props/poster_d", Vector2(762.0, -84.0), Vector2i(28, 36)],
 ]
+## Small detailed props (tools/pixel/build_set.py): picture, bottom centre,
+## world size, and whether it hangs on the wall (drawn behind everything on
+## the floor) or stands on the floor. A few per room, never crowding it.
+const DECOR: Array = [
+	# Bathroom: a mirror and a towel.
+	["set/mirror", Vector2(150.0, -84.0), Vector2i(18, 24), "wall"],
+	["set/towel_rail", Vector2(100.0, -50.0), Vector2i(20, 17), "wall"],
+	["set/plant", Vector2(32.0, 6.0), Vector2i(20, 34), "floor"],
+	# Corridor: where a new employee leaves their things.
+	["set/coat_rack", Vector2(384.0, 5.0), Vector2i(20, 70), "floor"],
+	["set/umbrella_stand", Vector2(358.0, 7.0), Vector2i(12, 26), "floor"],
+	# Machine hall: bunting, a clock, a picture, a shelf of toys.
+	["set/bunting", Vector2(452.0, -160.0), Vector2i(64, 11), "wall"],
+	["set/bunting", Vector2(516.0, -160.0), Vector2i(64, 11), "wall"],
+	["set/bunting", Vector2(580.0, -160.0), Vector2i(64, 11), "wall"],
+	["set/bunting", Vector2(644.0, -160.0), Vector2i(64, 11), "wall"],
+	["set/bunting", Vector2(708.0, -160.0), Vector2i(64, 11), "wall"],
+	["set/bunting", Vector2(772.0, -160.0), Vector2i(64, 11), "wall"],
+	["set/clock", Vector2(660.0, -132.0), Vector2i(17, 17), "wall"],
+	["set/toy_shelf", Vector2(458.0, -98.0), Vector2i(38, 22), "wall"],
+	["set/frame_landscape", Vector2(612.0, -96.0), Vector2i(22, 17), "wall"],
+	["set/fire_extinguisher", Vector2(796.0, -26.0), Vector2i(8, 18), "wall"],
+	# Reception: the key board with its one empty hook, the calendar, the
+	# employee of the month, a plant by the door.
+	["set/key_cabinet", Vector2(912.0, -64.0), Vector2i(21, 25), "wall"],
+	["set/calendar", Vector2(808.0, -70.0), Vector2i(13, 17), "wall"],
+	["set/frame_employee", Vector2(852.0, -82.0), Vector2i(14, 18), "wall"],
+	["set/plant", Vector2(930.0, 5.0), Vector2i(20, 34), "floor"],
+	# Staff room: a notice board, a radio by the stairs, a clock.
+	["set/notice_board", Vector2(1196.0, -70.0), Vector2i(30, 22), "wall"],
+	["set/side_table_radio", Vector2(1200.0, 12.0), Vector2i(24, 30), "floor"],
+	["set/clock", Vector2(1072.0, -118.0), Vector2i(17, 17), "wall"],
+]
+## Wall textures laid over the room colours: picture and tile world size.
+const WALL_TEXTURE: Dictionary = {"bath": ["set/wall_tiles", Vector2i(16, 16)], "corridor": ["set/wall_grain", Vector2i(24, 32)],
+	"hall": ["set/wall_grain", Vector2i(24, 32)], "reception": ["set/wall_grain", Vector2i(24, 32)], "staff": ["set/wall_grain", Vector2i(24, 32)]}
+const DADO_TEXTURE: Array = ["set/dado_panels", Vector2i(40, 44)]
 ## Silhouettes on the front edge: x and kind. They stand this far below the
 ## floor's near edge, so they never hide much of whoever walks behind them.
 const FRONT_BASE: float = FLOOR_DEPTH + 9.0
@@ -306,7 +348,15 @@ func set_zone(zone_name: String) -> void:
 
 ## Lights and machines on or off, at once. (`_animate` is kept for the caller;
 ## there is no power-on sequence any more.)
-func set_power(is_on: bool, _animate: bool) -> void:
+## Machines waking with the power: one after another, a stretch up and back,
+## in whole art pixels.
+const WAKE_STAGGER: float = 0.12
+const WAKE_SQUASH: Array = [-0.08, 0.4]
+## A floor coin when picked up: a squash, then it is gone.
+const COIN_PICK: Array = [0.25, 0.18]
+
+
+func set_power(is_on: bool, animate: bool) -> void:
 	_modulate.color = LIT if is_on else DARK
 	var state: String = "on" if is_on else "off"
 	for lamp in _lamps:
@@ -323,10 +373,27 @@ func set_power(is_on: bool, _animate: bool) -> void:
 			machine["anim"].play("%s_idle" % machine_id)
 		else:
 			machine["anim"].stop()
+	if is_on and animate:
+		var order: int = 0
+		for machine_id in machines:
+			var anim: AnimatedSprite2D = machines[machine_id]["anim"]
+			var art: Vector2 = anim.sprite_frames.get_frame_texture(anim.animation, 0).get_size()
+			var base: Vector2 = anim.scale
+			get_tree().create_timer(order * WAKE_STAGGER).timeout.connect(func() -> void:
+				Squash.bounce(anim, base, WAKE_SQUASH[0], WAKE_SQUASH[1], art))
+			order += 1
 
 
-func set_coin_collected(index: int, collected: bool, _animate: bool = false) -> void:
-	coins[index].visible = not collected
+func set_coin_collected(index: int, collected: bool, animate: bool = false) -> void:
+	var spin: AnimatedSprite2D = coins[index].get_child(0)
+	if not collected or not animate or not coins[index].visible:
+		coins[index].visible = not collected
+		return
+	var art: Vector2 = spin.sprite_frames.get_frame_texture(spin.animation, 0).get_size()
+	var base: Vector2 = spin.scale
+	Squash.bounce(spin, base, COIN_PICK[0], COIN_PICK[1], art).finished.connect(func() -> void:
+		coins[index].visible = false
+		spin.scale = base)
 
 
 ## `text` is the bare amount ("50", "250K").
@@ -462,6 +529,23 @@ func _build_dressing() -> void:
 		add_child(thing)
 	var additive: CanvasItemMaterial = CanvasItemMaterial.new()
 	additive.blend_mode = CanvasItemMaterial.BLEND_MODE_ADD
+	for row in DECOR:
+		var prop: Sprite2D = Sprites.standing(row[0], row[2], Color("#7a5534"))
+		prop.position = row[1]
+		prop.z_index = Z_WALL + 1 if row[3] == "wall" else floor_z(row[1].y)
+		add_child(prop)
+	for index in range(ROOMS.size()):
+		var room: Array = ROOMS[index]
+		var to_x: float = ROOMS[index + 1][1] if index + 1 < ROOMS.size() else STORE_WIDTH
+		if WALL_TEXTURE.has(room[0]):
+			var texture: Array = WALL_TEXTURE[room[0]]
+			var upper: TextureRect = Sprites.tiled(texture[0], Rect2(room[1], WALL_TOP, to_x - room[1], WALL_HEIGHT - DADO_HEIGHT), texture[1], Color(0, 0, 0, 0))
+			upper.z_index = 1
+			add_child(upper)
+			if room[0] != "bath":
+				var lower: TextureRect = Sprites.tiled(DADO_TEXTURE[0], Rect2(room[1], -DADO_HEIGHT, to_x - room[1], DADO_HEIGHT), DADO_TEXTURE[1], Color(0, 0, 0, 0))
+				lower.z_index = 1
+				add_child(lower)
 	for x in LAMP_XS:
 		_rect(Rect2(x - 0.5, WALL_TOP, 1.0, LAMP_CORD), C_INK, Z_WALL + 4)
 		var sprite: Sprite2D = Sprites.standing("props/lamp_off", LAMP_SIZE, Color("#4c4337"))
@@ -721,8 +805,8 @@ func _build_reception() -> void:
 	for chain_x in [board.position.x + 8.0, board.end.x - 9.0]:
 		_rect(Rect2(chain_x, WALL_TOP, 1.0, board.position.y - WALL_TOP), C_INK, Z_WALL + 4)
 	_rect(board.grow(2.0), C_INK, Z_WALL + 4)
-	_rect(board, Color("#3d2a1e"), Z_WALL + 4)
-	_rect(Rect2(board.position, Vector2(board.size.x, 2.0)), Color("#7a5534"), Z_WALL + 4)
+	_rect(board, Color("#5e2a26"), Z_WALL + 4)
+	_rect(Rect2(board.position, Vector2(board.size.x, 2.0)), Color("#80382f"), Z_WALL + 4)
 	var title: Label = Label.new()
 	title.text = "RECEPTION"
 	title.add_theme_font_size_override("font_size", 30)
@@ -740,7 +824,11 @@ func _build_reception() -> void:
 	reception.z_index = floor_z(COUNTER_AT.y)
 	_shadow(COUNTER_AT, COUNTER_SIZE.x / 2.0)
 	_solid(COUNTER_AT, COUNTER_SIZE.x - FOOTPRINT_INSET, COUNTER_DEPTH)
-	reception.add_child(Sprites.standing("props/counter_wood", COUNTER_SIZE, Color("#4c4337")))
+	reception.add_child(Sprites.standing("set/counter", COUNTER_SIZE, Color("#3d2a1e")))
+	for row in COUNTER_THINGS:
+		var thing: Sprite2D = Sprites.standing(row[0], row[2], Color("#9a7046"))
+		thing.position = Vector2(row[1], COMPUTER_OFFSET.y)
+		reception.add_child(thing)
 	_computer = Sprite2D.new()
 	_computer.centered = false
 	_computer.scale = Vector2(COMPUTER_SCALE, COMPUTER_SCALE)

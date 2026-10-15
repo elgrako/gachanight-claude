@@ -30,12 +30,12 @@ const GLASS: Color = Color("#c9bb9f")
 const STEEL: Color = Color("#9a8766")
 const DARK_STEEL: Color = Color("#4c4337")
 const BODY_COLORS: Dictionary = {
-	"machine_001": Color("#9a8766"), "machine_002": Color("#74806c"),
-	"machine_005": Color("#5a3d28"), "machine_006": Color("#74806c"),
+	"machine_001": Color("#80382f"), "machine_002": Color("#74806c"),
+	"machine_005": Color("#80382f"), "machine_006": Color("#74806c"),
 }
-const BALL_COLORS: Array = [Color("#8a4e30"), Color("#74806c"), Color("#b98d5c"), Color("#74806c"), Color("#e3d9c6"), Color("#9a8766")]
+const BALL_COLORS: Array = [Color("#a14d3e"), Color("#74806c"), Color("#b98d5c"), Color("#74806c"), Color("#e3d9c6"), Color("#9a8766")]
 const CAPSULE_COLORS: Dictionary = {
-	"red": Color("#8a4e30"), "blue": Color("#74806c"), "green": Color("#74806c"), "mustard": Color("#b98d5c"), "gold": Color("#d0b870"),
+	"red": Color("#a14d3e"), "blue": Color("#74806c"), "green": Color("#74806c"), "mustard": Color("#b98d5c"), "gold": Color("#d0b870"),
 }
 const MESSAGE_SECONDS: float = 2.6
 ## The machine is drawn a little below the title lines.
@@ -885,7 +885,7 @@ func _draw_crane(body: Color) -> void:
 		var held: Vector2 = claw + Vector2(0.0, 40.0)
 		_disc(held, 26.0, BALL_COLORS[_claw_held % BALL_COLORS.size()], 4.0)
 		_eyes(held + Vector2(0.0, -2.0), 0.8)
-	_box(Rect2(claw.x - 16.0, claw.y - 8.0, 32.0, 16.0), Color("#8a4e30"), 4.0)
+	_box(Rect2(claw.x - 16.0, claw.y - 8.0, 32.0, 16.0), Color("#a14d3e"), 4.0)
 	var spread: float = 14.0 if _claw_closed else 34.0
 	for side in [-1.0, 1.0]:
 		draw_polyline(PackedVector2Array([claw + Vector2(side * 10.0, 6.0), claw + Vector2(side * spread, 30.0), claw + Vector2(side * (spread - 12.0), 52.0)]), INK, 7.0)
@@ -893,7 +893,7 @@ func _draw_crane(body: Color) -> void:
 	_box(Rect2(410.0, 456.0, 460.0, 44.0), CREAM)
 	var lean: float = Input.get_axis("move_left", "move_right") * 14.0 if active and _state == State.PLAYING else 0.0
 	draw_line(Vector2(500.0, 486.0), Vector2(500.0 + lean, 452.0), INK, 8.0)
-	_disc(Vector2(500.0 + lean, 448.0), 14.0, Color("#8a4e30"), 4.0)
+	_disc(Vector2(500.0 + lean, 448.0), 14.0, Color("#a14d3e"), 4.0)
 	_disc(Vector2(600.0, 478.0), 14.0, Style.MUSTARD, 4.0)
 	_box(Rect2(CLAW_CHUTE.x - 52.0, CLAW_CHUTE.y - 34.0, 104.0, 64.0), INK.lightened(0.08))
 
@@ -906,7 +906,7 @@ func _draw_plinko(body: Color) -> void:
 		# Pegs sit where the ball can land: every other half-step, staggered.
 		var half: int = row % 2
 		while half <= (PLINKO_SLOTS - 1) * 2:
-			draw_circle(Vector2(PLINKO_FIRST_X + half * PLINKO_STEP_X, PLINKO_ROW_Y + row * PLINKO_ROW_STEP), 6.0, Color("#8a4e30"))
+			draw_circle(Vector2(PLINKO_FIRST_X + half * PLINKO_STEP_X, PLINKO_ROW_Y + row * PLINKO_ROW_STEP), 6.0, Color("#a14d3e"))
 			half += 2
 	for slot in range(PLINKO_SLOTS):
 		var slot_rect: Rect2 = Rect2(_column_x(slot) - PLINKO_STEP_X + 3.0, PLINKO_SLOT_Y - 20.0, PLINKO_STEP_X * 2.0 - 6.0, 40.0)

@@ -35,10 +35,10 @@ STEEL = ["#4c4337", "#716049", "#9a8766", "#c9bb9f"]
 CREAM = "#e3d9c6"
 GLASS = ["#453a38", "#6e5e5a"]
 # Capsule colours as (dark, base, light).
-BALLS = [("#5e3424", "#8a4e30", "#b0704a"), ("#8a7038", "#b09448", "#d0b870"), ("#4a4a30", "#6e6e48", "#979a72"),
+BALLS = [("#5e2a26", "#80382f", "#bf6d55"), ("#8a7038", "#b09448", "#d0b870"), ("#4a4a30", "#6e6e48", "#979a72"),
          ("#4a5546", "#74806c", "#979a72"), ("#9a8766", "#c9bb9f", "#e3d9c6"), ("#5a3d28", "#7a5534", "#9a7046")]
 # The body of each machine as (dark, base, light).
-BODIES = {"machine_001": ("#3d2a1e", "#5e3424", "#8a4e30"), "machine_002": ("#2a2722", "#4a5546", "#74806c")}
+BODIES = {"machine_001": ("#3e1a1a", "#5e2a26", "#80382f"), "machine_002": ("#2a2722", "#4a5546", "#74806c")}
 # Where things are on the body, shared with scripts/ui/gacha_pov.gd.
 SLOT = (160, 99)
 CRANK = (160, 128)

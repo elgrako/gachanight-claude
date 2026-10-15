@@ -2,7 +2,7 @@
   "machine_001_idle": {
     "file": "machine_001_idle.png",
     "fps": 8,
-    "frame_h": 128,
+    "frame_h": 131,
     "frame_w": 81,
     "frames": 36,
     "loop": true
@@ -26,7 +26,7 @@
   "machine_002_idle": {
     "file": "machine_002_idle.png",
     "fps": 8,
-    "frame_h": 128,
+    "frame_h": 131,
     "frame_w": 81,
     "frames": 36,
     "loop": true

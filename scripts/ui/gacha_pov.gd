@@ -93,6 +93,14 @@ func _draw() -> void:
 	var rattle: Vector2 = Vector2(roundf(sin(_time * 38.0)), 0.0) if cranking else Vector2.ZERO
 	if scene.is_perfect() and scene.grade_age() < 0.3:
 		rattle.y = -roundf(sin(scene.grade_age() / 0.3 * PI) * 3.0)
+	# Stretch on the way up, squash on landing, at constant volume; the view is
+	# a 320 x 180 grid, so any scale lands on whole pixels.
+	var shape: Vector2 = Vector2.ONE
+	var age: float = scene.grade_age()
+	if scene.is_perfect() and age < 0.45:
+		var amount: float = -0.05 * sin(age / 0.3 * PI) if age < 0.3 else 0.06 * sin((age - 0.3) / 0.15 * PI)
+		shape = Vector2(1.0 / (1.0 - amount), 1.0 - amount)
+	draw_set_transform_matrix(Transform2D(0.0, shape, 0.0, Vector2(160.0, 180.0) * (Vector2.ONE - shape)))
 	draw_texture(_dome, rattle * 2.0)
 	# A blink every few seconds: half shut, shut, half shut.
 	var blink: float = fmod(_time, 4.3)
@@ -103,6 +111,7 @@ func _draw() -> void:
 	draw_texture(_body(scene.machine_id), rattle)
 	var turn: int = posmod(roundi(scene.crank_angle() / (PI / 8.0)), 8)
 	draw_texture_rect_region(_crank, Rect2(CRANK + rattle - Vector2(CRANK_FRAME, CRANK_FRAME) / 2.0, Vector2(CRANK_FRAME, CRANK_FRAME)), Rect2(turn * CRANK_FRAME, 0.0, CRANK_FRAME, CRANK_FRAME))
+	draw_set_transform_matrix(Transform2D.IDENTITY)
 	_capsule_in_mouth(rattle)
 	var flight: float = scene.coin_flight()
 	if flight < 1.0:

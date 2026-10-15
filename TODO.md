@@ -270,6 +270,89 @@ Done, owner's requests in order:
   exceptions. Written down only: the game does not follow it yet (computer,
   close-up view, crane and plinko are out of line).
 
+- Owner's walk and machine 2.0 (2026-10-15), uncommitted at the time of
+  writing. The owner reorganised `diseños/`: the coin picture is now
+  `diseños/moneda/moneda personaje.png` (was `moneda1.png`; builders
+  updated), its walk is 13 frames from an animation generator in
+  `diseños/moneda/walking animation/`, and the capsule machine has versions
+  in `diseños/maquina bolas/` (1.0 old, **2.0 to use**; the x2 and x4 files
+  are the same picture scaled up). `tools/pixel/build_peseta_walk.py` turns
+  the 13 frames into `peseta_walk` and `peseta_run` (and `_left`): they are
+  not a loop (they start from the hat-tipping pose and the coin keeps
+  turning), so frames 3 to 12 play forward then back; facing left is the
+  mirror with "1" and "PESETA" put back the right way, placed by the coin's
+  face, hands left alone. Asked the owner for a looping set. **Turned down by
+  the owner the same day** ("the leg rises and stays at a middle point"): the
+  walk and run are back to the rig strips of `build_peseta.py`;
+  `build_peseta_walk.py` is kept but not run. Idle, use,
+  cheer and sleep are still the rig strips from `build_peseta.py`. The coin
+  is now drawn at the density rule (1/4.5 of a world pixel, about 44 world
+  pixels tall, was 54). `build_maquina1.py` builds both capsule machines from
+  2.0 (palette, lids that close over the pupils, No. 2 recoloured
+  grey-green). `smoke_boot.gd` 147, `run_tests.gd` 360.
+
+- **How art arrives (owner, 2026-10-15):** finished sprites come in folders
+  and subfolders of `diseños/`; loose files at its top level are only ideas
+  or concepts. Folder names and naming will change little by little: when a
+  builder in `tools/pixel/` cannot find its source, look for the moved
+  folder and update the path.
+
+- Old television look (owner, 2026-10-15: "a small old-TV effect on top, so
+  it looks like a 1940s cartoon"), uncommitted at the time of writing: sixth
+  look of `screen_grade.gd`, now the one shown first (F3 still steps through
+  all six). First version was nearly grey; the owner wants the colours kept,
+  "like Cuphead or MOUSE: P.I.": now saturation 1.12, sepia 0.05, with the
+  age in grain, flicker, dark corners, specks, faint lines, a bulging tube
+  with round corners and a light rolling band.
+  Same day: the walk looked "cut in half" after the strips were restored;
+  the cause was a stale import (the 18-frame texture read as 8 frames).
+  Reimported, and the walk and run speeds now follow the coin's smaller
+  size (30.5 and 86 px/s, were 37 and 105).
+
+- Palette, fourth trial (owner, 2026-10-15: the red capsule machine looked
+  "like an old Game Boy"; more colours, still warm and muted): 34 colours
+  with a muted warm red ramp, peach, and one more step on several ramps;
+  remap saturation 0.8 (was 0.55). Sprites restored from `307438a` and
+  everything rebuilt on it. The capsule machine is red again, No. 2
+  grey-green. See `docs/art/palette.md`. Also: the owner moved the computer
+  pictures to `diseños/ordenador/` (builder updated) and the crane picture
+  to `diseños/maquina gancho/maquina_gancho.png` (a final design by their
+  rule; not in the game yet, the crane is still the generated one).
+
+- Palette kept by the owner (2026-10-15); the remaining colours adapted
+  (see `docs/art/palette.md`). Screen look: the owner disliked the bulging
+  tube ("fish-eye") and wants an old analogue filter: the television look is
+  replaced by "Old analogue", flat, colours kept (1.1), grain, a pixel of
+  red/blue bleed, flicker, a hair of drift, dark corners, faint lines,
+  specks. It is the one shown first; F3 still steps through all six.
+
+- Detailed set (owner, 2026-10-15: "detailed without overloading it, small
+  but very detailed sprites; the reception adapted to the computer"),
+  uncommitted at the time of writing. `tools/pixel/build_set.py` draws 20
+  props and 3 wall textures at standard density on the palette into
+  `assets/sprites/set/` (by script, not the owner's art): clock, landscape
+  picture, employee-of-the-month frame with the coin, bunting, toy shelf
+  (daruma, beckoning cat, capsules, tin robot), notice board, key board with
+  the manager's hook empty, calendar with tonight circled, fire
+  extinguisher, mirror, towel rail, coat rack with hat and coat, umbrella
+  stand, potted plant, side table with a cathedral radio and a mug; for the
+  reception a new counter (150 x 75, panels, brass, coin emblem) with a
+  ledger stack, a banker's lamp, a beckoning cat and a cash register beside
+  the computer. Wood grain and raised dado panels on the walls, small tiles
+  in the bathroom. Placed in `store.gd` (`DECOR`, `COUNTER_THINGS`,
+  `WALL_TEXTURE`), a few per room. `props/counter_wood.png` is no longer used.
+
+- **Animation rules (owner, 2026-10-15): see `docs/art/animation-techniques.md`**
+  (blockout, delta time, squash and stretch, texel perfect), researched and
+  applied: pixel snapping on in `project.godot`; camera smoothing made
+  frame-rate independent and snapped to the art-pixel grid; volume-keeping
+  squash and stretch (`scripts/world/squash.gd`) on the coin, the machines
+  waking, the floor coins and the close-up's perfect hop; the capsule
+  machine's idle rebuilt as blocked key poses (frames now 81 x 131 for
+  stretch headroom). The review found the old 1:1 props, the poker table,
+  the figures and bases off the density rule; listed in that doc, not
+  redrawn. `smoke_boot.gd` 148 (coin pickup now waits for its squash).
+
 Next, owner's direction (not started):
 
 - [ ] The protagonist is the owner's own picture, `diseños/moneda1.png`

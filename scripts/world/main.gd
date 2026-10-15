@@ -13,7 +13,13 @@ const ScreenGrade = preload("res://scripts/ui/screen_grade.gd")
 ## of the wall to the floor's ledge, and it only ever travels sideways.
 const PIXEL_SCALE: float = 3.0
 const CAMERA_Y: float = (Store.VIEW_TOP + Store.VIEW_BOTTOM) / 2.0
+## How fast the camera catches up with the player, per second, in the
+## frame-rate independent form: each second it closes all but exp(-6) of the
+## gap, whatever the frame rate (docs/art/animation-techniques.md).
 const CAMERA_FOLLOW: float = 6.0
+## Art pixels per world pixel at standard density: the camera only ever rests
+## on this grid, so the whole set moves by whole art pixels (texel perfect).
+const ART_PER_WORLD: float = 1.5
 ## Rebirth: asleep on the sofa for a moment, fade out, wake up there in the dark.
 const REBIRTH_SLEEP_TIME: float = 0.35
 const REBIRTH_FADE_OUT: float = 0.8
@@ -35,6 +41,9 @@ var camera: Camera2D
 var ui: CanvasLayer
 
 var _core: RefCounted
+## Where the camera would be without snapping; the camera itself sits on the
+## nearest art pixel to it.
+var _camera_free: Vector2 = Vector2.ZERO
 var _busy: bool = false
 ## A figure was discovered and the player has not celebrated it yet.
 var _cheer_pending: bool = false
@@ -106,7 +115,10 @@ func _ready() -> void:
 
 func _process(delta: float) -> void:
 	var target: Vector2 = Vector2(player.position.x, CAMERA_Y)
-	camera.position = camera.position.lerp(target, clampf(delta * CAMERA_FOLLOW, 0.0, 1.0))
+	if camera.position.distance_to(_camera_free) > 2.0:
+		_camera_free = camera.position                       # something placed the camera: start from there
+	_camera_free = target.lerp(_camera_free, exp(-CAMERA_FOLLOW * delta))
+	camera.position = (_camera_free * ART_PER_WORLD).round() / ART_PER_WORLD
 	if ui.is_modal_open() or _busy:
 		ui.set_prompt("")
 		return
